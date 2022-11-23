@@ -1,9 +1,11 @@
 (ns user.undertow
-  (:require [strojure.zizzmap.core :as zizz])
+  (:require [ring.util.response :as ring.response]
+            [strojure.zizzmap.core :as zizz])
   (:import (io.undertow Undertow)
            (io.undertow.server HttpHandler HttpServerExchange)
            (io.undertow.server.handlers NameVirtualHostHandler RequestDumpingHandler SetHeaderHandler)
-           (io.undertow.util HeaderMap HeaderValues Headers)))
+           (io.undertow.util HeaderMap HeaderValues Headers HttpString)
+           (java.util Collection)))
 
 (set! *warn-on-reflection* true)
 
@@ -43,14 +45,12 @@
 
 ;; TODO: multiple header values?
 (defn headers-map
-  [^HeaderMap h]
-  (loop [m! (transient {})
-         it (.iterator h)]
+  [^HeaderMap hs]
+  (loop [it (.iterator hs), m! (transient {})]
     (if (.hasNext it)
       (let [^HeaderValues x (.next it)]
-        (recur (assoc! m! (.toLowerCase (.toString (.getHeaderName x)))
-                       (.getFirst x))
-               it))
+        (recur it (assoc! m! (.toLowerCase (.toString (.getHeaderName x)))
+                          (.getFirst x))))
       (persistent! m!))))
 
 (comment
@@ -106,7 +106,11 @@
   -exchange
   (exchange->request -exchange)
   (exchange->lazy-request -exchange)
-  (.getRequestHeaders ^HttpServerExchange -exchange)
+  (.get (.getRequestHeaders ^HttpServerExchange -exchange) "Host")
+  (.get (.getRequestHeaders ^HttpServerExchange -exchange) "host")
+  (.get (.getRequestHeaders ^HttpServerExchange -exchange) "HOST")
+  (ring.response/get-header {:headers {"Content-Type" "xxx"}} "Content-Type")
+  (ring.response/get-header {:headers {"Content-Type" "xxx"}} "content-type")
   (.getHostName ^HttpServerExchange -exchange)
   (.getHostAddress (.getAddress (.getSourceAddress ^HttpServerExchange -exchange)))
   (.getHostString (.getSourceAddress ^HttpServerExchange -exchange))
@@ -114,19 +118,60 @@
 
   )
 
+(defn set-response-headers
+  [exchange headers]
+  (reduce-kv (fn [^HeaderMap hs k v]
+               (cond (sequential? v)
+                     (-> hs (.putAll (HttpString. (str k))
+                                     ^Collection (map str v)))
+                     (some? v)
+                     (-> hs (.put (HttpString. (str k)) (str v)))
+                     :else
+                     (-> hs (.remove (HttpString. (str k))))))
+             (.getResponseHeaders ^HttpServerExchange exchange)
+             headers))
+
+(defn ring->http-handler
+  ^HttpHandler [f]
+  (reify HttpHandler (handleRequest [_ exchange]
+                       (let [resp (f (exchange->request exchange))]
+                         (some->> (:headers resp) (set-response-headers exchange))
+                         (some->> (:status resp) (.setStatusCode exchange))
+                         ;; TODO: Handle other body types
+                         ;; - ISeq Each element of the seq is sent to the client as a string.
+                         ;; - File The contents of the referenced file is sent to the client.
+                         ;; - InputStream The contents of the stream is sent to the client. When the stream is exhausted, the stream is closed.
+                         (some->> ^String (:body resp) (.send (.getResponseSender exchange)))))))
+
+(defn http-handler
+  ^HttpHandler [x]
+  (cond (fn? x) (ring->http-handler x)
+        (instance? HttpHandler x) x
+        :else (throw (ex-info (str "Cannot create undertow HttpHandler for " (pr-str x)) {}))))
+
+(comment
+  (str "123")
+  (string? "123")
+  (instance? Collection (range 2))
+  (fn? (RequestDumpingHandler. nil))
+  )
+
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defn test-ring-handler
+  [req]
+  {:body (str "Hello World " req)
+   :headers {"x-a" "1"
+             "x-b" "2"
+             "x-c" [3 4]
+             #_#_"content-type" "xxx"}
+   #_#_:status 404})
 
 (defn start
   []
   (doto (-> (Undertow/builder)
             (.addHttpListener 8080 nil (-> (NameVirtualHostHandler.)
-                                           (.addHost "localhost" (-> (reify HttpHandler (handleRequest [_ exchange]
-                                                                                          (def -exchange exchange)
-                                                                                          (doto exchange
-                                                                                            (-> (.getResponseHeaders)
-                                                                                                (.put Headers/CONTENT_TYPE "text/plain"))
-                                                                                            (-> (.getResponseSender)
-                                                                                                (.send "Hello World (localhost)")))))
+                                           (.addHost "localhost" (-> (ring->http-handler test-ring-handler)
                                                                      (SetHeaderHandler. "Content-Type" "text/plain")))
                                            (.addHost "127.0.0.1" (-> (reify HttpHandler (handleRequest [_ exchange]
                                                                                           (doto exchange
@@ -147,6 +192,8 @@
 (defn init-server []
   (stop-server)
   (reset! server! (start)))
+
+(init-server)
 
 (comment
   ; exchange -> request -> response -> exchange
