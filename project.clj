@@ -14,4 +14,6 @@
                  [ch.qos.logback/logback-classic "1.2.11" :upgrade false]
                  [ch.qos.logback/logback-core "1.2.11" :upgrade false]
                  [org.clojure/tools.logging "1.2.4"]
-                 [org.slf4j/slf4j-api "1.7.36" :upgrade false]])
+                 [org.slf4j/slf4j-api "1.7.36" :upgrade false]]
+
+  :profiles {:dev {:dependencies [[luminus/ring-undertow-adapter "1.2.9"]]}})
