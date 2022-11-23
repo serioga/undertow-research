@@ -4,6 +4,7 @@
   (:import (io.undertow Undertow)
            (io.undertow.server HttpHandler HttpServerExchange)
            (io.undertow.server.handlers NameVirtualHostHandler RequestDumpingHandler SetHeaderHandler)
+           (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler)
            (io.undertow.util HeaderMap HeaderValues Headers HttpString)
            (java.util Collection)))
 
@@ -181,6 +182,9 @@
                                                                                                 (.send "Hello World (127.0.0.1)")))))
                                                                      (SetHeaderHandler. "Content-Type" "text/plain")))
                                            (RequestDumpingHandler.)))
+            (.addHttpListener 8081 "localhost"
+                              (ResourceHandler. (ClassPathResourceManager. (ClassLoader/getSystemClassLoader)
+                                                                           "public")))
             (.build))
     (.start)))
 
