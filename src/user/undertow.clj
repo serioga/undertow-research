@@ -1,6 +1,10 @@
 (ns user.undertow
-  (:require [ring.util.response :as ring.response]
-            [strojure.zizzmap.core :as zizz])
+  (:require
+    [clojure.string :as string]
+    [ring.adapter.undertow.headers :as adapter.headers]
+    [ring.adapter.undertow.request :as adapter.request]
+    [ring.util.response :as ring.response]
+    [strojure.zizzmap.core :as zizz])
   (:import (io.undertow Undertow)
            (io.undertow.server HttpHandler HttpServerExchange)
            (io.undertow.server.handlers NameVirtualHostHandler RequestDumpingHandler SetHeaderHandler)
@@ -44,34 +48,50 @@
   ;   Execution time upper quantile : 4,057465 ns (97,5%)
   )
 
-;; TODO: multiple header values?
 (defn headers-map
+  [^HeaderMap headers]
+  (persistent! (reduce (fn [m! ^HeaderValues x]
+                         (assoc! m! (.toLowerCase (.toString (.getHeaderName x)))
+                                 (if (< 1 (.size x))
+                                   ;; TODO: Why comma separated values?
+                                   (string/join "," (iterator-seq (.iterator x)))
+                                   (or (.peekFirst x) ""))))
+                       (transient {})
+                       headers)))
+
+(defn headers-map2
   [^HeaderMap hs]
   (loop [it (.iterator hs), m! (transient {})]
     (if (.hasNext it)
       (let [^HeaderValues x (.next it)]
         (recur it (assoc! m! (.toLowerCase (.toString (.getHeaderName x)))
-                          (.getFirst x))))
+                          (if (< 1 (.size x))
+                            (string/join "," (iterator-seq (.iterator x)))
+                            (or (.peekFirst x) "")))))
       (persistent! m!))))
 
 (comment
   (headers-map (.getRequestHeaders -exchange))
-  #_=> {"sec-fetch-site" "same-origin",
+  #_=> {"sec-fetch-site" "none",
         "host" "localhost:8080",
         "user-agent" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:107.0) Gecko/20100101 Firefox/107.0",
         "cookie" "secret=dfe83f04-2d13-4914-88dd-5005ac317936",
-        "referer" "http://localhost:8080/",
+        "sec-fetch-user" "?1",
+        "x-a" "a1,a2",
         "connection" "keep-alive",
-        "accept" "image/avif,image/webp,*/*",
+        "upgrade-insecure-requests" "1",
+        "accept" "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
         "accept-language" "ru,en;q=0.8,de;q=0.6,uk;q=0.4,be;q=0.2",
-        "sec-fetch-dest" "image",
+        "sec-fetch-dest" "document",
         "accept-encoding" "gzip, deflate, br",
-        "sec-fetch-mode" "no-cors",
+        "sec-fetch-mode" "navigate",
         "sec-gpc" "1"}
-  ;             Execution time mean : 4,183899 µs
-  ;    Execution time std-deviation : 121,940808 ns
-  ;   Execution time lower quantile : 4,047818 µs ( 2,5%)
-  ;   Execution time upper quantile : 4,362875 µs (97,5%)
+  ;             Execution time mean : 5,081815 µs
+  ;    Execution time std-deviation : 143,452140 ns
+  ;   Execution time lower quantile : 4,926556 µs ( 2,5%)
+  ;   Execution time upper quantile : 5,258276 µs (97,5%)
+  (headers-map2 (.getRequestHeaders -exchange))
+  (adapter.headers/get-headers (.getRequestHeaders -exchange))
   )
 
 (defn exchange->request
@@ -107,6 +127,7 @@
   -exchange
   (exchange->request -exchange)
   (exchange->lazy-request -exchange)
+  (adapter.request/build-exchange-map -exchange)
   (.get (.getRequestHeaders ^HttpServerExchange -exchange) "Host")
   (.get (.getRequestHeaders ^HttpServerExchange -exchange) "host")
   (.get (.getRequestHeaders ^HttpServerExchange -exchange) "HOST")
@@ -135,6 +156,8 @@
 (defn ring->http-handler
   ^HttpHandler [f]
   (reify HttpHandler (handleRequest [_ exchange]
+                       ;; TODO: Remove inline def
+                       (def -exchange exchange)
                        (let [resp (f (exchange->request exchange))]
                          (some->> (:headers resp) (set-response-headers exchange))
                          (some->> (:status resp) (.setStatusCode exchange))
