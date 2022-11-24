@@ -16,4 +16,5 @@
                  [org.clojure/tools.logging "1.2.4"]
                  [org.slf4j/slf4j-api "1.7.36" :upgrade false]]
 
-  :profiles {:dev {:dependencies [[luminus/ring-undertow-adapter "1.2.9"]]}})
+  :profiles {:dev {:dependencies [[luminus/ring-undertow-adapter "1.2.9"]
+                                  [org.immutant/web "2.1.10"]]}})
