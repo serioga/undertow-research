@@ -54,21 +54,10 @@
                          (assoc! m! (.toLowerCase (.toString (.getHeaderName x)))
                                  (if (< 1 (.size x))
                                    ;; TODO: Why comma separated values?
-                                   (string/join "," (iterator-seq (.iterator x)))
+                                   (string/join "," x)
                                    (or (.peekFirst x) ""))))
                        (transient {})
                        headers)))
-
-(defn headers-map2
-  [^HeaderMap hs]
-  (loop [it (.iterator hs), m! (transient {})]
-    (if (.hasNext it)
-      (let [^HeaderValues x (.next it)]
-        (recur it (assoc! m! (.toLowerCase (.toString (.getHeaderName x)))
-                          (if (< 1 (.size x))
-                            (string/join "," (iterator-seq (.iterator x)))
-                            (or (.peekFirst x) "")))))
-      (persistent! m!))))
 
 (comment
   (headers-map (.getRequestHeaders -exchange))
@@ -90,7 +79,6 @@
   ;    Execution time std-deviation : 143,452140 ns
   ;   Execution time lower quantile : 4,926556 µs ( 2,5%)
   ;   Execution time upper quantile : 5,258276 µs (97,5%)
-  (headers-map2 (.getRequestHeaders -exchange))
   (adapter.headers/get-headers (.getRequestHeaders -exchange))
   )
 
