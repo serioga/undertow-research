@@ -17,6 +17,7 @@
   (if (< 1 (.size x))
     ;; TODO: Why comma separated values?
     ;; Discussion: https://groups.google.com/g/ring-clojure/c/N6vv3JkScik
+    ;; RFC: https://www.rfc-editor.org/rfc/rfc9110.html#section-5.3
     (string/join "," x)
     (or (.peekFirst x) "")))
 
