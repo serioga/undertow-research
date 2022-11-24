@@ -16,6 +16,7 @@
   [^HeaderValues x]
   (if (< 1 (.size x))
     ;; TODO: Why comma separated values?
+    ;; Discussion: https://groups.google.com/g/ring-clojure/c/N6vv3JkScik
     (string/join "," x)
     (or (.peekFirst x) "")))
 
