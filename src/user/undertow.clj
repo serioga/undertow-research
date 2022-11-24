@@ -1,5 +1,6 @@
 (ns user.undertow
-  (:require [ring.adapter.undertow.headers :as adapter.headers]
+  (:require [immutant.web.internal.ring :as immutant.ring]
+            [ring.adapter.undertow.headers :as adapter.headers]
             [ring.adapter.undertow.request :as adapter.request]
             [ring.util.response :as ring.response]
             [strojure.zizzmap.core :as zizz]
@@ -88,24 +89,31 @@
 (defn exchange->request
   [^HttpServerExchange exchange]
   ;; TODO: `path-info` in request (see immutant)
-  (let [headers (.getRequestHeaders exchange)]
-    {:undertow/exchange exchange
-     :server-port (.getPort (.getDestinationAddress exchange))
-     :server-name (.getHostName exchange)
-     ;; TODO: remote addr
-     :remote-addr (.getHostString (.getSourceAddress exchange)) #_(-> exchange .getSourceAddress .getAddress .getHostAddress)
-     :uri (.getRequestURI exchange)
-     :query-string (let [s (.getQueryString exchange)] (when-not (.isEmpty s) s))
-     :scheme (scheme-keyword (.getRequestScheme exchange))
-     :request-method (method-keyword (.toString (.getRequestMethod exchange)))
-     :content-type (.getFirst headers Headers/CONTENT_TYPE)
-     :content-length (.getRequestContentLength exchange)
-     :character-encoding (.getRequestCharset exchange)
-     ;; TODO: header conversion is slow
-     #_#_:headers (headers/persistent-map headers)
-     :headers (headers/as-persistent-map headers)
-     :body (when (.isBlocking exchange) (.getInputStream exchange))
-     :context (.getResolvedPath exchange)}))
+  (let [headers (.getRequestHeaders exchange)
+        query-string (.getQueryString exchange)
+        query-string (when-not (.isEmpty query-string) query-string)
+        content-type (.getFirst headers Headers/CONTENT_TYPE)
+        content-length (.getRequestContentLength exchange)
+        content-length (when-not (neg? content-length) content-length)
+        body (when (.isBlocking exchange) (.getInputStream exchange))]
+    (cond-> {:undertow/exchange exchange
+             :server-port (.getPort (.getDestinationAddress exchange))
+             :server-name (.getHostName exchange)
+             ;; TODO: remote addr
+             :remote-addr (.getHostString (.getSourceAddress exchange)) #_(-> exchange .getSourceAddress .getAddress .getHostAddress)
+             :uri (.getRequestURI exchange)
+             :scheme (scheme-keyword (.getRequestScheme exchange))
+             :request-method (method-keyword (.toString (.getRequestMethod exchange)))
+             :character-encoding (.getRequestCharset exchange)
+             ;; TODO: header conversion is slow
+             #_#_:headers (headers/persistent-map headers)
+             :headers (headers/as-persistent-map headers)
+             ;; TODO: Don't put empty context in request?
+             :context (.getResolvedPath exchange)}
+      query-string,, (assoc :query-string query-string)
+      content-type,, (assoc :content-type content-type)
+      content-length (assoc :content-length content-length)
+      body,,,,,,,,,, (assoc :body body))))
 
 (defn exchange->lazy-request
   [^HttpServerExchange exchange]
@@ -130,6 +138,11 @@
   -exchange
   (exchange->request -exchange)
   (exchange->lazy-request -exchange)
+  (require 'immutant.web.internal.undertow)
+  (immutant.ring/ring-request-map -exchange)
+  (def -ireq (immutant.ring/ring-request-map -exchange))
+  (assoc (immutant.ring/ring-request-map -exchange) :test 0)
+  ((immutant.ring/ring-request-map -exchange) :headers)
   (adapter.request/build-exchange-map -exchange)
   (.getRequestHeaders -exchange)
   (.get (.getRequestHeaders -exchange) "Host")
@@ -152,6 +165,7 @@
   (-> -exchange .getRequestHeaders (.getFirst Headers/CONTENT_TYPE))
   (.getRequestCharset -exchange)
   (.getResolvedPath -exchange)
+  (.getRequestURI -exchange)
   )
 
 (defn set-response-headers
