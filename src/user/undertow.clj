@@ -1,15 +1,14 @@
 (ns user.undertow
-  (:require
-    [clojure.string :as string]
-    [ring.adapter.undertow.headers :as adapter.headers]
-    [ring.adapter.undertow.request :as adapter.request]
-    [ring.util.response :as ring.response]
-    [strojure.zizzmap.core :as zizz])
+  (:require [ring.adapter.undertow.headers :as adapter.headers]
+            [ring.adapter.undertow.request :as adapter.request]
+            [ring.util.response :as ring.response]
+            [strojure.zizzmap.core :as zizz]
+            [user.headers :as headers])
   (:import (io.undertow Undertow)
            (io.undertow.server HttpHandler HttpServerExchange)
            (io.undertow.server.handlers NameVirtualHostHandler RequestDumpingHandler SetHeaderHandler)
            (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler)
-           (io.undertow.util HeaderMap HeaderValues Headers HttpString)
+           (io.undertow.util HeaderMap Headers HttpString)
            (java.util Collection)))
 
 (set! *warn-on-reflection* true)
@@ -48,19 +47,23 @@
   ;   Execution time upper quantile : 4,057465 ns (97,5%)
   )
 
-(defn headers-map
-  [^HeaderMap headers]
-  (persistent! (reduce (fn [m! ^HeaderValues x]
-                         (assoc! m! (.toLowerCase (.toString (.getHeaderName x)))
-                                 (if (< 1 (.size x))
-                                   ;; TODO: Why comma separated values?
-                                   (string/join "," x)
-                                   (or (.peekFirst x) ""))))
-                       (transient {})
-                       headers)))
-
 (comment
-  (headers-map (.getRequestHeaders -exchange))
+  (headers/->HeaderMapProxy (.getRequestHeaders -exchange))
+  ;             Execution time mean : 9,855630 ns
+  ;    Execution time std-deviation : 0,413126 ns
+  ;   Execution time lower quantile : 9,354131 ns ( 2,5%)
+  ;   Execution time upper quantile : 10,413843 ns (97,5%)
+
+  (def -headers (headers/->HeaderMapProxy (.getRequestHeaders -exchange)))
+
+  (get -headers "Host")
+  #_=> "localhost:8080"
+  ;             Execution time mean : 33,529314 ns
+  ;    Execution time std-deviation : 1,880358 ns
+  ;   Execution time lower quantile : 31,427326 ns ( 2,5%)
+  ;   Execution time upper quantile : 36,320641 ns (97,5%)
+
+  (headers/persistent-map (.getRequestHeaders -exchange))
   #_=> {"sec-fetch-site" "none",
         "host" "localhost:8080",
         "user-agent" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:107.0) Gecko/20100101 Firefox/107.0",
@@ -94,7 +97,8 @@
    :scheme (scheme-keyword (.getRequestScheme exchange))
    :request-method (method-keyword (.toString (.getRequestMethod exchange)))
    ;; TODO: header conversion is slow
-   :headers (headers-map (.getRequestHeaders exchange))
+   #_#_:headers (headers/persistent-map (.getRequestHeaders exchange))
+   :headers (headers/->HeaderMapProxy (.getRequestHeaders exchange))
    :body (when (.isBlocking exchange) (.getInputStream exchange))})
 
 (defn exchange->lazy-request
@@ -108,7 +112,7 @@
               :query-string (.getQueryString exchange)
               :scheme (scheme-keyword (.getRequestScheme exchange))
               :request-method (method-keyword (.toString (.getRequestMethod exchange)))
-              :headers (headers-map (.getRequestHeaders exchange))
+              :headers (headers/persistent-map (.getRequestHeaders exchange))
               :body (when (.isBlocking exchange) (.getInputStream exchange))}))
 
 (comment
