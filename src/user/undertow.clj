@@ -48,13 +48,13 @@
   )
 
 (comment
-  (headers/->HeaderMapProxy (.getRequestHeaders -exchange))
+  (headers/as-persistent-map (.getRequestHeaders -exchange))
   ;             Execution time mean : 9,855630 ns
   ;    Execution time std-deviation : 0,413126 ns
   ;   Execution time lower quantile : 9,354131 ns ( 2,5%)
   ;   Execution time upper quantile : 10,413843 ns (97,5%)
 
-  (def -headers (headers/->HeaderMapProxy (.getRequestHeaders -exchange)))
+  (def -headers (headers/as-persistent-map (.getRequestHeaders -exchange)))
 
   (get -headers "Host")
   #_=> "localhost:8080"
@@ -87,49 +87,71 @@
 
 (defn exchange->request
   [^HttpServerExchange exchange]
-  {:undertow/exchange exchange
-   :server-port (.getHostPort exchange)
-   :server-name (.getHostName exchange)
-   ;; TODO: remote addr
-   :remote-addr (.getHostString (.getSourceAddress exchange))
-   :uri (.getRequestURI exchange)
-   :query-string (.getQueryString exchange)
-   :scheme (scheme-keyword (.getRequestScheme exchange))
-   :request-method (method-keyword (.toString (.getRequestMethod exchange)))
-   ;; TODO: header conversion is slow
-   #_#_:headers (headers/persistent-map (.getRequestHeaders exchange))
-   :headers (headers/->HeaderMapProxy (.getRequestHeaders exchange))
-   :body (when (.isBlocking exchange) (.getInputStream exchange))})
+  ;; TODO: `path-info` in request (see immutant)
+  (let [headers (.getRequestHeaders exchange)]
+    {:undertow/exchange exchange
+     :server-port (.getPort (.getDestinationAddress exchange))
+     :server-name (.getHostName exchange)
+     ;; TODO: remote addr
+     :remote-addr (.getHostString (.getSourceAddress exchange)) #_(-> exchange .getSourceAddress .getAddress .getHostAddress)
+     :uri (.getRequestURI exchange)
+     :query-string (let [s (.getQueryString exchange)] (when-not (.isEmpty s) s))
+     :scheme (scheme-keyword (.getRequestScheme exchange))
+     :request-method (method-keyword (.toString (.getRequestMethod exchange)))
+     :content-type (.getFirst headers Headers/CONTENT_TYPE)
+     :content-length (.getRequestContentLength exchange)
+     :character-encoding (.getRequestCharset exchange)
+     ;; TODO: header conversion is slow
+     #_#_:headers (headers/persistent-map headers)
+     :headers (headers/as-persistent-map headers)
+     :body (when (.isBlocking exchange) (.getInputStream exchange))
+     :context (.getResolvedPath exchange)}))
 
 (defn exchange->lazy-request
   [^HttpServerExchange exchange]
-  (zizz/init {:undertow/exchange exchange
-              :server-port (.getHostPort exchange)
-              :server-name (.getHostName exchange)
-              ;; TODO: remote addr
-              :remote-addr (.getHostString (.getSourceAddress exchange))
-              :uri (.getRequestURI exchange)
-              :query-string (.getQueryString exchange)
-              :scheme (scheme-keyword (.getRequestScheme exchange))
-              :request-method (method-keyword (.toString (.getRequestMethod exchange)))
-              :headers (headers/persistent-map (.getRequestHeaders exchange))
-              :body (when (.isBlocking exchange) (.getInputStream exchange))}))
+  (let [headers (.getRequestHeaders exchange)]
+    (zizz/init {:undertow/exchange exchange
+                :server-port (.getPort (.getDestinationAddress exchange))
+                :server-name (.getHostName exchange)
+                ;; TODO: remote addr
+                :remote-addr (.getHostString (.getSourceAddress exchange)) #_(-> exchange .getSourceAddress .getAddress .getHostAddress)
+                :uri (.getRequestURI exchange)
+                :query-string (let [s (.getQueryString exchange)] (when-not (.isEmpty s) s))
+                :scheme (scheme-keyword (.getRequestScheme exchange))
+                :request-method (method-keyword (.toString (.getRequestMethod exchange)))
+                :content-type (.getFirst headers Headers/CONTENT_TYPE)
+                :content-length (.getRequestContentLength exchange)
+                :character-encoding (.getRequestCharset exchange)
+                :headers (headers/persistent-map headers)
+                :body (when (.isBlocking exchange) (.getInputStream exchange))
+                :context (.getResolvedPath exchange)})))
 
 (comment
   -exchange
   (exchange->request -exchange)
   (exchange->lazy-request -exchange)
   (adapter.request/build-exchange-map -exchange)
-  (.get (.getRequestHeaders ^HttpServerExchange -exchange) "Host")
-  (.get (.getRequestHeaders ^HttpServerExchange -exchange) "host")
-  (.get (.getRequestHeaders ^HttpServerExchange -exchange) "HOST")
+  (.getRequestHeaders -exchange)
+  (.get (.getRequestHeaders -exchange) "Host")
+  (.get (.getRequestHeaders -exchange) "host")
+  (.get (.getRequestHeaders -exchange) "HOST")
   (ring.response/get-header {:headers {"Content-Type" "xxx"}} "Content-Type")
   (ring.response/get-header {:headers {"Content-Type" "xxx"}} "content-type")
-  (.getHostName ^HttpServerExchange -exchange)
-  (.getHostAddress (.getAddress (.getSourceAddress ^HttpServerExchange -exchange)))
-  (.getHostString (.getSourceAddress ^HttpServerExchange -exchange))
-  (.getRequestScheme ^HttpServerExchange -exchange)
-
+  (.getHostPort -exchange)
+  (-> -exchange .getDestinationAddress .getPort)
+  (-> -exchange .getDestinationAddress)
+  (.getHostName -exchange)
+  (.getHostAddress (.getAddress (.getSourceAddress -exchange)))
+  (.getHostString (.getSourceAddress -exchange))
+  (-> -exchange .getSourceAddress .getAddress .getHostAddress)
+  (.getRequestScheme -exchange)
+  (let [s (.getQueryString -exchange)]
+    (when-not (.equals "" s) s))
+  (let [s (.getQueryString -exchange)]
+    (when-not (.isEmpty s) s))
+  (-> -exchange .getRequestHeaders (.getFirst Headers/CONTENT_TYPE))
+  (.getRequestCharset -exchange)
+  (.getResolvedPath -exchange)
   )
 
 (defn set-response-headers

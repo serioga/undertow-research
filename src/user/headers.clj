@@ -8,6 +8,11 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
+(defprotocol PersistentMapProxy
+  (as-persistent-map [host]))
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
 (defn header-name
   [^HeaderValues x]
   (.toLowerCase (.toString (.getHeaderName x))))
@@ -92,5 +97,9 @@
   (asTransient
     [_]
     (transient (persistent-map headers))))
+
+(extend-protocol PersistentMapProxy
+  HeaderMap
+  (as-persistent-map [headers] (HeaderMapProxy. headers)))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
