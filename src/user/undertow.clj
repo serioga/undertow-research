@@ -5,7 +5,8 @@
             [ring.util.response :as ring.response]
             [strojure.zizzmap.core :as zizz]
             [user.headers :as headers])
-  (:import (io.undertow Undertow)
+  (:import (clojure.lang IPersistentMap)
+           (io.undertow Undertow Undertow$Builder Undertow$ListenerBuilder Undertow$ListenerType)
            (io.undertow.server HttpHandler HttpServerExchange)
            (io.undertow.server.handlers NameVirtualHostHandler RequestDumpingHandler SetHeaderHandler)
            (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler)
@@ -195,12 +196,6 @@
                          ;; - InputStream The contents of the stream is sent to the client. When the stream is exhausted, the stream is closed.
                          (some->> ^String (:body resp) (.send (.getResponseSender exchange)))))))
 
-(defn http-handler
-  ^HttpHandler [x]
-  (cond (fn? x) (ring->http-handler x)
-        (instance? HttpHandler x) x
-        :else (throw (ex-info (str "Cannot create undertow HttpHandler for " (pr-str x)) {}))))
-
 (comment
   (str "123")
   (string? "123")
@@ -219,25 +214,104 @@
              #_#_"content-type" "xxx"}
    #_#_:status 404})
 
+(defn test-ring-handler-fn
+  ([] (test-ring-handler-fn "Hello World"))
+  ([greet]
+   (fn [req]
+     {:body (str greet "\n\n" req)
+      #_#_:headers {"x-a" "1"
+                    "x-b" "2"
+                    "x-c" [3 4]
+                    #_#_"content-type" "xxx"}
+      #_#_:status 404})))
+
+(defprotocol HttpListenerBuilder
+  (new-listener-builder [opts port]))
+
+(extend-protocol HttpListenerBuilder
+  IPersistentMap
+  ;; TODO: Document, that it covers only HTTP/HTTPS but not AJP
+  (new-listener-builder
+    [{:keys [host https handler socket-options use-proxy-protocol] :or {host "localhost"}}
+     port]
+    (-> (Undertow$ListenerBuilder.)
+        (.setType (if https Undertow$ListenerType/HTTPS
+                            Undertow$ListenerType/HTTP))
+        (.setPort port)
+        (.setHost host)
+        (.setRootHandler handler)
+        (.setKeyManagers,, (:key-managers https))
+        (.setTrustManagers (:trust-managers https))
+        (.setSslContext,,, (:ssl-context https))
+        ;; TODO: Set OptionMap
+        #_(.setOverrideSocketOptions nil)
+        (.setUseProxyProtocol (boolean use-proxy-protocol))))
+  Undertow$ListenerBuilder
+  (new-listener-builder [builder port] (.setPort builder port))
+  HttpHandler
+  (new-listener-builder [handler port] (new-listener-builder {:handler handler} port)))
+
+(defn add-listener
+  ^Undertow$Builder
+  [^Undertow$Builder builder, [port opts]]
+  (doto builder
+    (.addListener (new-listener-builder opts port))))
+
+(defn add-port-listeners
+  ^Undertow$Builder
+  [builder ports]
+  (reduce add-listener builder ports))
+
+(defn- wrap-with
+  "Applies wrap function or a sequence of wrap functions to the `x`."
+  [x fs]
+  (if (sequential? fs)
+    (reduce (fn [obj f] (f obj)) x fs)
+    (fs x)))
+
+(defn build-server
+  ^Undertow [{:keys [ports, handler, wrap-handler, wrap-builder]}]
+  (-> (Undertow/builder)
+      (add-port-listeners ports)
+      (cond-> handler (.setHandler (cond-> handler wrap-handler (wrap-with wrap-handler)))
+              wrap-builder ^Undertow$Builder (wrap-with wrap-builder))
+      (.build)))
+
 (defn start
+  ^Undertow [options]
+  (doto (build-server options) .start))
+
+(defn start-test-server
   []
-  (doto (-> (Undertow/builder)
-            (.addHttpListener 8080 nil (-> (NameVirtualHostHandler.)
-                                           (.addHost "localhost" (-> (ring->http-handler test-ring-handler)
-                                                                     (SetHeaderHandler. "Content-Type" "text/plain")))
-                                           (.addHost "127.0.0.1" (-> (reify HttpHandler (handleRequest [_ exchange]
-                                                                                          (doto exchange
-                                                                                            (-> (.getResponseHeaders)
-                                                                                                (.put Headers/CONTENT_TYPE "text/plain"))
-                                                                                            (-> (.getResponseSender)
-                                                                                                (.send "Hello World (127.0.0.1)")))))
-                                                                     (SetHeaderHandler. "Content-Type" "text/plain")))
-                                           (RequestDumpingHandler.)))
-            (.addHttpListener 8081 "localhost"
-                              (ResourceHandler. (ClassPathResourceManager. (ClassLoader/getSystemClassLoader)
-                                                                           "public")))
-            (.build))
-    (.start)))
+  (start {:ports {8080 {:host "localtest.me"}}
+          :handler (ring->http-handler (test-ring-handler-fn "2"))
+          :wrap-handler [(fn [h] (RequestDumpingHandler. h))]
+          :wrap-builder [(fn [^Undertow$Builder builder] (.setIoThreads builder 2))
+                         (fn [^Undertow$Builder builder] (.setIoThreads builder 1))]})
+  #_(doto (-> (Undertow/builder)
+              #_(.addHttpListener 8080 nil (-> (NameVirtualHostHandler.)
+                                               (.addHost "localhost" (-> (ring->http-handler test-ring-handler)
+                                                                         (SetHeaderHandler. "Content-Type" "text/plain")))
+                                               (.addHost "127.0.0.1" (-> (reify HttpHandler (handleRequest [_ exchange]
+                                                                                              (doto exchange
+                                                                                                (-> (.getResponseHeaders)
+                                                                                                    (.put Headers/CONTENT_TYPE "text/plain"))
+                                                                                                (-> (.getResponseSender)
+                                                                                                    (.send "Hello World (127.0.0.1)")))))
+                                                                         (SetHeaderHandler. "Content-Type" "text/plain")))
+                                               (RequestDumpingHandler.)))
+              #_(.addHttpListener 8081 "localhost"
+                                  (ResourceHandler. (ClassPathResourceManager. (ClassLoader/getSystemClassLoader)
+                                                                               "public")))
+              #_(add-listener [8080 (-> (ring->http-handler (test-ring-handler-fn "1"))
+                                        (RequestDumpingHandler.))])
+              (add-listener [8080 {}])
+              #_(.addHttpListener 8080 nil (comment (-> (ring->http-handler (test-ring-handler-fn "1"))
+                                                        (RequestDumpingHandler.))))
+              (.setHandler (-> (ring->http-handler (test-ring-handler-fn "2"))
+                               (RequestDumpingHandler.)))
+              (.build))
+      (.start)))
 
 (defonce server! (atom nil))
 
@@ -246,13 +320,22 @@
 
 (defn init-server []
   (stop-server)
-  (reset! server! (start)))
+  (reset! server! (start-test-server)))
 
 (init-server)
 
 (comment
   ; exchange -> request -> response -> exchange
   ; chain handlers
+
+  {:ports {8080 {:host "localhost"
+                 :https {:key-managers [] :trust-managers []}
+                 #_#_:https {:ssl-context nil}
+                 :handler nil
+                 :socket-options {} :use-proxy-protocol false}}
+   :handler nil
+   :wrap-handler nil}
+
 
   {:name-virtual-host-handler {"localhost" (fn [])}}
   (init-server)
