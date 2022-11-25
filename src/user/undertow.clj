@@ -5,7 +5,7 @@
             [ring.util.response :as ring.response]
             [strojure.zizzmap.core :as zizz]
             [user.headers :as headers])
-  (:import (clojure.lang IPersistentMap)
+  (:import (clojure.lang IPersistentMap MultiFn)
            (io.undertow Undertow Undertow$Builder Undertow$ListenerBuilder Undertow$ListenerType)
            (io.undertow.server HttpHandler HttpServerExchange)
            (io.undertow.server.handlers NameVirtualHostHandler RequestDumpingHandler SetHeaderHandler)
@@ -269,11 +269,16 @@
     (reduce (fn [obj f] (f obj)) x fs)
     (fs x)))
 
+(defmulti as-http-handler type)
+(.addMethod ^MultiFn as-http-handler HttpHandler identity)
+(.addMethod ^MultiFn as-http-handler :ring/handler ring->http-handler)
+
 (defn build-server
   ^Undertow [{:keys [ports, handler, wrap-handler, wrap-builder]}]
   (-> (Undertow/builder)
       (add-port-listeners ports)
-      (cond-> handler (.setHandler (cond-> handler wrap-handler (wrap-with wrap-handler)))
+      (cond-> handler (.setHandler (cond-> (as-http-handler handler)
+                                     wrap-handler (wrap-with wrap-handler)))
               wrap-builder ^Undertow$Builder (wrap-with wrap-builder))
       (.build)))
 
@@ -284,7 +289,8 @@
 (defn start-test-server
   []
   (start {:ports {8080 {:host "localtest.me"}}
-          :handler (ring->http-handler (test-ring-handler-fn "2"))
+          :handler (-> (test-ring-handler-fn "2")
+                       (vary-meta assoc :type :ring/handler))
           :wrap-handler [(fn [h] (RequestDumpingHandler. h))]
           :wrap-builder [(fn [^Undertow$Builder builder] (.setIoThreads builder 2))
                          (fn [^Undertow$Builder builder] (.setIoThreads builder 1))]})
