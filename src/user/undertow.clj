@@ -252,13 +252,13 @@
 (def ^:dynamic *handler-fn-adapter* identity)
 
 #_(def as-http-handler nil)
-(defmulti as-http-handler (some-fn :type type))
+(defmulti ^HttpHandler as-http-handler (some-fn :type type))
 (.addMethod ^MultiFn as-http-handler HttpHandler identity)
 
 (defmethod as-http-handler Fn
   [handler-fn] (*handler-fn-adapter* handler-fn))
 
-(defmethod as-http-handler :virtual-hosts
+(defmethod as-http-handler :undertow/named-virtual-host-handler
   [{:keys [hosts, default-handler]}]
   (cond-> ^NameVirtualHostHandler
           (reduce (fn [handler [host opts]]
@@ -266,6 +266,19 @@
                   (NameVirtualHostHandler.)
                   hosts)
     default-handler (.setDefaultHandler (as-http-handler default-handler))))
+
+(defmethod as-http-handler :undertow/resource-handler
+  [{:keys [path-prefix, next-handler]
+    :or {path-prefix "public"}}]
+  (ResourceHandler. (ClassPathResourceManager. (ClassLoader/getSystemClassLoader)
+                                               ^String path-prefix)
+                    (some-> next-handler as-http-handler)))
+
+(defn wrap-resource-handler
+  [opts]
+  (fn [handler]
+    (as-http-handler (assoc opts :type :undertow/resource-handler
+                                 :next-handler handler))))
 
 (defn build-server
   ^Undertow [{:keys [ports, handler, wrap-handler, wrap-builder]}]
@@ -298,16 +311,19 @@
                     "x-b" "2"
                     "x-c" [3 4]
                     #_#_"content-type" "xxx"}
-      #_#_:status 404})))
+      #_#_:status 200})))
 
 (defn start-test-server
   []
   (binding [*handler-fn-adapter* ring-handler-adapter]
     (start {:ports {8080 {:host "localhost"}}
-            #_#_:handler (test-ring-handler-fn "2")
-            :handler {:type :virtual-hosts :hosts {"localhost" (test-ring-handler-fn "1")
-                                                   "127.0.0.1" (test-ring-handler-fn "2")}}
-            :wrap-handler [(fn [h] (RequestDumpingHandler. h))]
+            :handler (test-ring-handler-fn "2")
+            #_#_:handler {:type :undertow/resource-handler
+                          :next-handler {:type :undertow/named-virtual-host-handler
+                                         :hosts {"localhost" (test-ring-handler-fn "1")
+                                                 "127.0.0.1" (test-ring-handler-fn "2")}}}
+            :wrap-handler [(fn [h] (RequestDumpingHandler. h))
+                           (wrap-resource-handler {})]
             :wrap-builder [(fn [^Undertow$Builder builder] (.setIoThreads builder 2))
                            (fn [^Undertow$Builder builder] (.setIoThreads builder 1))]}))
   #_(doto (-> (Undertow/builder)
