@@ -246,7 +246,8 @@
   "Applies wrap function or a sequence of wrap functions to the `x`."
   [x fs]
   (if (sequential? fs)
-    (reduce (fn [obj f] (f obj)) x fs)
+    (->> (reverse fs)
+         (reduce (fn [obj f] (f obj)) x))
     (fs x)))
 
 (def ^:dynamic *handler-fn-adapter* identity)
