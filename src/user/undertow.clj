@@ -5,7 +5,7 @@
             [ring.util.response :as ring.response]
             [strojure.zizzmap.core :as zizz]
             [user.headers :as headers])
-  (:import (clojure.lang IPersistentMap MultiFn)
+  (:import (clojure.lang Fn IPersistentMap MultiFn)
            (io.undertow Undertow Undertow$Builder Undertow$ListenerBuilder Undertow$ListenerType)
            (io.undertow.server HttpHandler HttpServerExchange)
            (io.undertow.server.handlers NameVirtualHostHandler RequestDumpingHandler SetHeaderHandler)
@@ -182,7 +182,7 @@
              (.getResponseHeaders ^HttpServerExchange exchange)
              headers))
 
-(defn ring->http-handler
+(defn ring-handler-adapter
   ^HttpHandler [f]
   (reify HttpHandler (handleRequest [_ exchange]
                        ;; TODO: Remove inline def
@@ -269,9 +269,14 @@
     (reduce (fn [obj f] (f obj)) x fs)
     (fs x)))
 
+#_(def as-http-handler nil)
 (defmulti as-http-handler type)
 (.addMethod ^MultiFn as-http-handler HttpHandler identity)
-(.addMethod ^MultiFn as-http-handler :ring/handler ring->http-handler)
+
+(def ^:dynamic *handler-fn-adapter* identity)
+
+(defmethod as-http-handler Fn
+  [handler-fn] (*handler-fn-adapter* handler-fn))
 
 (defn build-server
   ^Undertow [{:keys [ports, handler, wrap-handler, wrap-builder]}]
@@ -288,15 +293,15 @@
 
 (defn start-test-server
   []
-  (start {:ports {8080 {:host "localtest.me"}}
-          :handler (-> (test-ring-handler-fn "2")
-                       (vary-meta assoc :type :ring/handler))
-          :wrap-handler [(fn [h] (RequestDumpingHandler. h))]
-          :wrap-builder [(fn [^Undertow$Builder builder] (.setIoThreads builder 2))
-                         (fn [^Undertow$Builder builder] (.setIoThreads builder 1))]})
+  (binding [*handler-fn-adapter* ring-handler-adapter]
+    (start {:ports {8080 {:host "localhost"}}
+            :handler (test-ring-handler-fn "2")
+            :wrap-handler [(fn [h] (RequestDumpingHandler. h))]
+            :wrap-builder [(fn [^Undertow$Builder builder] (.setIoThreads builder 2))
+                           (fn [^Undertow$Builder builder] (.setIoThreads builder 1))]}))
   #_(doto (-> (Undertow/builder)
               #_(.addHttpListener 8080 nil (-> (NameVirtualHostHandler.)
-                                               (.addHost "localhost" (-> (ring->http-handler test-ring-handler)
+                                               (.addHost "localhost" (-> (ring-handler-adapter test-ring-handler)
                                                                          (SetHeaderHandler. "Content-Type" "text/plain")))
                                                (.addHost "127.0.0.1" (-> (reify HttpHandler (handleRequest [_ exchange]
                                                                                               (doto exchange
@@ -309,12 +314,12 @@
               #_(.addHttpListener 8081 "localhost"
                                   (ResourceHandler. (ClassPathResourceManager. (ClassLoader/getSystemClassLoader)
                                                                                "public")))
-              #_(add-listener [8080 (-> (ring->http-handler (test-ring-handler-fn "1"))
+              #_(add-listener [8080 (-> (ring-handler-adapter (test-ring-handler-fn "1"))
                                         (RequestDumpingHandler.))])
               (add-listener [8080 {}])
-              #_(.addHttpListener 8080 nil (comment (-> (ring->http-handler (test-ring-handler-fn "1"))
+              #_(.addHttpListener 8080 nil (comment (-> (ring-handler-adapter (test-ring-handler-fn "1"))
                                                         (RequestDumpingHandler.))))
-              (.setHandler (-> (ring->http-handler (test-ring-handler-fn "2"))
+              (.setHandler (-> (ring-handler-adapter (test-ring-handler-fn "2"))
                                (RequestDumpingHandler.)))
               (.build))
       (.start)))
