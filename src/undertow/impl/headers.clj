@@ -1,4 +1,4 @@
-(ns user.headers
+(ns undertow.impl.headers
   (:require [clojure.string :as string])
   (:import (clojure.lang IEditableCollection IFn IPersistentMap MapEquivalence)
            (io.undertow.util HeaderMap HeaderValues)
