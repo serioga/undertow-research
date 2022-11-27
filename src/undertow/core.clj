@@ -3,7 +3,8 @@
            (io.undertow Undertow Undertow$Builder Undertow$ListenerBuilder Undertow$ListenerType)
            (io.undertow.server HttpHandler)
            (io.undertow.server.handlers NameVirtualHostHandler)
-           (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler)))
+           (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler)
+           (io.undertow.server.session InMemorySessionManager SecureRandomSessionIdGenerator SessionAttachmentHandler SessionConfig SessionCookieConfig SessionManager)))
 
 (set! *warn-on-reflection* true)
 
@@ -84,8 +85,59 @@
 (defn wrap-resource-handler
   [opts]
   (fn [handler]
-    (as-http-handler (assoc opts :type :undertow/resource-handler
-                                 :next-handler handler))))
+    (as-http-handler (merge opts {:type :undertow/resource-handler
+                                  :next-handler handler}))))
+
+(defmulti as-session-manager (some-fn :type type))
+(.addMethod ^MultiFn as-session-manager SessionManager identity)
+
+(defn in-memory-session-manager
+  [{:keys [session-id-generator
+           deployment-name
+           max-sessions
+           expire-oldest-unused-session-on-max
+           statistics-enabled]
+    :or {max-sessions 0, expire-oldest-unused-session-on-max true}}]
+  (InMemorySessionManager. (or session-id-generator (SecureRandomSessionIdGenerator.)),
+                           deployment-name
+                           max-sessions
+                           expire-oldest-unused-session-on-max
+                           (boolean statistics-enabled)))
+
+(.addMethod ^MultiFn as-session-manager IPersistentMap in-memory-session-manager)
+
+(defmulti as-session-config (some-fn :type type))
+(.addMethod ^MultiFn as-session-config SessionConfig identity)
+
+(defn session-cookie-config
+  [{:keys [cookie-name path domain discard secure http-only max-age comment]}]
+  (cond-> (SessionCookieConfig.)
+    cookie-name (.setCookieName cookie-name)
+    path (.setPath path)
+    domain (.setDomain domain)
+    (some? discard) (.setDiscard (boolean discard))
+    (some? secure) (.setSecure (boolean secure))
+    (some? http-only) (.setHttpOnly (boolean http-only))
+    max-age (.setMaxAge max-age)
+    comment (.setComment comment)))
+
+(.addMethod ^MultiFn as-session-config IPersistentMap session-cookie-config)
+
+(defmethod as-http-handler :undertow/session-attachment-handler
+  [{:keys [session-manager, session-config, next-handler]
+    :or {session-manager {} session-config {}}}]
+  (if next-handler
+    (SessionAttachmentHandler. (as-http-handler next-handler)
+                               (as-session-manager session-manager)
+                               (as-session-config session-config))
+    (SessionAttachmentHandler. (as-session-manager session-manager)
+                               (as-session-config session-config))))
+
+(defn wrap-session-attachment-handler
+  [opts]
+  (fn [handler]
+    (as-http-handler (merge opts {:type :undertow/session-attachment-handler
+                                  :next-handler handler}))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 

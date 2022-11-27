@@ -4,10 +4,12 @@
             [ring.adapter.undertow.request :as adapter.request]
             [ring.util.response :as ring.response]
             [strojure.zizzmap.core :as zizz]
-            [undertow.impl.headers :as headers])
+            [undertow.impl.headers :as headers]
+            [undertow.impl.session :as session])
   (:import (io.undertow.server HttpHandler HttpServerExchange)
            (io.undertow.util HeaderMap Headers HttpString)
-           (java.util Collection)))
+           (java.util Collection)
+           (io.undertow.server.session Session SessionManager SessionConfig)))
 
 (set! *warn-on-reflection* true)
 
@@ -43,6 +45,28 @@
   ;    Execution time std-deviation : 1,004296 ns
   ;   Execution time lower quantile : 1,863488 ns ( 2,5%)
   ;   Execution time upper quantile : 4,057465 ns (97,5%)
+  )
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defn exchange-session-manager
+  ^SessionManager [^HttpServerExchange exchange]
+  (-> exchange (.getAttachment SessionManager/ATTACHMENT_KEY)))
+
+(comment
+  (exchange-session-manager -exchange)
+  )
+
+(defn exchange-session
+  ^Session [^HttpServerExchange exchange, create?]
+  (when-let [mgr (exchange-session-manager exchange)]
+    (let [cfg (-> exchange (.getAttachment SessionConfig/ATTACHMENT_KEY))]
+      (or (-> mgr (.getSession exchange cfg))
+          (when create? (-> mgr (.createSession exchange cfg)))))))
+
+(comment
+  (exchange-session -exchange false)
+  (delay (exchange-session -exchange false))
   )
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
@@ -94,7 +118,9 @@
         content-type (.getFirst headers Headers/CONTENT_TYPE)
         content-length (.getRequestContentLength exchange)
         content-length (when-not (neg? content-length) content-length)
-        body (when (.isBlocking exchange) (.getInputStream exchange))]
+        body (when (.isBlocking exchange) (.getInputStream exchange))
+        session (when (exchange-session-manager exchange)
+                  (session/as-persistent-map (delay (exchange-session exchange false))))]
     (cond-> {:undertow/exchange exchange
              :server-port (.getPort (.getDestinationAddress exchange))
              :server-name (.getHostName exchange)
@@ -112,7 +138,8 @@
       query-string,, (assoc :query-string query-string)
       content-type,, (assoc :content-type content-type)
       content-length (assoc :content-length content-length)
-      body,,,,,,,,,, (assoc :body body))))
+      body,,,,,,,,,, (assoc :body body)
+      session,,,,,,, (assoc :session session))))
 
 (defn exchange->lazy-request
   [^HttpServerExchange exchange]
@@ -182,6 +209,26 @@
              (.getResponseHeaders ^HttpServerExchange exchange)
              headers))
 
+(defn set-session-response!
+  [^HttpServerExchange exchange, values]
+  (let [sess (exchange-session exchange values)]
+    ;; TODO: Handle case when session manager is not assigned
+    (when (and values (not sess))
+      (throw (ex-info "Attempt to set session values in undefined session"
+                      {:undertow/exchange exchange})))
+    (if values
+      (doseq [[k v] values]
+        (if (some? v) (-> sess (.setAttribute (name k) v))
+                      (-> sess (.removeAttribute (name k)))))
+      (some-> sess (.invalidate exchange)))))
+
+(comment
+  (.getAttachment -exchange SessionManager/ATTACHMENT_KEY)
+  (.getAttachment -exchange SessionConfig/ATTACHMENT_KEY)
+  (some-> (exchange-session -exchange false)
+          (.getAttributeNames))
+  )
+
 (defn handler-fn-adapter
   ^HttpHandler [f]
   (reify HttpHandler (handleRequest [_ exchange]
@@ -190,6 +237,8 @@
                        (let [resp (f (exchange->request exchange))]
                          (some->> (:headers resp) (set-response-headers exchange))
                          (some->> (:status resp) (.setStatusCode exchange))
+                         (when-let [[_ session] (find resp :session)]
+                           (set-session-response! exchange session))
                          ;; TODO: Handle other body types
                          ;; - ISeq Each element of the seq is sent to the client as a string.
                          ;; - File The contents of the referenced file is sent to the client.

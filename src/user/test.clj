@@ -27,6 +27,7 @@
   ([greet]
    (fn [req]
      {:body (str greet "\n\n" req)
+      :session {:test "Test session value"}
       #_#_:headers {"x-a" "1"
                     "x-b" "2"
                     "x-c" [3 4]
@@ -42,7 +43,8 @@
                                                 :hosts {"localhost" (test-ring-handler-fn "1")
                                                         "127.0.0.1" (test-ring-handler-fn "2")}}}
                    :wrap-handler [(fn [h] (RequestDumpingHandler. h))
-                                  (undertow/wrap-resource-handler {})]
+                                  (undertow/wrap-session-attachment-handler {})
+                                  #_(undertow/wrap-resource-handler {})]
                    :wrap-builder [(fn [^Undertow$Builder builder] (.setIoThreads builder 2))
                                   (fn [^Undertow$Builder builder] (.setIoThreads builder 1))]})
   #_(doto (-> (Undertow/builder)
