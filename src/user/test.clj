@@ -47,8 +47,9 @@
                                                 :hosts {"localhost" (test-ring-handler-fn "1")
                                                         "127.0.0.1" (test-ring-handler-fn "2")}}}
                    :wrap-builder-fn (fn [builder-fn]
-                                      (fn [builder] (-> ^Undertow$Builder (builder-fn builder)
-                                                        (.setIoThreads 4))))
+                                      (fn [builder options]
+                                        (-> ^Undertow$Builder (builder-fn builder options)
+                                            (.setIoThreads 4))))
                    :server-options {:undertow/enable-http2 true}
                    #_#_:worker-options {:xnio/worker-io-threads 2}})
   #_(doto (-> (Undertow/builder)
