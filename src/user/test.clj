@@ -45,10 +45,10 @@
                    :wrap-handler [(fn [h] (RequestDumpingHandler. h))
                                   (undertow/wrap-session-attachment-handler {})
                                   #_(undertow/wrap-resource-handler {})]
-                   :wrap-builder [(fn [^Undertow$Builder builder] (.setIoThreads builder 2))
-                                  (fn [^Undertow$Builder builder] (.setIoThreads builder 1))]
+                   :wrap-builder [(fn [^Undertow$Builder builder] (.setIoThreads builder 1))
+                                  (fn [^Undertow$Builder builder] (.setIoThreads builder 4))]
                    :server-options {:undertow/enable-http2 true}
-                   :worker-options {:xnio/worker-io-threads 2}})
+                   #_#_:worker-options {:xnio/worker-io-threads 2}})
   #_(doto (-> (Undertow/builder)
               #_(.addHttpListener 8080 nil (-> (NameVirtualHostHandler.)
                                                (.addHost "localhost" (-> (ring-handler-adapter test-ring-handler)

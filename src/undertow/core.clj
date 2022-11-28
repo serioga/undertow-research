@@ -1,52 +1,13 @@
 (ns undertow.core
+  (:require [undertow.builder :as builder])
   (:import (clojure.lang Fn IPersistentMap MultiFn)
-           (io.undertow Undertow Undertow$Builder Undertow$ListenerBuilder Undertow$ListenerType UndertowOptions)
+           (io.undertow Undertow Undertow$Builder)
            (io.undertow.server HttpHandler)
            (io.undertow.server.handlers NameVirtualHostHandler)
            (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler)
-           (io.undertow.server.session InMemorySessionManager SecureRandomSessionIdGenerator SessionAttachmentHandler SessionConfig SessionCookieConfig SessionManager)
-           (org.xnio Option Options)))
+           (io.undertow.server.session InMemorySessionManager SecureRandomSessionIdGenerator SessionAttachmentHandler SessionConfig SessionCookieConfig SessionManager)))
 
 (set! *warn-on-reflection* true)
-
-;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-
-(defprotocol HttpListenerBuilder
-  (new-listener-builder [opts port]))
-
-(extend-protocol HttpListenerBuilder
-  IPersistentMap
-  ;; TODO: Document, that it covers only HTTP/HTTPS but not AJP
-  (new-listener-builder
-    [{:keys [host https handler socket-options use-proxy-protocol] :or {host "localhost"}}
-     port]
-    (-> (Undertow$ListenerBuilder.)
-        (.setType (if https Undertow$ListenerType/HTTPS
-                            Undertow$ListenerType/HTTP))
-        (.setPort port)
-        (.setHost host)
-        (.setRootHandler handler)
-        (.setKeyManagers,, (:key-managers https))
-        (.setTrustManagers (:trust-managers https))
-        (.setSslContext,,, (:ssl-context https))
-        ;; TODO: Set OptionMap
-        #_(.setOverrideSocketOptions nil)
-        (.setUseProxyProtocol (boolean use-proxy-protocol))))
-  Undertow$ListenerBuilder
-  (new-listener-builder [builder port] (.setPort builder port))
-  HttpHandler
-  (new-listener-builder [handler port] (new-listener-builder {:handler handler} port)))
-
-(defn add-listener
-  ^Undertow$Builder
-  [^Undertow$Builder builder, [port opts]]
-  (doto builder
-    (.addListener (new-listener-builder opts port))))
-
-(defn add-port-listeners
-  ^Undertow$Builder
-  [builder ports]
-  (reduce add-listener builder ports))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -140,36 +101,6 @@
     (as-http-handler (merge opts {:type :undertow/session-attachment-handler
                                   :next-handler handler}))))
 
-(defmulti as-undertow-option (fn [k _] k))
-
-(defn define-option
-  ([alias option] (define-option alias option identity))
-  ([alias option value-fn]
-   (.addMethod ^MultiFn as-undertow-option alias (fn [_ v] [option (value-fn v)]))))
-
-;; TODO: Complete set of known undertow options
-(define-option :undertow/max-header-size UndertowOptions/MAX_HEADER_SIZE)
-(define-option :undertow/max-entity-size UndertowOptions/MAX_ENTITY_SIZE)
-(define-option :undertow/multipart-max-entity-size UndertowOptions/MULTIPART_MAX_ENTITY_SIZE)
-(define-option :undertow/max-parameters UndertowOptions/MAX_PARAMETERS)
-(define-option :undertow/max-headers UndertowOptions/MAX_HEADERS)
-(define-option :undertow/enable-http2 UndertowOptions/ENABLE_HTTP2)
-
-(define-option :xnio/worker-io-threads Options/WORKER_IO_THREADS int)
-
-(defmethod as-undertow-option :default
-  [option value]
-  (if (instance? Option option)
-    [option value]
-    (throw (ex-info (str "Unknown undertow option: " option "\n"
-                         "Use `define-option` to define new options") {}))))
-
-(comment
-  (as-undertow-option :undertow/enable-http2 true)
-  (as-undertow-option UndertowOptions/ENABLE_HTTP2 true)
-  (as-undertow-option :xnio/worker-io-threads 4)
-  )
-
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn- wrap-with
@@ -180,34 +111,19 @@
          (reduce (fn [obj f] (f obj)) x))
     (fs x)))
 
-(defn set-options
+(defn- apply-map
   ^Undertow$Builder
-  [builder set-option options]
-  (reduce set-option builder options))
-
-(defn- set-server-option
-  [builder [k v]]
-  (let [[k v] (as-undertow-option k v)]
-    (.setServerOption ^Undertow$Builder builder k v)))
-
-(defn- set-socket-option
-  [builder [k v]]
-  (let [[k v] (as-undertow-option k v)]
-    (.setSocketOption ^Undertow$Builder builder k v)))
-
-(defn- set-worker-option
-  [builder [k v]]
-  (let [[k v] (as-undertow-option k v)]
-    (.setWorkerOption ^Undertow$Builder builder k v)))
+  [builder set-fn entries]
+  (reduce set-fn builder entries))
 
 (defn build-server
   ^Undertow [{:keys [ports, handler, wrap-handler, wrap-builder
                      server-options, socket-options, worker-options]}]
   (-> (Undertow/builder)
-      (add-port-listeners ports)
-      (set-options set-server-option server-options)
-      (set-options set-socket-option socket-options)
-      (set-options set-worker-option worker-options)
+      (apply-map builder/add-listener ports)
+      (apply-map builder/set-server-option server-options)
+      (apply-map builder/set-socket-option socket-options)
+      (apply-map builder/set-worker-option worker-options)
       (cond-> handler (.setHandler (cond-> (as-http-handler handler)
                                      wrap-handler (wrap-with wrap-handler)))
               wrap-builder ^Undertow$Builder (wrap-with wrap-builder))
