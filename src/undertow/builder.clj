@@ -1,6 +1,6 @@
 (ns undertow.builder
   (:import (clojure.lang IPersistentMap)
-           (io.undertow Undertow$Builder Undertow$ListenerBuilder Undertow$ListenerType UndertowOptions)
+           (io.undertow Undertow Undertow$Builder Undertow$ListenerBuilder Undertow$ListenerType UndertowOptions)
            (io.undertow.server HttpHandler)
            (org.xnio Option Options)))
 
@@ -98,5 +98,12 @@
    [builder option value]
    (let [[option value] (as-option option value)]
      (.setWorkerOption ^Undertow$Builder builder option value))))
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defn build
+  ^Undertow
+  [builder]
+  (.build ^Undertow$Builder builder))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

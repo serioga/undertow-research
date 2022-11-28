@@ -141,9 +141,9 @@
   [{:keys [wrap-builder-fn] :as options}]
   (let [setup-builder (cond-> (setup-builder-fn options)
                         wrap-builder-fn (wrap-builder-fn))]
-    (-> (Undertow/builder) ^Undertow$Builder
+    (-> (Undertow/builder)
         (setup-builder)
-        (.build)
+        (builder/build)
         (doto .start))))
 
 (defn stop
