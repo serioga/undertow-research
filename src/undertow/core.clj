@@ -39,10 +39,10 @@
     default-handler (.setDefaultHandler (as-http-handler default-handler))))
 
 #_(defmethod as-http-handler :undertow/resource-handler
-  [{:keys [path-prefix, next-handler] :or {path-prefix "public"}}]
-  (ResourceHandler. (ClassPathResourceManager. (ClassLoader/getSystemClassLoader)
-                                               ^String path-prefix)
-                    (some-> next-handler as-http-handler)))
+    [{:keys [path-prefix, next-handler] :or {path-prefix "public"}}]
+    (ResourceHandler. (ClassPathResourceManager. (ClassLoader/getSystemClassLoader)
+                                                 ^String path-prefix)
+                      (some-> next-handler as-http-handler)))
 
 (defn resource-manager
   ^ResourceManager
@@ -94,14 +94,14 @@
 (.addMethod ^MultiFn as-session-config IPersistentMap session-cookie-config)
 
 #_(defmethod as-http-handler :undertow/session-attachment-handler
-  [{:keys [session-manager, session-config, next-handler]
-    :or {session-manager {} session-config {}}}]
-  (if next-handler
-    (SessionAttachmentHandler. (as-http-handler next-handler)
-                               (as-session-manager session-manager)
-                               (as-session-config session-config))
-    (SessionAttachmentHandler. (as-session-manager session-manager)
-                               (as-session-config session-config))))
+    [{:keys [session-manager, session-config, next-handler]
+      :or {session-manager {} session-config {}}}]
+    (if next-handler
+      (SessionAttachmentHandler. (as-http-handler next-handler)
+                                 (as-session-manager session-manager)
+                                 (as-session-config session-config))
+      (SessionAttachmentHandler. (as-session-manager session-manager)
+                                 (as-session-config session-config))))
 
 (defn session-attachment-handler
   ^HttpHandler
@@ -113,43 +113,38 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defn- wrap-with
-  "Applies wrap function or a sequence of wrap functions to the `x`."
-  [x fs]
-  (if (sequential? fs)
-    (->> (reverse fs)
-         (reduce (fn [obj f] (f obj)) x))
-    (fs x)))
-
 (defn- apply-map
   ^Undertow$Builder
   [builder set-fn entries]
   (reduce set-fn builder entries))
 
-(defn build-server
-  ^Undertow
-  [{:keys [ports, handler, wrap-builder
-           buffer-size, io-threads, worker-threads, direct-buffers
+(defn setup-builder-fn
+  [{:keys [ports, handler, buffer-size, io-threads, worker-threads, direct-buffers
            server-options, socket-options, worker-options]}]
-  (-> (Undertow/builder)
-      (apply-map builder/add-listener ports)
-      (apply-map builder/set-server-option server-options)
-      (apply-map builder/set-socket-option socket-options)
-      (apply-map builder/set-worker-option worker-options)
-      (cond->
-        handler (.setHandler (as-http-handler handler))
-        buffer-size (.setBufferSize buffer-size)
-        io-threads (.setIoThreads io-threads)
-        worker-threads (.setWorkerThreads worker-threads)
-        direct-buffers (.setDirectBuffers direct-buffers)
-        wrap-builder ^Undertow$Builder (wrap-with wrap-builder))
-      (.build)))
+  (fn [builder]
+    (-> builder
+        (apply-map builder/add-listener ports)
+        (apply-map builder/set-server-option server-options)
+        (apply-map builder/set-socket-option socket-options)
+        (apply-map builder/set-worker-option worker-options)
+        (cond->
+          handler,,,,,,, (.setHandler (as-http-handler handler))
+          buffer-size,,, (.setBufferSize buffer-size)
+          io-threads,,,, (.setIoThreads io-threads)
+          worker-threads (.setWorkerThreads worker-threads)
+          direct-buffers (.setDirectBuffers direct-buffers)))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn start
-  ^Undertow [options]
-  (doto (build-server options) .start))
+  ^Undertow
+  [{:keys [wrap-builder-fn] :as options}]
+  (let [setup-builder (cond-> (setup-builder-fn options)
+                        wrap-builder-fn (wrap-builder-fn))]
+    (-> (Undertow/builder) ^Undertow$Builder
+        (setup-builder)
+        (.build)
+        (doto .start))))
 
 (defn stop
   [^Undertow server]
