@@ -1,10 +1,11 @@
 (ns undertow.core
   (:import (clojure.lang Fn IPersistentMap MultiFn)
-           (io.undertow Undertow Undertow$Builder Undertow$ListenerBuilder Undertow$ListenerType)
+           (io.undertow Undertow Undertow$Builder Undertow$ListenerBuilder Undertow$ListenerType UndertowOptions)
            (io.undertow.server HttpHandler)
            (io.undertow.server.handlers NameVirtualHostHandler)
            (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler)
-           (io.undertow.server.session InMemorySessionManager SecureRandomSessionIdGenerator SessionAttachmentHandler SessionConfig SessionCookieConfig SessionManager)))
+           (io.undertow.server.session InMemorySessionManager SecureRandomSessionIdGenerator SessionAttachmentHandler SessionConfig SessionCookieConfig SessionManager)
+           (org.xnio Option Options)))
 
 (set! *warn-on-reflection* true)
 
@@ -139,6 +140,36 @@
     (as-http-handler (merge opts {:type :undertow/session-attachment-handler
                                   :next-handler handler}))))
 
+(defmulti as-undertow-option (fn [k _] k))
+
+(defn define-option
+  ([alias option] (define-option alias option identity))
+  ([alias option value-fn]
+   (.addMethod ^MultiFn as-undertow-option alias (fn [_ v] [option (value-fn v)]))))
+
+;; TODO: Complete set of known undertow options
+(define-option :undertow/max-header-size UndertowOptions/MAX_HEADER_SIZE)
+(define-option :undertow/max-entity-size UndertowOptions/MAX_ENTITY_SIZE)
+(define-option :undertow/multipart-max-entity-size UndertowOptions/MULTIPART_MAX_ENTITY_SIZE)
+(define-option :undertow/max-parameters UndertowOptions/MAX_PARAMETERS)
+(define-option :undertow/max-headers UndertowOptions/MAX_HEADERS)
+(define-option :undertow/enable-http2 UndertowOptions/ENABLE_HTTP2)
+
+(define-option :xnio/worker-io-threads Options/WORKER_IO_THREADS int)
+
+(defmethod as-undertow-option :default
+  [option value]
+  (if (instance? Option option)
+    [option value]
+    (throw (ex-info (str "Unknown undertow option: " option "\n"
+                         "Use `define-option` to define new options") {}))))
+
+(comment
+  (as-undertow-option :undertow/enable-http2 true)
+  (as-undertow-option UndertowOptions/ENABLE_HTTP2 true)
+  (as-undertow-option :xnio/worker-io-threads 4)
+  )
+
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn- wrap-with
@@ -149,10 +180,34 @@
          (reduce (fn [obj f] (f obj)) x))
     (fs x)))
 
+(defn set-options
+  ^Undertow$Builder
+  [builder set-option options]
+  (reduce set-option builder options))
+
+(defn- set-server-option
+  [builder [k v]]
+  (let [[k v] (as-undertow-option k v)]
+    (.setServerOption ^Undertow$Builder builder k v)))
+
+(defn- set-socket-option
+  [builder [k v]]
+  (let [[k v] (as-undertow-option k v)]
+    (.setSocketOption ^Undertow$Builder builder k v)))
+
+(defn- set-worker-option
+  [builder [k v]]
+  (let [[k v] (as-undertow-option k v)]
+    (.setWorkerOption ^Undertow$Builder builder k v)))
+
 (defn build-server
-  ^Undertow [{:keys [ports, handler, wrap-handler, wrap-builder]}]
+  ^Undertow [{:keys [ports, handler, wrap-handler, wrap-builder
+                     server-options, socket-options, worker-options]}]
   (-> (Undertow/builder)
       (add-port-listeners ports)
+      (set-options set-server-option server-options)
+      (set-options set-socket-option socket-options)
+      (set-options set-worker-option worker-options)
       (cond-> handler (.setHandler (cond-> (as-http-handler handler)
                                      wrap-handler (wrap-with wrap-handler)))
               wrap-builder ^Undertow$Builder (wrap-with wrap-builder))
