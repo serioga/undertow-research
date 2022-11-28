@@ -38,6 +38,7 @@
   []
   (undertow/start {:ports {8080 {:host "localhost"}}
                    :handler (test-ring-handler-fn "2")
+                   :io-threads 6
                    #_#_:handler {:type :undertow/resource-handler
                                  :next-handler {:type :undertow/named-virtual-host-handler
                                                 :hosts {"localhost" (test-ring-handler-fn "1")
@@ -45,7 +46,7 @@
                    :wrap-handler [(fn [h] (RequestDumpingHandler. h))
                                   (undertow/wrap-session-attachment-handler {})
                                   #_(undertow/wrap-resource-handler {})]
-                   :wrap-builder [(fn [^Undertow$Builder builder] (.setIoThreads builder 1))
+                   #_#_:wrap-builder [(fn [^Undertow$Builder builder] (.setIoThreads builder 1))
                                   (fn [^Undertow$Builder builder] (.setIoThreads builder 4))]
                    :server-options {:undertow/enable-http2 true}
                    #_#_:worker-options {:xnio/worker-io-threads 2}})

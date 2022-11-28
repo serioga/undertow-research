@@ -117,16 +117,23 @@
   (reduce set-fn builder entries))
 
 (defn build-server
-  ^Undertow [{:keys [ports, handler, wrap-handler, wrap-builder
-                     server-options, socket-options, worker-options]}]
+  ^Undertow
+  [{:keys [ports, handler, wrap-handler, wrap-builder
+           buffer-size, io-threads, worker-threads, direct-buffers
+           server-options, socket-options, worker-options]}]
   (-> (Undertow/builder)
       (apply-map builder/add-listener ports)
       (apply-map builder/set-server-option server-options)
       (apply-map builder/set-socket-option socket-options)
       (apply-map builder/set-worker-option worker-options)
-      (cond-> handler (.setHandler (cond-> (as-http-handler handler)
-                                     wrap-handler (wrap-with wrap-handler)))
-              wrap-builder ^Undertow$Builder (wrap-with wrap-builder))
+      (cond->
+        handler (.setHandler (cond-> (as-http-handler handler)
+                               wrap-handler (wrap-with wrap-handler)))
+        buffer-size (.setBufferSize buffer-size)
+        io-threads (.setIoThreads io-threads)
+        worker-threads (.setWorkerThreads worker-threads)
+        direct-buffers (.setDirectBuffers direct-buffers)
+        wrap-builder ^Undertow$Builder (wrap-with wrap-builder))
       (.build)))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
