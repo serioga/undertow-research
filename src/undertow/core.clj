@@ -4,7 +4,7 @@
            (io.undertow Undertow Undertow$Builder)
            (io.undertow.server HttpHandler)
            (io.undertow.server.handlers NameVirtualHostHandler)
-           (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler)
+           (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler ResourceManager)
            (io.undertow.server.session InMemorySessionManager SecureRandomSessionIdGenerator SessionAttachmentHandler SessionConfig SessionCookieConfig SessionManager)))
 
 (set! *warn-on-reflection* true)
@@ -38,17 +38,25 @@
                   hosts)
     default-handler (.setDefaultHandler (as-http-handler default-handler))))
 
-(defmethod as-http-handler :undertow/resource-handler
+#_(defmethod as-http-handler :undertow/resource-handler
   [{:keys [path-prefix, next-handler] :or {path-prefix "public"}}]
   (ResourceHandler. (ClassPathResourceManager. (ClassLoader/getSystemClassLoader)
                                                ^String path-prefix)
                     (some-> next-handler as-http-handler)))
 
-(defn wrap-resource-handler
-  [opts]
-  (fn [handler]
-    (as-http-handler (merge opts {:type :undertow/resource-handler
-                                  :next-handler handler}))))
+(defn resource-manager
+  ^ResourceManager
+  [{:keys [path-prefix] :or {path-prefix "public"}}]
+  (ClassPathResourceManager. (ClassLoader/getSystemClassLoader)
+                             ^String path-prefix))
+
+(defn resource-handler
+  (^HttpHandler
+   [opts]
+   (ResourceHandler. (resource-manager opts)))
+  (^HttpHandler
+   [next-handler opts]
+   (ResourceHandler. (resource-manager opts) (as-http-handler next-handler))))
 
 (defmulti as-session-manager (some-fn :type type))
 (.addMethod ^MultiFn as-session-manager SessionManager identity)
@@ -85,7 +93,7 @@
 
 (.addMethod ^MultiFn as-session-config IPersistentMap session-cookie-config)
 
-(defmethod as-http-handler :undertow/session-attachment-handler
+#_(defmethod as-http-handler :undertow/session-attachment-handler
   [{:keys [session-manager, session-config, next-handler]
     :or {session-manager {} session-config {}}}]
   (if next-handler
@@ -95,11 +103,13 @@
     (SessionAttachmentHandler. (as-session-manager session-manager)
                                (as-session-config session-config))))
 
-(defn wrap-session-attachment-handler
-  [opts]
-  (fn [handler]
-    (as-http-handler (merge opts {:type :undertow/session-attachment-handler
-                                  :next-handler handler}))))
+(defn session-attachment-handler
+  ^HttpHandler
+  [next-handler {:keys [session-manager, session-config]
+                 :or {session-manager {} session-config {}}}]
+  (SessionAttachmentHandler. (as-http-handler next-handler)
+                             (as-session-manager session-manager)
+                             (as-session-config session-config)))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -118,7 +128,7 @@
 
 (defn build-server
   ^Undertow
-  [{:keys [ports, handler, wrap-handler, wrap-builder
+  [{:keys [ports, handler, wrap-builder
            buffer-size, io-threads, worker-threads, direct-buffers
            server-options, socket-options, worker-options]}]
   (-> (Undertow/builder)
@@ -127,8 +137,7 @@
       (apply-map builder/set-socket-option socket-options)
       (apply-map builder/set-worker-option worker-options)
       (cond->
-        handler (.setHandler (cond-> (as-http-handler handler)
-                               wrap-handler (wrap-with wrap-handler)))
+        handler (.setHandler (as-http-handler handler))
         buffer-size (.setBufferSize buffer-size)
         io-threads (.setIoThreads io-threads)
         worker-threads (.setWorkerThreads worker-threads)
