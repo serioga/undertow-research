@@ -4,12 +4,12 @@
             [ring.adapter.undertow.request :as adapter.request]
             [ring.util.response :as ring.response]
             [strojure.zizzmap.core :as zizz]
-            [undertow.impl.headers :as headers]
-            [undertow.impl.session :as session])
+            [undertow-ring.headers :as headers]
+            [undertow-ring.session :as session])
   (:import (io.undertow.server HttpHandler HttpServerExchange)
+           (io.undertow.server.session Session SessionConfig SessionManager)
            (io.undertow.util HeaderMap Headers HttpString)
-           (java.util Collection)
-           (io.undertow.server.session Session SessionManager SessionConfig)))
+           (java.util Collection)))
 
 (set! *warn-on-reflection* true)
 

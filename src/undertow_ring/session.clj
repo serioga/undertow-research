@@ -1,4 +1,4 @@
-(ns undertow.impl.session
+(ns undertow-ring.session
   (:import (clojure.lang IEditableCollection IFn IPersistentMap MapEquivalence)
            (io.undertow.server.session Session)
            (java.util Map)))
