@@ -1,4 +1,5 @@
 (ns undertow-ring.core
+  (:require [undertow.exchange :as exchange])
   (:require [immutant.web.internal.ring :as immutant.ring]
             [ring.adapter.undertow.headers :as adapter.headers]
             [ring.adapter.undertow.request :as adapter.request]
@@ -45,28 +46,6 @@
   ;    Execution time std-deviation : 1,004296 ns
   ;   Execution time lower quantile : 1,863488 ns ( 2,5%)
   ;   Execution time upper quantile : 4,057465 ns (97,5%)
-  )
-
-;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-
-(defn exchange-session-manager
-  ^SessionManager [^HttpServerExchange exchange]
-  (-> exchange (.getAttachment SessionManager/ATTACHMENT_KEY)))
-
-(comment
-  (exchange-session-manager -exchange)
-  )
-
-(defn exchange-session
-  ^Session [^HttpServerExchange exchange, create?]
-  (when-let [mgr (exchange-session-manager exchange)]
-    (let [cfg (-> exchange (.getAttachment SessionConfig/ATTACHMENT_KEY))]
-      (or (-> mgr (.getSession exchange cfg))
-          (when create? (-> mgr (.createSession exchange cfg)))))))
-
-(comment
-  (exchange-session -exchange false)
-  (delay (exchange-session -exchange false))
   )
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
@@ -119,8 +98,8 @@
         content-length (.getRequestContentLength exchange)
         content-length (when-not (neg? content-length) content-length)
         body (when (.isBlocking exchange) (.getInputStream exchange))
-        session (when (exchange-session-manager exchange)
-                  (session/as-persistent-map (delay (exchange-session exchange false))))]
+        session (when (exchange/get-session-manager exchange)
+                  (session/as-persistent-map (delay (exchange/get-session exchange false))))]
     (cond-> {:undertow/exchange exchange
              :server-port (.getPort (.getDestinationAddress exchange))
              :server-name (.getHostName exchange)
@@ -192,6 +171,9 @@
   (.getRequestCharset -exchange)
   (.getResolvedPath -exchange)
   (.getRequestURI -exchange)
+  (exchange/get-session-manager -exchange)
+  (exchange/get-session -exchange false)
+  (delay (exchange/get-session -exchange false))
   )
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
@@ -211,7 +193,7 @@
 
 (defn set-session-response!
   [^HttpServerExchange exchange, values]
-  (let [sess (exchange-session exchange values)]
+  (let [sess (exchange/get-session exchange values)]
     ;; TODO: Handle case when session manager is not assigned
     (when (and values (not sess))
       (throw (ex-info "Attempt to set session values in undefined session"
@@ -225,7 +207,7 @@
 (comment
   (.getAttachment -exchange SessionManager/ATTACHMENT_KEY)
   (.getAttachment -exchange SessionConfig/ATTACHMENT_KEY)
-  (some-> (exchange-session -exchange false)
+  (some-> (exchange/get-session -exchange false)
           (.getAttributeNames))
   )
 
