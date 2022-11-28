@@ -67,28 +67,36 @@
   (new-listener-builder [handler port] (new-listener-builder {:handler handler} port)))
 
 (defn add-listener
-  ^Undertow$Builder
-  [^Undertow$Builder builder, [port opts]]
-  (.addListener builder (new-listener-builder opts port)))
+  (^Undertow$Builder
+   [builder [port opts]] (add-listener builder port opts))
+  (^Undertow$Builder
+   [builder port opts]
+   (.addListener ^Undertow$Builder builder (new-listener-builder opts port))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn set-server-option
-  ^Undertow$Builder
-  [builder [k v]]
-  (let [[k v] (as-option k v)]
-    (.setServerOption ^Undertow$Builder builder k v)))
+  (^Undertow$Builder
+   [builder [option value]] (set-server-option builder option value))
+  (^Undertow$Builder
+   [builder option value]
+   (let [[option value] (as-option option value)]
+     (.setServerOption ^Undertow$Builder builder option value))))
 
 (defn set-socket-option
-  ^Undertow$Builder
-  [builder [k v]]
-  (let [[k v] (as-option k v)]
-    (.setSocketOption ^Undertow$Builder builder k v)))
+  (^Undertow$Builder
+   [builder [option value]] (set-socket-option builder option value))
+  (^Undertow$Builder
+   [builder option value]
+   (let [[option value] (as-option option value)]
+     (.setSocketOption ^Undertow$Builder builder option value))))
 
 (defn set-worker-option
-  ^Undertow$Builder
-  [builder [k v]]
-  (let [[k v] (as-option k v)]
-    (.setWorkerOption ^Undertow$Builder builder k v)))
+  (^Undertow$Builder
+   [builder [option value]] (set-worker-option builder option value))
+  (^Undertow$Builder
+   [builder option value]
+   (let [[option value] (as-option option value)]
+     (.setWorkerOption ^Undertow$Builder builder option value))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
