@@ -1,4 +1,4 @@
-(ns undertow.core
+(ns undertow.server
   (:require [undertow.builder :as builder]
             [undertow.handler :as handler])
   (:import (io.undertow Undertow Undertow$Builder)))

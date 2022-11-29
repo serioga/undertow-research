@@ -1,8 +1,8 @@
 (ns user.test
   (:require [undertow-ring.core :as ring]
             [undertow.adapter :as adapter]
-            [undertow.core :as undertow]
-            [undertow.handler :as handler])
+            [undertow.handler :as handler]
+            [undertow.server :as server])
   (:import (io.undertow Undertow Undertow$Builder)
            (io.undertow.server HttpHandler)
            (io.undertow.server.handlers NameVirtualHostHandler RequestDumpingHandler)
@@ -36,8 +36,8 @@
                     (handler/path-prefix {:paths {"static" {:handler (handler/resource-handler {:prefix "public/static"})}}})
                     (handler/virtual-host {:hosts {"webapi.localtest.me" {:handler (test-ring-handler-fn "webapi")}}}))
        :instance-data {:source `start-test-server}}
-      (undertow/start))
-  #_(undertow/start {:ports {8080 {:host "localhost"}}
+      (server/start))
+  #_(server/start {:ports {8080 {:host "localhost"}}
                      :handler (-> (test-ring-handler-fn "2")
                                   (handler/session-attachment {})
                                   #_(handler/resource-handler {})
@@ -83,7 +83,7 @@
 (defonce server! (atom nil))
 
 (defn stop-server []
-  (swap! server! (fn [instance] (some-> instance undertow/stop))))
+  (swap! server! (fn [instance] (some-> instance server/stop))))
 
 (defn init-server []
   (stop-server)
