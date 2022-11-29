@@ -2,7 +2,7 @@
   (:require [undertow.adapter :as adapter])
   (:import (clojure.lang Fn IPersistentMap MultiFn)
            (io.undertow.server HttpHandler)
-           (io.undertow.server.handlers NameVirtualHostHandler PathHandler ProxyPeerAddressHandler)
+           (io.undertow.server.handlers GracefulShutdownHandler NameVirtualHostHandler PathHandler ProxyPeerAddressHandler)
            (io.undertow.server.handlers.error SimpleErrorPageHandler)
            (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler ResourceManager)
            (io.undertow.server.session InMemorySessionManager SecureRandomSessionIdGenerator SessionAttachmentHandler SessionConfig SessionCookieConfig SessionManager)))
@@ -160,5 +160,11 @@
   ^SimpleErrorPageHandler
   [next-handler]
   (SimpleErrorPageHandler. next-handler))
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defn graceful-shutdown
+  [next-handler]
+  (GracefulShutdownHandler. next-handler))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
