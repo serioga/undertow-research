@@ -34,7 +34,8 @@
                                                    "127.0.0.1" {:handler (test-ring-handler-fn "127.0.0.1")}}})
                     (handler/session-attachment {})
                     (handler/path-prefix {:paths {"static" {:handler (handler/resource-handler {:prefix "public/static"})}}})
-                    (handler/virtual-host {:hosts {"webapi.localtest.me" {:handler (test-ring-handler-fn "webapi")}}}))}
+                    (handler/virtual-host {:hosts {"webapi.localtest.me" {:handler (test-ring-handler-fn "webapi")}}}))
+       :instance-data {:source `start-test-server}}
       (undertow/start))
   #_(undertow/start {:ports {8080 {:host "localhost"}}
                      :handler (-> (test-ring-handler-fn "2")
@@ -82,7 +83,7 @@
 (defonce server! (atom nil))
 
 (defn stop-server []
-  (swap! server! undertow/stop))
+  (swap! server! (fn [instance] (some-> instance undertow/stop))))
 
 (defn init-server []
   (stop-server)

@@ -31,15 +31,16 @@
 
 (defn start
   ^Undertow
-  [{:keys [wrap-builder-fn] :as options}]
-  (let [builder-fn (cond-> setup-builder wrap-builder-fn (wrap-builder-fn))]
-    (-> (Undertow/builder)
-        (builder-fn options)
-        (builder/build)
-        (doto .start))))
+  [{:keys [wrap-builder-fn instance-data] :as options}]
+  (let [builder-fn (cond-> setup-builder wrap-builder-fn (wrap-builder-fn))
+        server (-> (Undertow/builder)
+                   (builder-fn options)
+                   (builder/build))]
+    (->> (doto server .start)
+         (assoc instance-data ::undertow))))
 
 (defn stop
-  [^Undertow server]
-  (some-> server .stop))
+  [{::keys [undertow]}]
+  (.stop ^Undertow undertow))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
