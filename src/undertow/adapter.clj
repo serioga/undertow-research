@@ -6,7 +6,12 @@
 
 (def ^:dynamic *handler-fn-adapter* identity)
 
-(set-validator! #'*handler-fn-adapter* fn?)
+(defn- validate-handler-fn-adapter
+  [f]
+  (or (fn? f)
+      (throw (IllegalArgumentException. (str "Requires function for handler-fn-adapter: " f)))))
+
+(set-validator! #'*handler-fn-adapter* validate-handler-fn-adapter)
 
 (defn set-handler-fn-adapter
   [f]
