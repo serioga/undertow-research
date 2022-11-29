@@ -1,6 +1,8 @@
 (ns user.test
   (:require [undertow-ring.core :as ring]
-            [undertow.core :as undertow])
+            [undertow.adapter :as adapter]
+            [undertow.core :as undertow]
+            [undertow.handler :as handler])
   (:import (io.undertow Undertow Undertow$Builder)
            (io.undertow.server HttpHandler)
            (io.undertow.server.handlers NameVirtualHostHandler RequestDumpingHandler)
@@ -11,50 +13,48 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(undertow/set-handler-fn-adapter ring/handler-fn-adapter)
-
-(defn test-ring-handler
-  [req]
-  {:body (str "Hello World " req)
-   :headers {"x-a" "1"
-             "x-b" "2"
-             "x-c" [3 4]
-             #_#_"content-type" "xxx"}
-   #_#_:status 404})
+(adapter/set-handler-fn-adapter ring/handler-fn-adapter)
 
 (defn test-ring-handler-fn
   ([] (test-ring-handler-fn "Hello World"))
   ([greet]
    (fn [req]
-     {:body (str greet "\n\n" req)
-      :session {:test "Test session value"}
-      #_#_:headers {"x-a" "1"
-                    "x-b" "2"
-                    "x-c" [3 4]
-                    #_#_"content-type" "xxx"}
-      #_#_:status 200})))
+     (cond-> {:body (str greet "\n\n" req)
+              #_#_:headers {"x-a" "1"
+                            "x-b" "2"
+                            "x-c" [3 4]
+                            #_#_"content-type" "xxx"}
+              #_#_:status 200}
+       (:session req) (assoc-in [:session :test] "Test session value")))))
 
 (defn start-test-server
   []
-  (undertow/start {:ports {8080 {:host "localhost"}}
-                   :handler (-> (test-ring-handler-fn "2")
-                                (undertow/session-attachment-handler {})
-                                #_(undertow/resource-handler {})
-                                (RequestDumpingHandler.))
-                   :io-threads 6
-                   #_#_:handler {:type :undertow/resource-handler
-                                 :next-handler {:type :undertow/named-virtual-host-handler
-                                                :hosts {"localhost" (test-ring-handler-fn "1")
-                                                        "127.0.0.1" (test-ring-handler-fn "2")}}}
-                   :wrap-builder-fn (fn [builder-fn]
-                                      (fn [builder options]
-                                        (-> ^Undertow$Builder (builder-fn builder options)
-                                            (.setIoThreads 4))))
-                   :server-options {:undertow/enable-http2 true}
-                   #_#_:worker-options {:xnio/worker-io-threads 2}})
+  (-> {:ports {8080 {}}
+       :handler (-> (handler/virtual-host {:hosts {"localhost" {:handler (test-ring-handler-fn "localhost")}
+                                                   "127.0.0.1" {:handler (test-ring-handler-fn "127.0.0.1")}}})
+                    (handler/session-attachment {})
+                    (handler/path-prefix {:paths {"static" {:handler (handler/resource-handler {:prefix "public/static"})}}})
+                    (handler/virtual-host {:hosts {"webapi.localtest.me" {:handler (test-ring-handler-fn "webapi")}}}))}
+      (undertow/start))
+  #_(undertow/start {:ports {8080 {:host "localhost"}}
+                     :handler (-> (test-ring-handler-fn "2")
+                                  (handler/session-attachment {})
+                                  #_(handler/resource-handler {})
+                                  (RequestDumpingHandler.))
+                     :io-threads 6
+                     #_#_:handler {:type :undertow/resource-handler
+                                   :next-handler {:type :undertow/name-virtual-host-handler
+                                                  :hosts {"localhost" (test-ring-handler-fn "1")
+                                                          "127.0.0.1" (test-ring-handler-fn "2")}}}
+                     :wrap-builder-fn (fn [builder-fn]
+                                        (fn [builder options]
+                                          (-> ^Undertow$Builder (builder-fn builder options)
+                                              (.setIoThreads 4))))
+                     :server-options {:undertow/enable-http2 true}
+                     #_#_:worker-options {:xnio/worker-io-threads 2}})
   #_(doto (-> (Undertow/builder)
               #_(.addHttpListener 8080 nil (-> (NameVirtualHostHandler.)
-                                               (.addHost "localhost" (-> (ring-handler-adapter test-ring-handler)
+                                               (.addHost "localhost" (-> (ring-handler-adapter (test-ring-handler-fn "localhost"))
                                                                          (SetHeaderHandler. "Content-Type" "text/plain")))
                                                (.addHost "127.0.0.1" (-> (reify HttpHandler (handleRequest [_ exchange]
                                                                                               (doto exchange
