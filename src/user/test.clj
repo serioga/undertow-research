@@ -30,11 +30,13 @@
 (defn start-test-server
   []
   (-> {:ports {8080 {}}
-       :handler (-> (handler/virtual-host {:hosts {"localhost" {:handler (test-ring-handler-fn "localhost")}
+       :handler (-> (test-ring-handler-fn "default")
+                    (handler/virtual-host {:hosts {"localhost" {:handler (test-ring-handler-fn "localhost")}
                                                    "127.0.0.1" {:handler (test-ring-handler-fn "127.0.0.1")}}})
                     (handler/session-attachment {})
                     (handler/path-prefix {:paths {"static" {:handler (handler/resource-handler {:prefix "public/static"})}}})
-                    (handler/virtual-host {:hosts {"webapi.localtest.me" {:handler (test-ring-handler-fn "webapi")}}}))
+                    (handler/virtual-host {:hosts {"webapi.localtest.me" {:handler (test-ring-handler-fn "webapi")}}})
+                    (handler/proxy-peer-address))
        :instance-data {:source `start-test-server}}
       (server/start))
   #_(server/start {:ports {8080 {:host "localhost"}}

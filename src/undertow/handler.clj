@@ -2,7 +2,7 @@
   (:require [undertow.adapter :as adapter])
   (:import (clojure.lang Fn IPersistentMap MultiFn)
            (io.undertow.server HttpHandler)
-           (io.undertow.server.handlers NameVirtualHostHandler PathHandler)
+           (io.undertow.server.handlers NameVirtualHostHandler PathHandler ProxyPeerAddressHandler)
            (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler ResourceManager)
            (io.undertow.server.session InMemorySessionManager SecureRandomSessionIdGenerator SessionAttachmentHandler SessionConfig SessionCookieConfig SessionManager)))
 
@@ -139,5 +139,17 @@
   (SessionAttachmentHandler. (as-http-handler next-handler)
                              (as-session-manager session-manager)
                              (as-session-config session-config)))
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defn proxy-peer-address
+  "Handler that sets the peer address to the value of the X-Forwarded-For
+  header.
+
+  This should only be used behind a proxy that always sets this header,
+  otherwise it is possible for an attacker to forge their peer address."
+  ^ProxyPeerAddressHandler
+  [next-handler]
+  (ProxyPeerAddressHandler. next-handler))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
