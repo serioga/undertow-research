@@ -3,6 +3,7 @@
   (:import (clojure.lang Fn IPersistentMap MultiFn)
            (io.undertow.server HttpHandler)
            (io.undertow.server.handlers NameVirtualHostHandler PathHandler ProxyPeerAddressHandler)
+           (io.undertow.server.handlers.error SimpleErrorPageHandler)
            (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler ResourceManager)
            (io.undertow.server.session InMemorySessionManager SecureRandomSessionIdGenerator SessionAttachmentHandler SessionConfig SessionCookieConfig SessionManager)))
 
@@ -151,5 +152,13 @@
   ^ProxyPeerAddressHandler
   [next-handler]
   (ProxyPeerAddressHandler. next-handler))
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defn simple-error-page
+  "Handler that generates an extremely simple no frills error page."
+  ^SimpleErrorPageHandler
+  [next-handler]
+  (SimpleErrorPageHandler. next-handler))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

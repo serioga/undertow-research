@@ -36,6 +36,7 @@
                     (handler/session-attachment {})
                     (handler/path-prefix {:paths {"static" {:handler (handler/resource-handler {:prefix "public/static"})}}})
                     (handler/virtual-host {:hosts {"webapi.localtest.me" {:handler (test-ring-handler-fn "webapi")}}})
+                    (handler/simple-error-page)
                     (handler/proxy-peer-address))
        :instance-data {:source `start-test-server}}
       (server/start))
