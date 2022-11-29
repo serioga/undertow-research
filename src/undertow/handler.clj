@@ -2,7 +2,7 @@
   (:require [undertow.adapter :as adapter])
   (:import (clojure.lang Fn IPersistentMap MultiFn)
            (io.undertow.server HttpHandler)
-           (io.undertow.server.handlers GracefulShutdownHandler NameVirtualHostHandler PathHandler ProxyPeerAddressHandler)
+           (io.undertow.server.handlers GracefulShutdownHandler NameVirtualHostHandler PathHandler ProxyPeerAddressHandler RequestDumpingHandler)
            (io.undertow.server.handlers.error SimpleErrorPageHandler)
            (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler ResourceManager)
            (io.undertow.server.session InMemorySessionManager SecureRandomSessionIdGenerator SessionAttachmentHandler SessionConfig SessionCookieConfig SessionManager)))
@@ -159,12 +159,20 @@
   "Handler that generates an extremely simple no frills error page."
   ^SimpleErrorPageHandler
   [next-handler]
-  (SimpleErrorPageHandler. next-handler))
+  (SimpleErrorPageHandler. (as-http-handler next-handler)))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn graceful-shutdown
+  ^HttpHandler
   [next-handler]
-  (GracefulShutdownHandler. next-handler))
+  (GracefulShutdownHandler. (as-http-handler next-handler)))
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defn request-dump
+  ^HttpHandler
+  [next-handler]
+  (RequestDumpingHandler. (as-http-handler next-handler)))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

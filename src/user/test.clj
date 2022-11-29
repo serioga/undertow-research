@@ -31,7 +31,8 @@
   []
   (-> {:ports {8080 {}}
        :handler (-> (test-ring-handler-fn "default")
-                    (handler/virtual-host {:hosts {"localhost" {:handler (test-ring-handler-fn "localhost")}
+                    (handler/virtual-host {:hosts {"localhost" {:handler (-> (test-ring-handler-fn "localhost")
+                                                                             (handler/request-dump))}
                                                    "127.0.0.1" {:handler (test-ring-handler-fn "127.0.0.1")}}})
                     (handler/session-attachment {})
                     (handler/path-prefix {:paths {"static" {:handler (handler/resource-handler {:prefix "public/static"})}}})
