@@ -14,19 +14,18 @@
 (def handler-type (some-fn :type type))
 
 #_(def as-http-handler nil)
-;; TODO: Decide about order arguments
 (defmulti as-http-handler {:tag HttpHandler :arglists '([handler] [next-handler, handler])}
           (fn
             ([handler] (handler-type handler))
             ([_ handler] (handler-type handler))))
 
 ;; TODO: Add 2-arity to HttpHandler coercion?
-(.addMethod ^MultiFn as-http-handler HttpHandler
-            (fn
-              ([handler] handler)
-              ([handler, next-handler]
-               (throw (ex-info (str "Cannot chain handlers " [handler '-> next-handler]) {})))))
+(defmethod as-http-handler HttpHandler
+  ([handler] handler)
+  ([handler, next-handler]
+   (throw (ex-info (str "Cannot chain handlers " [handler '-> next-handler]) {}))))
 
+;; TODO: Handle 2-arity case
 (defmethod as-http-handler Fn
   [handler-fn]
   (adapter/*handler-fn-adapter* handler-fn))
