@@ -30,34 +30,45 @@
 (defn start-test-server
   []
   (-> {:ports {8080 {}}
-       :handler (-> (test-ring-handler-fn "default")
-                    (handler/virtual-host {:hosts {"localhost" {:handler (-> (test-ring-handler-fn "localhost")
-                                                                             (handler/request-dump))}
-                                                   "127.0.0.1" {:handler (test-ring-handler-fn "127.0.0.1")}}})
-                    (handler/session-attachment {})
-                    (handler/path-prefix {:paths {"static" {:handler (handler/resource-handler {:prefix "public/static"})}}})
-                    (handler/virtual-host {:hosts {"webapi.localtest.me" {:handler (test-ring-handler-fn "webapi")}}})
-                    (handler/simple-error-page)
-                    (handler/proxy-peer-address)
-                    (handler/graceful-shutdown))
+       :handler [{:type handler/graceful-shutdown}
+                 {:type handler/proxy-peer-address}
+                 {:type handler/simple-error-page}
+                 {:type handler/virtual-host :hosts {"webapi.localtest.me" (test-ring-handler-fn "webapi")}}
+                 {:type handler/path-prefix :prefixes {"static" [{:type handler/request-dump}
+                                                                 {:type handler/resource-handler :prefix "public/static"}]}}
+                 {:type handler/session-attachment}
+                 {:type handler/virtual-host :hosts {"localhost" [{:type handler/request-dump}
+                                                                  (test-ring-handler-fn "localhost")]
+                                                     "127.0.0.1" (test-ring-handler-fn "127.0.0.1")}}
+                 (test-ring-handler-fn "localhost")]
+       #_#_:handler (-> (test-ring-handler-fn "default")
+                        (handler/virtual-host {:hosts {"localhost" (-> (test-ring-handler-fn "localhost")
+                                                                       (handler/request-dump))
+                                                       "127.0.0.1" (test-ring-handler-fn "127.0.0.1")}})
+                        (handler/session-attachment {})
+                        (handler/path-prefix {:prefixes {"static" (handler/resource-handler {:prefix "public/static"})}})
+                        (handler/virtual-host {:hosts {"webapi.localtest.me" (test-ring-handler-fn "webapi")}})
+                        (handler/simple-error-page)
+                        (handler/proxy-peer-address)
+                        (handler/graceful-shutdown))
        :instance-data {:source `start-test-server}}
       (server/start))
   #_(server/start {:ports {8080 {:host "localhost"}}
-                     :handler (-> (test-ring-handler-fn "2")
-                                  (handler/session-attachment {})
-                                  #_(handler/resource-handler {})
-                                  (RequestDumpingHandler.))
-                     :io-threads 6
-                     #_#_:handler {:type :undertow/resource-handler
-                                   :next-handler {:type :undertow/name-virtual-host-handler
-                                                  :hosts {"localhost" (test-ring-handler-fn "1")
-                                                          "127.0.0.1" (test-ring-handler-fn "2")}}}
-                     :wrap-builder-fn (fn [builder-fn]
-                                        (fn [builder options]
-                                          (-> ^Undertow$Builder (builder-fn builder options)
-                                              (.setIoThreads 4))))
-                     :server-options {:undertow/enable-http2 true}
-                     #_#_:worker-options {:xnio/worker-io-threads 2}})
+                   :handler (-> (test-ring-handler-fn "2")
+                                (handler/session-attachment {})
+                                #_(handler/resource-handler {})
+                                (RequestDumpingHandler.))
+                   :io-threads 6
+                   #_#_:handler {:type :undertow/resource-handler
+                                 :next-handler {:type :undertow/name-virtual-host-handler
+                                                :hosts {"localhost" (test-ring-handler-fn "1")
+                                                        "127.0.0.1" (test-ring-handler-fn "2")}}}
+                   :wrap-builder-fn (fn [builder-fn]
+                                      (fn [builder options]
+                                        (-> ^Undertow$Builder (builder-fn builder options)
+                                            (.setIoThreads 4))))
+                   :server-options {:undertow/enable-http2 true}
+                   #_#_:worker-options {:xnio/worker-io-threads 2}})
   #_(doto (-> (Undertow/builder)
               #_(.addHttpListener 8080 nil (-> (NameVirtualHostHandler.)
                                                (.addHost "localhost" (-> (ring-handler-adapter (test-ring-handler-fn "localhost"))
