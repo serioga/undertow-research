@@ -21,6 +21,12 @@
   (as-handler ^HttpHandler [obj])
   (as-wrapper [obj]))
 
+(defn wrap-handler
+  [handler with]
+  (reduce (fn [handler wrapper] ((as-wrapper wrapper) (as-handler handler)))
+          (as-handler handler)
+          (reverse with)))
+
 (extend-protocol HandlerImpl
   HttpHandler
   (as-handler [handler] handler)
@@ -33,11 +39,10 @@
   Sequential
   (as-handler [xs] (when-let [xs (some-> xs seq reverse)]
                      ;; TODO: Raise exception for empty seq?
-                     (reduce (fn [handler wrapper] ((as-wrapper wrapper) (as-handler handler)))
-                             (as-handler (first xs)) (rest xs)))))
+                     (wrap-handler (first xs) (rest xs)))))
 
 (defn declare-type-impl
-  [t {as-handler-fn :as-handler, as-wrapper-fn :as-wrapper, alias :alias}]
+  [t {as-handler-fn :as-handler, as-wrapper-fn :as-wrapper, alias :type-alias}]
   (assert (or (fn? as-handler-fn) (fn? as-wrapper-fn)))
   (letfn [(impl-method [obj]
             (reify HandlerImpl
@@ -73,7 +78,7 @@
        (reduce add-prefix-path handler prefixes)
        (reduce add-exact-path handler exacts)))))
 
-(declare-type-impl path-prefix {:alias ::path-prefix
+(declare-type-impl path-prefix {:type-alias ::path-prefix
                                 :as-handler path-prefix
                                 :as-wrapper (fn [opts] (fn [handler] (path-prefix handler opts)))})
 
@@ -91,7 +96,7 @@
    (-> (virtual-host opts)
        (.setDefaultHandler (as-handler default-handler)))))
 
-(declare-type-impl virtual-host {:alias ::virtual-host
+(declare-type-impl virtual-host {:type-alias ::virtual-host
                                  :as-handler virtual-host
                                  :as-wrapper (fn [opts] (fn [handler] (virtual-host handler opts)))})
 
@@ -116,7 +121,7 @@
    [next-handler opts]
    (ResourceHandler. (resource-manager opts) (as-handler next-handler))))
 
-(declare-type-impl resource-handler {:alias ::resource-handler
+(declare-type-impl resource-handler {:type-alias ::resource-handler
                                      :as-handler resource-handler
                                      :as-wrapper (fn [opts] (fn [handler] (resource-handler handler opts)))})
 
@@ -165,7 +170,7 @@
                              (as-session-manager session-manager)
                              (as-session-config session-config)))
 
-(declare-type-impl session-attachment {:alias ::session-attachment
+(declare-type-impl session-attachment {:type-alias ::session-attachment
                                        :as-wrapper (fn [opts] (fn [handler] (session-attachment handler opts)))})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
@@ -180,7 +185,7 @@
   [next-handler]
   (ProxyPeerAddressHandler. next-handler))
 
-(declare-type-impl proxy-peer-address {:alias ::proxy-peer-address
+(declare-type-impl proxy-peer-address {:type-alias ::proxy-peer-address
                                        :as-wrapper (constantly proxy-peer-address)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
@@ -191,7 +196,7 @@
   [next-handler]
   (SimpleErrorPageHandler. (as-handler next-handler)))
 
-(declare-type-impl simple-error-page {:alias ::simple-error-page
+(declare-type-impl simple-error-page {:type-alias ::simple-error-page
                                       :as-wrapper (constantly simple-error-page)})
 
 (comment
@@ -208,7 +213,7 @@
   [next-handler]
   (GracefulShutdownHandler. (as-handler next-handler)))
 
-(declare-type-impl graceful-shutdown {:alias ::graceful-shutdown
+(declare-type-impl graceful-shutdown {:type-alias ::graceful-shutdown
                                       :as-wrapper (constantly graceful-shutdown)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
@@ -220,7 +225,7 @@
 
 (fn [next-handler _] (request-dump next-handler))
 
-(declare-type-impl request-dump {:alias ::request-dump
+(declare-type-impl request-dump {:type-alias ::request-dump
                                  :as-wrapper (constantly request-dump)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
