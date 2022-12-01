@@ -13,45 +13,45 @@
 
 (def handler-type (some-fn :type type))
 
-#_(def as-http-handler nil)
-(defmulti as-http-handler {:tag HttpHandler :arglists '([handler] [next-handler, handler])}
-          (fn
-            ([handler] (handler-type handler))
-            ([_ handler] (handler-type handler))))
+#_(do (def as-handler-type nil) (def as-wrapper-type nil))
 
-;; TODO: Add 2-arity to HttpHandler coercion?
-(defmethod as-http-handler HttpHandler
-  ([handler] handler)
-  ([handler, next-handler]
-   (throw (ex-info (str "Cannot chain handlers " [handler '-> next-handler]) {}))))
+(defmulti handler-impl handler-type)
 
-;; TODO: Handle 2-arity case
-(defmethod as-http-handler Fn
-  [handler-fn]
-  (adapter/*handler-fn-adapter* handler-fn))
+(defprotocol HandlerImpl
+  (as-handler ^HttpHandler [obj])
+  (as-wrapper [obj]))
 
-(defmethod as-http-handler Sequential
-  [handlers]
-  (when-let [xs (some-> handlers seq reverse)]
-    (reduce as-http-handler (as-http-handler (first xs)) (rest xs))))
+(extend-protocol HandlerImpl
+  HttpHandler
+  (as-handler [handler] handler)
+  Fn
+  (as-handler [handler-fn] (adapter/*handler-fn-adapter* handler-fn))
+  (as-wrapper [wrapper-fn] wrapper-fn)
+  IPersistentMap
+  (as-handler [m] (as-handler (handler-impl m)))
+  (as-wrapper [m] (as-wrapper (handler-impl m)))
+  Sequential
+  (as-handler [xs] (when-let [xs (some-> xs seq reverse)]
+                     ;; TODO: Raise exception for empty seq?
+                     (reduce (fn [handler wrapper] ((as-wrapper wrapper) (as-handler handler)))
+                             (as-handler (first xs)) (rest xs)))))
 
-(defmulti as-register-method (fn [k _] k))
-
-(defmethod as-register-method :default [_ handler-fn] handler-fn)
-
-(defmethod as-register-method ::not-configurable
-  [_ handler-fn]
-  (fn not-configurable-method
-    ([_] (handler-fn))
-    ([next-handler _]
-     (handler-fn next-handler))))
-
-(defn register-handler-type
-  [handler-fn & {:keys [alias, as]}]
-  (assert (fn? handler-fn))
-  (let [method (as-register-method as handler-fn)]
-    (doseq [dispatch-val (cond-> [handler-fn] alias (conj alias))]
-      (.addMethod ^MultiFn as-http-handler dispatch-val method))))
+(defn declare-type-impl
+  [t {as-handler-fn :as-handler, as-wrapper-fn :as-wrapper, alias :alias}]
+  (assert (or (fn? as-handler-fn) (fn? as-wrapper-fn)))
+  (letfn [(impl-method [obj]
+            (reify HandlerImpl
+              (as-handler [_]
+                (if as-handler-fn
+                  (as-handler-fn obj)
+                  (throw (ex-info (str "Cannot be user as HttpHandler: " obj) {}))))
+              (as-wrapper [_]
+                (if as-wrapper-fn
+                  (as-wrapper-fn obj)
+                  (throw (ex-info (str "Cannot be user as handler wrapper: " obj) {}))))))]
+    (.addMethod ^MultiFn handler-impl t impl-method)
+    (when alias
+      (.addMethod ^MultiFn handler-impl alias impl-method))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -61,19 +61,21 @@
   (^PathHandler
    [default-handler {:keys [prefixes exacts cache-size]}]
    (letfn [(add-prefix-path [this [path handler]]
-             (.addPrefixPath ^PathHandler this path (as-http-handler handler)))
+             (.addPrefixPath ^PathHandler this path (as-handler handler)))
            (add-exact-path [this [path handler]]
-             (.addExactPath ^PathHandler this path (as-http-handler handler)))]
+             (.addExactPath ^PathHandler this path (as-handler handler)))]
      (as->
-       (cond (and default-handler cache-size) (PathHandler. (as-http-handler default-handler) cache-size)
-             default-handler,,,,,,,,,,,,,,,,, (PathHandler. (as-http-handler default-handler))
+       (cond (and default-handler cache-size) (PathHandler. (as-handler default-handler) cache-size)
+             default-handler,,,,,,,,,,,,,,,,, (PathHandler. (as-handler default-handler))
              cache-size,,,,,,,,,,,,,,,,,,,,,, (PathHandler. (int cache-size))
              :else,,,,,,,,,,,,,,,,,,,,,,,,,,, (PathHandler.))
        handler
        (reduce add-prefix-path handler prefixes)
        (reduce add-exact-path handler exacts)))))
 
-(register-handler-type path-prefix :alias ::path-prefix)
+(declare-type-impl path-prefix {:alias ::path-prefix
+                                :as-handler path-prefix
+                                :as-wrapper (fn [opts] (fn [handler] (path-prefix handler opts)))})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -81,19 +83,21 @@
   (^NameVirtualHostHandler
    [{:keys [hosts]}]
    (reduce (fn [this [host handler]]
-             (.addHost ^NameVirtualHostHandler this host (as-http-handler handler)))
+             (.addHost ^NameVirtualHostHandler this host (as-handler handler)))
            (NameVirtualHostHandler.)
            hosts))
   (^NameVirtualHostHandler
    [default-handler opts]
    (-> (virtual-host opts)
-       (.setDefaultHandler (as-http-handler default-handler)))))
+       (.setDefaultHandler (as-handler default-handler)))))
 
-(register-handler-type virtual-host :alias ::virtual-host)
+(declare-type-impl virtual-host {:alias ::virtual-host
+                                 :as-handler virtual-host
+                                 :as-wrapper (fn [opts] (fn [handler] (virtual-host handler opts)))})
 
 (comment
-  (as-http-handler {:type virtual-host :hosts {"localhost" identity}})
-  (as-http-handler {:type ::virtual-host :hosts {"localhost" identity}})
+  (as-handler {:type virtual-host :hosts {"localhost" identity}})
+  (as-handler {:type ::virtual-host :hosts {"localhost" identity}})
   )
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
@@ -110,9 +114,11 @@
    (ResourceHandler. (resource-manager opts)))
   (^ResourceHandler
    [next-handler opts]
-   (ResourceHandler. (resource-manager opts) (as-http-handler next-handler))))
+   (ResourceHandler. (resource-manager opts) (as-handler next-handler))))
 
-(register-handler-type resource-handler :alias ::resource-handler)
+(declare-type-impl resource-handler {:alias ::resource-handler
+                                     :as-handler resource-handler
+                                     :as-wrapper (fn [opts] (fn [handler] (resource-handler handler opts)))})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -155,11 +161,12 @@
   ^SessionAttachmentHandler
   [next-handler {:keys [session-manager, session-config]
                  :or {session-manager {} session-config {}}}]
-  (SessionAttachmentHandler. (as-http-handler next-handler)
+  (SessionAttachmentHandler. (as-handler next-handler)
                              (as-session-manager session-manager)
                              (as-session-config session-config)))
 
-(register-handler-type session-attachment :alias ::session-attachment)
+(declare-type-impl session-attachment {:alias ::session-attachment
+                                       :as-wrapper (fn [opts] (fn [handler] (session-attachment handler opts)))})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -173,7 +180,8 @@
   [next-handler]
   (ProxyPeerAddressHandler. next-handler))
 
-(register-handler-type proxy-peer-address :alias ::proxy-peer-address :as ::not-configurable)
+(declare-type-impl proxy-peer-address {:alias ::proxy-peer-address
+                                       :as-wrapper (constantly proxy-peer-address)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -181,15 +189,16 @@
   "Handler that generates an extremely simple no frills error page."
   ^SimpleErrorPageHandler
   [next-handler]
-  (SimpleErrorPageHandler. (as-http-handler next-handler)))
+  (SimpleErrorPageHandler. (as-handler next-handler)))
 
-(register-handler-type simple-error-page :alias ::simple-error-page :as ::not-configurable)
+(declare-type-impl simple-error-page {:alias ::simple-error-page
+                                      :as-wrapper (constantly simple-error-page)})
 
 (comment
-  (as-http-handler {:type simple-error-page})
-  (as-http-handler {:type ::simple-error-page})
-  (as-http-handler {:type simple-error-page} identity)
-  (as-http-handler {:type ::simple-error-page} identity)
+  (as-handler {:type simple-error-page})
+  (as-handler {:type ::simple-error-page})
+  ((as-wrapper {:type simple-error-page}) identity)
+  ((as-wrapper {:type ::simple-error-page}) identity)
   )
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
@@ -197,19 +206,21 @@
 (defn graceful-shutdown
   ^HttpHandler
   [next-handler]
-  (GracefulShutdownHandler. (as-http-handler next-handler)))
+  (GracefulShutdownHandler. (as-handler next-handler)))
 
-(register-handler-type graceful-shutdown :alias ::graceful-shutdown :as ::not-configurable)
+(declare-type-impl graceful-shutdown {:alias ::graceful-shutdown
+                                      :as-wrapper (constantly graceful-shutdown)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn request-dump
   ^HttpHandler
   [next-handler]
-  (RequestDumpingHandler. (as-http-handler next-handler)))
+  (RequestDumpingHandler. (as-handler next-handler)))
 
 (fn [next-handler _] (request-dump next-handler))
 
-(register-handler-type request-dump :alias ::request-dump :as ::not-configurable)
+(declare-type-impl request-dump {:alias ::request-dump
+                                 :as-wrapper (constantly request-dump)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

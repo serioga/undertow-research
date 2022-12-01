@@ -1,10 +1,16 @@
-(ns undertow.adapter)
+(ns undertow.adapter
+  (:import (io.undertow.server HttpHandler)))
 
 (set! *warn-on-reflection* true)
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(def ^:dynamic *handler-fn-adapter* identity)
+(defn default-handler-fn-adapter
+  [f]
+  (reify HttpHandler
+    (handleRequest [_ exchange] (f exchange))))
+
+(def ^:dynamic *handler-fn-adapter* default-handler-fn-adapter)
 
 (defn- validate-handler-fn-adapter
   [f]

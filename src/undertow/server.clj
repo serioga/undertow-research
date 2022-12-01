@@ -21,7 +21,7 @@
       (apply-map builder/set-socket-option socket-options)
       (apply-map builder/set-worker-option worker-options)
       (cond->
-        handler,,,,,,, (.setHandler (handler/as-http-handler handler))
+        handler,,,,,,, (.setHandler (handler/as-handler handler))
         buffer-size,,, (.setBufferSize buffer-size)
         io-threads,,,, (.setIoThreads io-threads)
         worker-threads (.setWorkerThreads worker-threads)
