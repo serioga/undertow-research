@@ -41,7 +41,7 @@
                      ;; TODO: Raise exception for empty seq?
                      (wrap-handler (first xs) (rest xs)))))
 
-(defn declare-type-impl
+(defn declare-type
   [t {as-handler-fn :as-handler, as-wrapper-fn :as-wrapper, alias :type-alias}]
   (assert (or (fn? as-handler-fn) (fn? as-wrapper-fn)))
   (letfn [(impl-method [obj]
@@ -57,6 +57,14 @@
     (.addMethod ^MultiFn handler-impl t impl-method)
     (when alias
       (.addMethod ^MultiFn handler-impl alias impl-method))))
+
+(defn as-wrapper-2-arity
+  [f]
+  (fn [opts] (fn [handler] (f handler opts))))
+
+(defn as-wrapper-1-arity
+  [f]
+  (fn [_] f))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -78,9 +86,9 @@
        (reduce add-prefix-path handler prefixes)
        (reduce add-exact-path handler exacts)))))
 
-(declare-type-impl path-prefix {:type-alias ::path-prefix
-                                :as-handler path-prefix
-                                :as-wrapper (fn [opts] (fn [handler] (path-prefix handler opts)))})
+(declare-type path-prefix {:type-alias ::path-prefix
+                           :as-handler path-prefix
+                           :as-wrapper (as-wrapper-2-arity path-prefix)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -96,9 +104,9 @@
    (-> (virtual-host opts)
        (.setDefaultHandler (as-handler default-handler)))))
 
-(declare-type-impl virtual-host {:type-alias ::virtual-host
-                                 :as-handler virtual-host
-                                 :as-wrapper (fn [opts] (fn [handler] (virtual-host handler opts)))})
+(declare-type virtual-host {:type-alias ::virtual-host
+                            :as-handler virtual-host
+                            :as-wrapper (as-wrapper-2-arity virtual-host)})
 
 (comment
   (as-handler {:type virtual-host :hosts {"localhost" identity}})
@@ -121,9 +129,9 @@
    [next-handler opts]
    (ResourceHandler. (resource-manager opts) (as-handler next-handler))))
 
-(declare-type-impl resource-handler {:type-alias ::resource-handler
-                                     :as-handler resource-handler
-                                     :as-wrapper (fn [opts] (fn [handler] (resource-handler handler opts)))})
+(declare-type resource-handler {:type-alias ::resource-handler
+                                :as-handler resource-handler
+                                :as-wrapper (as-wrapper-2-arity resource-handler)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -170,8 +178,8 @@
                              (as-session-manager session-manager)
                              (as-session-config session-config)))
 
-(declare-type-impl session-attachment {:type-alias ::session-attachment
-                                       :as-wrapper (fn [opts] (fn [handler] (session-attachment handler opts)))})
+(declare-type session-attachment {:type-alias ::session-attachment
+                                  :as-wrapper (as-wrapper-2-arity session-attachment)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -185,8 +193,8 @@
   [next-handler]
   (ProxyPeerAddressHandler. next-handler))
 
-(declare-type-impl proxy-peer-address {:type-alias ::proxy-peer-address
-                                       :as-wrapper (constantly proxy-peer-address)})
+(declare-type proxy-peer-address {:type-alias ::proxy-peer-address
+                                  :as-wrapper (as-wrapper-1-arity proxy-peer-address)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -196,8 +204,8 @@
   [next-handler]
   (SimpleErrorPageHandler. (as-handler next-handler)))
 
-(declare-type-impl simple-error-page {:type-alias ::simple-error-page
-                                      :as-wrapper (constantly simple-error-page)})
+(declare-type simple-error-page {:type-alias ::simple-error-page
+                                 :as-wrapper (as-wrapper-1-arity simple-error-page)})
 
 (comment
   (as-handler {:type simple-error-page})
@@ -213,8 +221,8 @@
   [next-handler]
   (GracefulShutdownHandler. (as-handler next-handler)))
 
-(declare-type-impl graceful-shutdown {:type-alias ::graceful-shutdown
-                                      :as-wrapper (constantly graceful-shutdown)})
+(declare-type graceful-shutdown {:type-alias ::graceful-shutdown
+                                 :as-wrapper (as-wrapper-1-arity graceful-shutdown)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -225,7 +233,7 @@
 
 (fn [next-handler _] (request-dump next-handler))
 
-(declare-type-impl request-dump {:type-alias ::request-dump
-                                 :as-wrapper (constantly request-dump)})
+(declare-type request-dump {:type-alias ::request-dump
+                            :as-wrapper (as-wrapper-1-arity request-dump)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
