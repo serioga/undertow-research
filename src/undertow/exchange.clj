@@ -6,6 +6,13 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
+;; TODO: Inline function in-io-thread?
+(defn in-io-thread?
+  [exchange]
+  (.isInIoThread ^HttpServerExchange exchange))
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
 (defn get-session-manager
   ^SessionManager
   [exchange]

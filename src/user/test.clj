@@ -5,7 +5,7 @@
             [undertow.server :as server])
   (:import (io.undertow Undertow Undertow$Builder)
            (io.undertow.server HttpHandler)
-           (io.undertow.server.handlers NameVirtualHostHandler RequestDumpingHandler)
+           (io.undertow.server.handlers BlockingHandler NameVirtualHostHandler RequestDumpingHandler)
            (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler)
            (io.undertow.util Headers)))
 
@@ -18,14 +18,28 @@
 (defn test-ring-handler-fn
   ([] (test-ring-handler-fn "Hello World"))
   ([greet]
-   (fn [req]
-     (cond-> {:body (str greet "\n\n" req)
-              #_#_:headers {"x-a" "1"
-                            "x-b" "2"
-                            "x-c" [3 4]
-                            #_#_"content-type" "xxx"}
-              #_#_:status 200}
-       (:session req) (assoc-in [:session :test] "Test session value")))))
+   (fn
+     ([req]
+      #_(throw (ex-info "Oops" {}))
+      (cond-> {:body (str greet " " (.getName (Thread/currentThread)) "\n\n" req)
+               #_#_:headers {"x-a" "1"
+                             "x-b" "2"
+                             "x-c" [3 4]
+                             #_#_"content-type" "xxx"}
+               #_#_:status 200}
+        (:session req) (assoc-in [:session :test] "Test session value")))
+     ([req respond raise]
+      (try
+        #_(throw (ex-info "Oops" {}))
+        (respond (cond-> {:body (str greet " " (.getName (Thread/currentThread)) "\n\n" req)
+                          #_#_:headers {"x-a" "1"
+                                        "x-b" "2"
+                                        "x-c" [3 4]
+                                        #_#_"content-type" "xxx"}
+                          #_#_:status 200}
+                   (:session req) (assoc-in [:session :test] "Test session value")))
+        (catch Throwable e
+          (raise e)))))))
 
 (defn start-test-server
   []
@@ -33,11 +47,14 @@
        :handler [{:type handler/graceful-shutdown}
                  {:type handler/proxy-peer-address}
                  {:type handler/simple-error-page}
-                 {:type handler/virtual-host :hosts {"webapi.localtest.me" (test-ring-handler-fn "webapi")}}
+                 {:type handler/virtual-host :hosts {"webapi.localtest.me" [{:type handler/simple-error-page}
+                                                                            (test-ring-handler-fn "webapi")]}}
                  {:type handler/path-prefix :prefixes {"static" [{:type handler/request-dump}
                                                                  {:type handler/resource-handler :prefix "public/static"}]}}
                  {:type handler/session-attachment}
-                 {:type handler/virtual-host :hosts {"localhost" [{:type handler/request-dump}
+                 {:type handler/virtual-host :hosts {"localhost" [{:type handler/simple-error-page}
+                                                                  {:type handler/request-dump}
+                                                                  {:type handler/blocking}
                                                                   (test-ring-handler-fn "localhost")]
                                                      "127.0.0.1" (test-ring-handler-fn "127.0.0.1")}}
                  (test-ring-handler-fn "localhost")]

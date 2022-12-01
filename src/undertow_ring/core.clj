@@ -211,20 +211,35 @@
           (.getAttributeNames))
   )
 
+(defn handle-response-fn
+  [^HttpServerExchange exchange]
+  (fn [response]
+    (some->> (:headers response) (set-response-headers exchange))
+    ;; TODO: Add function for set-status-code
+    (some->> (:status response) (.setStatusCode exchange))
+    (when-let [[_ session] (find response :session)]
+      (set-session-response! exchange session))
+    ;; TODO: Handle other body types
+    ;; - ISeq Each element of the seq is sent to the client as a string.
+    ;; - File The contents of the referenced file is sent to the client.
+    ;; - InputStream The contents of the stream is sent to the client. When the stream is exhausted, the stream is closed.
+    (some->> ^String (:body response) (.send (.getResponseSender exchange)))))
+
+;; TODO: Async exception handler
+(defn handle-raise
+  [e]
+  (throw e))
+
 (defn handler-fn-adapter
-  ^HttpHandler [f]
-  (reify HttpHandler (handleRequest [_ exchange]
-                       ;; TODO: Remove inline def
-                       (def -exchange exchange)
-                       (let [resp (f (exchange->request exchange))]
-                         (some->> (:headers resp) (set-response-headers exchange))
-                         (some->> (:status resp) (.setStatusCode exchange))
-                         (when-let [[_ session] (find resp :session)]
-                           (set-session-response! exchange session))
-                         ;; TODO: Handle other body types
-                         ;; - ISeq Each element of the seq is sent to the client as a string.
-                         ;; - File The contents of the referenced file is sent to the client.
-                         ;; - InputStream The contents of the stream is sent to the client. When the stream is exhausted, the stream is closed.
-                         (some->> ^String (:body resp) (.send (.getResponseSender exchange)))))))
+  [handler-fn]
+  (reify HttpHandler
+    (handleRequest [_ exchange]
+      ;; TODO: Remove inline def
+      (def -exchange exchange)
+      (let [req (exchange->request exchange)
+            handle-response (handle-response-fn exchange)]
+        (if (exchange/in-io-thread? exchange)
+          (handler-fn req handle-response handle-raise)
+          (handle-response (handler-fn req)))))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

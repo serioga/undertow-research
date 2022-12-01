@@ -2,7 +2,7 @@
   (:require [undertow.adapter :as adapter])
   (:import (clojure.lang Fn IPersistentMap MultiFn Sequential)
            (io.undertow.server HttpHandler)
-           (io.undertow.server.handlers GracefulShutdownHandler NameVirtualHostHandler PathHandler ProxyPeerAddressHandler RequestDumpingHandler)
+           (io.undertow.server.handlers BlockingHandler GracefulShutdownHandler NameVirtualHostHandler PathHandler ProxyPeerAddressHandler RequestDumpingHandler)
            (io.undertow.server.handlers.error SimpleErrorPageHandler)
            (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler ResourceManager)
            (io.undertow.server.session InMemorySessionManager SecureRandomSessionIdGenerator SessionAttachmentHandler SessionConfig SessionCookieConfig SessionManager)))
@@ -65,6 +65,17 @@
 (defn as-wrapper-1-arity
   [f]
   (fn [_] f))
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defn blocking
+  "A HttpHandler that initiates a blocking request. If the thread is currently
+  running in the io thread it will be dispatched."
+  [handler]
+  (BlockingHandler. (as-handler handler)))
+
+(declare-type blocking {:type-alias ::blocking
+                        :as-wrapper (as-wrapper-1-arity blocking)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
