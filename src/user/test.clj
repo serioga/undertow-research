@@ -44,7 +44,7 @@
 (defn start-test-server
   []
   (-> {:ports {8080 {}}
-       #_#_:handler [{:type handler/blocking}
+       #_#_:handler [{:type handler/dispatch}
                      {:type handler/path-prefix :prefixes {"static" {:type handler/resource-handler :prefix "public/static"}}}]
        :handler [{:type handler/graceful-shutdown}
                  {:type handler/proxy-peer-address}

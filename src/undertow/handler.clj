@@ -68,26 +68,20 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defn blocking
+(defn dispatch
+  ;; TODO: Update docstring
   "A HttpHandler that initiates a blocking request. If the thread is currently
-  running in the io thread it will be dispatched.
-
-  NOTE: This is modified version of the `BlockingHandler` which fixes “Stream
-  not closed” exception."
+  running in the io thread it will be dispatched."
   [handler]
-  #_(BlockingHandler. (as-handler handler))
   (let [handler (as-handler handler)]
     (reify HttpHandler
       (handleRequest [this exchange]
-        (.startBlocking exchange)
-        ;; TODO: is it good fix for the "Stream not closed" exception?
-        (.getRequestChannel exchange)
         (if (.isInIoThread exchange)
           (.dispatch exchange this)
           (.handleRequest handler exchange))))))
 
-(declare-type blocking {:type-alias ::blocking
-                        :as-wrapper (as-wrapper-1-arity blocking)})
+(declare-type dispatch {:type-alias ::dispatch
+                        :as-wrapper (as-wrapper-1-arity dispatch)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 

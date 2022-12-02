@@ -214,6 +214,6 @@
     (cond->
       (if async (async-http-handler handler)
                 (sync-http-handler handler))
-      (not not-blocking) (handler/blocking))))
+      (not not-blocking) (handler/dispatch))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
