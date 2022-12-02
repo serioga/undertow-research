@@ -5,7 +5,7 @@
             [undertow.server :as server])
   (:import (io.undertow Undertow Undertow$Builder)
            (io.undertow.server HttpHandler)
-           (io.undertow.server.handlers BlockingHandler NameVirtualHostHandler RequestDumpingHandler)
+           (io.undertow.server.handlers NameVirtualHostHandler RequestDumpingHandler)
            (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler)
            (io.undertow.util Headers)))
 
@@ -44,6 +44,8 @@
 (defn start-test-server
   []
   (-> {:ports {8080 {}}
+       #_#_:handler [{:type handler/blocking}
+                     {:type handler/path-prefix :prefixes {"static" {:type handler/resource-handler :prefix "public/static"}}}]
        :handler [{:type handler/graceful-shutdown}
                  {:type handler/proxy-peer-address}
                  {:type handler/simple-error-page}
@@ -118,6 +120,9 @@
 
 (defn stop-server []
   (swap! server! (fn [instance] (some-> instance server/stop))))
+
+#_(defn stop-server []
+    (swap! server! (fn [instance] (some-> ^Undertow instance .stop))))
 
 (defn init-server []
   (stop-server)

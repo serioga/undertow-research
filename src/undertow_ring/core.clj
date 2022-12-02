@@ -6,9 +6,9 @@
             [strojure.zizzmap.core :as zizz]
             [undertow-ring.headers :as headers]
             [undertow-ring.session :as session]
-            [undertow.exchange :as exchange])
+            [undertow.exchange :as exchange]
+            [undertow.handler :as handler])
   (:import (io.undertow.server HttpHandler HttpServerExchange)
-           (io.undertow.server.handlers BlockingHandler)
            (io.undertow.server.session SessionConfig SessionManager)
            (io.undertow.util HeaderMap Headers HttpString)
            (java.util Collection)))
@@ -17,7 +17,7 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(declare ^HttpServerExchange -exchange)
+(declare ^:deprecated ^HttpServerExchange -exchange)
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -224,7 +224,8 @@
   ;; - File The contents of the referenced file is sent to the client.
   ;; - InputStream The contents of the stream is sent to the client. When the stream is exhausted, the stream is closed.
   ;; TODO: End response here?
-  (some->> ^String (:body response) (.send (.getResponseSender exchange))))
+  (some->> ^String (:body response) (.send (.getResponseSender exchange)))
+  nil)
 
 (defn as-async-handler
   [handler]
@@ -262,6 +263,6 @@
     (cond->
       (if async (async-http-handler handler)
                 (sync-http-handler handler))
-      (not not-blocking) (BlockingHandler.))))
+      (not not-blocking) (handler/blocking))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
