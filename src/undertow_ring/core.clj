@@ -1,14 +1,14 @@
 (ns undertow-ring.core
-  (:require [undertow.exchange :as exchange])
   (:require [immutant.web.internal.ring :as immutant.ring]
             [ring.adapter.undertow.headers :as adapter.headers]
             [ring.adapter.undertow.request :as adapter.request]
             [ring.util.response :as ring.response]
             [strojure.zizzmap.core :as zizz]
             [undertow-ring.headers :as headers]
-            [undertow-ring.session :as session])
+            [undertow-ring.session :as session]
+            [undertow.exchange :as exchange])
   (:import (io.undertow.server HttpHandler HttpServerExchange)
-           (io.undertow.server.session Session SessionConfig SessionManager)
+           (io.undertow.server.session SessionConfig SessionManager)
            (io.undertow.util HeaderMap Headers HttpString)
            (java.util Collection)))
 

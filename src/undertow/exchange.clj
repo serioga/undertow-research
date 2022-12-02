@@ -6,8 +6,8 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-;; TODO: Inline function in-io-thread?
 (defn in-io-thread?
+  {:inline (fn [exchange] `(.isInIoThread ~(with-meta exchange {:tag 'HttpServerExchange})))}
   [exchange]
   (.isInIoThread ^HttpServerExchange exchange))
 
