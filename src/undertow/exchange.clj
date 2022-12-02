@@ -14,6 +14,9 @@
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn get-session-manager
+  {:inline (fn [exchange]
+             `^SessionManager (.getAttachment ~(with-meta exchange {:tag 'HttpServerExchange})
+                                              SessionManager/ATTACHMENT_KEY))}
   ^SessionManager
   [exchange]
   (-> ^HttpServerExchange exchange
