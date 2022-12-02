@@ -1,5 +1,6 @@
 (ns undertow.exchange
-  (:import (io.undertow.server HttpServerExchange)
+  (:import (io.undertow.io Sender)
+           (io.undertow.server HttpServerExchange)
            (io.undertow.server.session Session SessionConfig SessionManager)))
 
 (set! *warn-on-reflection* true)
@@ -14,8 +15,7 @@
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn get-session-manager
-  {:inline (fn [exchange]
-             `^SessionManager (.getAttachment ~(with-meta exchange {:tag 'HttpServerExchange})
+  {:inline (fn [exchange] `^SessionManager (.getAttachment ~(with-meta exchange {:tag 'HttpServerExchange})
                                               SessionManager/ATTACHMENT_KEY))}
   ^SessionManager
   [exchange]
@@ -37,5 +37,13 @@
      (let [cfg (get-session-config exchange)]
        (or (-> mgr (.getSession exchange cfg))
            (when create? (-> mgr (.createSession exchange cfg))))))))
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defn response-sender
+  {:inline (fn [exchange] `^Sender (.getResponseSender ~(with-meta exchange {:tag 'HttpServerExchange})))}
+  ^Sender
+  [exchange]
+  (.getResponseSender ^HttpServerExchange exchange))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

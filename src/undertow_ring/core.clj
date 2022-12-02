@@ -5,13 +5,12 @@
             [ring.util.response :as ring.response]
             [strojure.zizzmap.core :as zizz]
             [undertow-ring.headers :as headers]
+            [undertow-ring.response :as response]
             [undertow-ring.session :as session]
             [undertow.exchange :as exchange]
             [undertow.handler :as handler])
   (:import (io.undertow.server HttpHandler HttpServerExchange)
-           (io.undertow.server.session SessionConfig SessionManager)
-           (io.undertow.util HeaderMap Headers HttpString)
-           (java.util Collection)))
+           (io.undertow.util Headers)))
 
 (set! *warn-on-reflection* true)
 
@@ -179,54 +178,6 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defn set-response-headers
-  [exchange headers]
-  (reduce-kv (fn [^HeaderMap hs k v]
-               (cond (sequential? v)
-                     (-> hs (.putAll (HttpString. (str k))
-                                     ^Collection (map str v)))
-                     (some? v)
-                     (-> hs (.put (HttpString. (str k)) (str v)))
-                     :else
-                     (-> hs (.remove (HttpString. (str k))))))
-             (.getResponseHeaders ^HttpServerExchange exchange)
-             headers))
-
-(defn set-session-response!
-  [^HttpServerExchange exchange, values]
-  (let [sess (exchange/get-session exchange values)]
-    ;; TODO: Handle case when session manager is not assigned
-    (when (and values (not sess))
-      (throw (ex-info "Attempt to set session values in undefined session"
-                      {:undertow/exchange exchange})))
-    (if values
-      (doseq [[k v] values]
-        (if (some? v) (-> sess (.setAttribute (name k) v))
-                      (-> sess (.removeAttribute (name k)))))
-      (some-> sess (.invalidate exchange)))))
-
-(comment
-  (.getAttachment -exchange SessionManager/ATTACHMENT_KEY)
-  (.getAttachment -exchange SessionConfig/ATTACHMENT_KEY)
-  (some-> (exchange/get-session -exchange false)
-          (.getAttributeNames))
-  )
-
-(defn handle-response
-  [response, ^HttpServerExchange exchange]
-  (some->> (:headers response) (set-response-headers exchange))
-  ;; TODO: Add function for set-status-code
-  (some->> (:status response) (.setStatusCode exchange))
-  (when-let [[_ session] (find response :session)]
-    (set-session-response! exchange session))
-  ;; TODO: Handle other body types
-  ;; - ISeq Each element of the seq is sent to the client as a string.
-  ;; - File The contents of the referenced file is sent to the client.
-  ;; - InputStream The contents of the stream is sent to the client. When the stream is exhausted, the stream is closed.
-  ;; TODO: End response here?
-  (some->> ^String (:body response) (.send (.getResponseSender exchange)))
-  nil)
-
 (defn as-async-handler
   [handler]
   (vary-meta handler assoc ::async true))
@@ -243,7 +194,7 @@
       (def -exchange exchange)
       (-> (build-request-map exchange)
           (handler)
-          (handle-response exchange)))))
+          (response/handle-response exchange)))))
 
 (defn async-http-handler
   [handler]
@@ -254,7 +205,7 @@
         ;; TODO: Remove inline def
         (def -exchange exchange)
         (handler (build-request-map exchange)
-                 (fn response-callback [response] (handle-response response exchange))
+                 (fn response-callback [response] (response/handle-response response exchange))
                  exception-callback)))))
 
 (defn handler-fn-adapter
