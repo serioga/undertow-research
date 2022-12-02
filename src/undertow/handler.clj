@@ -37,9 +37,9 @@
   (as-handler [m] (as-handler (handler-impl m)))
   (as-wrapper [m] (as-wrapper (handler-impl m)))
   Sequential
-  (as-handler [xs] (when-let [xs (some-> xs seq reverse)]
+  (as-handler [xs] (when-let [xs (seq xs)]
                      ;; TODO: Raise exception for empty seq?
-                     (wrap-handler (first xs) (rest xs)))))
+                     (wrap-handler (last xs) (butlast xs)))))
 
 (defn declare-type
   [t {as-handler-fn :as-handler, as-wrapper-fn :as-wrapper, alias :type-alias}]
