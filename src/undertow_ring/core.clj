@@ -8,6 +8,7 @@
             [undertow-ring.session :as session]
             [undertow.exchange :as exchange])
   (:import (io.undertow.server HttpHandler HttpServerExchange)
+           (io.undertow.server.handlers BlockingHandler)
            (io.undertow.server.session SessionConfig SessionManager)
            (io.undertow.util HeaderMap Headers HttpString)
            (java.util Collection)))
@@ -88,7 +89,7 @@
   (adapter.headers/get-headers (.getRequestHeaders -exchange))
   )
 
-(defn exchange->request
+(defn build-request-map
   [^HttpServerExchange exchange]
   ;; TODO: `path-info` in request (see immutant)
   (let [headers (.getRequestHeaders exchange)
@@ -141,7 +142,7 @@
 
 (comment
   -exchange
-  (exchange->request -exchange)
+  (build-request-map -exchange)
   (exchange->lazy-request -exchange)
   (require 'immutant.web.internal.undertow)
   (immutant.ring/ring-request-map -exchange)
@@ -211,35 +212,56 @@
           (.getAttributeNames))
   )
 
-(defn handle-response-fn
-  [^HttpServerExchange exchange]
-  (fn [response]
-    (some->> (:headers response) (set-response-headers exchange))
-    ;; TODO: Add function for set-status-code
-    (some->> (:status response) (.setStatusCode exchange))
-    (when-let [[_ session] (find response :session)]
-      (set-session-response! exchange session))
-    ;; TODO: Handle other body types
-    ;; - ISeq Each element of the seq is sent to the client as a string.
-    ;; - File The contents of the referenced file is sent to the client.
-    ;; - InputStream The contents of the stream is sent to the client. When the stream is exhausted, the stream is closed.
-    (some->> ^String (:body response) (.send (.getResponseSender exchange)))))
+(defn handle-response
+  [response, ^HttpServerExchange exchange]
+  (some->> (:headers response) (set-response-headers exchange))
+  ;; TODO: Add function for set-status-code
+  (some->> (:status response) (.setStatusCode exchange))
+  (when-let [[_ session] (find response :session)]
+    (set-session-response! exchange session))
+  ;; TODO: Handle other body types
+  ;; - ISeq Each element of the seq is sent to the client as a string.
+  ;; - File The contents of the referenced file is sent to the client.
+  ;; - InputStream The contents of the stream is sent to the client. When the stream is exhausted, the stream is closed.
+  ;; TODO: End response here?
+  (some->> ^String (:body response) (.send (.getResponseSender exchange))))
 
-;; TODO: Async exception handler
-(defn handle-raise
-  [e]
-  (throw e))
+(defn as-async-handler
+  [handler]
+  (vary-meta handler assoc ::async true))
 
-(defn handler-fn-adapter
-  [handler-fn]
+(defn as-not-blocking-handler
+  [handler]
+  (vary-meta handler assoc ::not-blocking true))
+
+(defn sync-http-handler
+  [handler]
   (reify HttpHandler
     (handleRequest [_ exchange]
       ;; TODO: Remove inline def
       (def -exchange exchange)
-      (let [req (exchange->request exchange)
-            handle-response (handle-response-fn exchange)]
-        (if (exchange/in-io-thread? exchange)
-          (handler-fn req handle-response handle-raise)
-          (handle-response (handler-fn req)))))))
+      (-> (build-request-map exchange)
+          (handler)
+          (handle-response exchange)))))
+
+(defn async-http-handler
+  [handler]
+  ;; TODO: Async exception handler
+  (letfn [(exception-callback [e] (throw e))]
+    (reify HttpHandler
+      (handleRequest [_ exchange]
+        ;; TODO: Remove inline def
+        (def -exchange exchange)
+        (handler (build-request-map exchange)
+                 (fn response-callback [response] (handle-response response exchange))
+                 exception-callback)))))
+
+(defn handler-fn-adapter
+  [handler]
+  (let [{::keys [async not-blocking]} (meta handler)]
+    (cond->
+      (if async (async-http-handler handler)
+                (sync-http-handler handler))
+      (not not-blocking) (BlockingHandler.))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

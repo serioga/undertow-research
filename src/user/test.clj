@@ -21,7 +21,7 @@
    (fn
      ([req]
       #_(throw (ex-info "Oops" {}))
-      (cond-> {:body (str greet " " (.getName (Thread/currentThread)) "\n\n" req)
+      (cond-> {:body (str greet " sync " (.getName (Thread/currentThread)) "\n\n" req)
                #_#_:headers {"x-a" "1"
                              "x-b" "2"
                              "x-c" [3 4]
@@ -31,7 +31,7 @@
      ([req respond raise]
       (try
         #_(throw (ex-info "Oops" {}))
-        (respond (cond-> {:body (str greet " " (.getName (Thread/currentThread)) "\n\n" req)
+        (respond (cond-> {:body (str greet " async " (.getName (Thread/currentThread)) "\n\n" req)
                           #_#_:headers {"x-a" "1"
                                         "x-b" "2"
                                         "x-c" [3 4]
@@ -54,8 +54,9 @@
                  {:type handler/session-attachment}
                  {:type handler/virtual-host :hosts {"localhost" [{:type handler/simple-error-page}
                                                                   {:type handler/request-dump}
-                                                                  {:type handler/blocking}
-                                                                  (test-ring-handler-fn "localhost")]
+                                                                  (-> (test-ring-handler-fn "localhost")
+                                                                      (ring/as-not-blocking-handler)
+                                                                      (ring/as-async-handler))]
                                                      "127.0.0.1" (test-ring-handler-fn "127.0.0.1")}}
                  (test-ring-handler-fn "localhost")]
        #_#_:handler (-> (test-ring-handler-fn "default")
