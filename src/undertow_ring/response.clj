@@ -63,10 +63,9 @@
   (send-response-body [input ^HttpServerExchange exchange]
     (if (.isInIoThread exchange)
       (.dispatch exchange ^Runnable (^:once fn* [] (send-response-body input exchange)))
-      (with-open [input input]
-        (.startBlocking exchange)
-        (io/copy input (.getOutputStream exchange))
-        (.endExchange exchange)))))
+      (with-open [input input, output (exchange/new-output-stream exchange)]
+        (io/copy input output)
+        #_(.endExchange exchange)))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 

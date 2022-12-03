@@ -7,7 +7,9 @@
            (io.undertow.server HttpHandler)
            (io.undertow.server.handlers NameVirtualHostHandler RequestDumpingHandler)
            (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler)
-           (io.undertow.util Headers)))
+           (io.undertow.util Headers)
+           (java.io ByteArrayInputStream InputStream)
+           (org.apache.commons.io IOUtils)))
 
 (set! *warn-on-reflection* true)
 
@@ -15,29 +17,42 @@
 
 (adapter/set-handler-fn-adapter ring/handler-fn-adapter)
 
+(defn read-request-body [{:keys [body] :as req}]
+  (cond-> req
+    (instance? InputStream body)
+    (assoc :body (IOUtils/toString ^InputStream body "UTF-8"))))
+
 (defn test-ring-handler-fn
   ([] (test-ring-handler-fn "Hello World"))
   ([greet]
    (fn
      ([req]
       #_(throw (ex-info "Oops" {}))
-      (cond-> {:body (str greet " sync " (.getName (Thread/currentThread)) "\n\n" req)
-               #_#_:headers {"x-a" "1"
-                             "x-b" "2"
-                             "x-c" [3 4]
-                             #_#_"content-type" "xxx"}
-               #_#_:status 200}
-        (:session req) (assoc-in [:session :test] "Test session value")))
+      (let [body (str greet " sync " (.getName (Thread/currentThread))
+                      "\n\n"
+                      (read-request-body req))
+            body (ByteArrayInputStream. (.getBytes body))]
+        (cond-> {:body body
+                 #_#_:headers {"x-a" "1"
+                               "x-b" "2"
+                               "x-c" [3 4]
+                               #_#_"content-type" "xxx"}
+                 #_#_:status 200}
+          (:session req) (assoc-in [:session :test] "Test session value"))))
      ([req respond raise]
       (try
         #_(throw (ex-info "Oops" {}))
-        (respond (cond-> {:body (str greet " async " (.getName (Thread/currentThread)) "\n\n" req)
-                          #_#_:headers {"x-a" "1"
-                                        "x-b" "2"
-                                        "x-c" [3 4]
-                                        #_#_"content-type" "xxx"}
-                          #_#_:status 200}
-                   (:session req) (assoc-in [:session :test] "Test session value")))
+        (let [body (str greet " async " (.getName (Thread/currentThread))
+                        "\n\n"
+                        (read-request-body req))
+              body (ByteArrayInputStream. (.getBytes body))]
+          (respond (cond-> {:body body
+                            #_#_:headers {"x-a" "1"
+                                          "x-b" "2"
+                                          "x-c" [3 4]
+                                          #_#_"content-type" "xxx"}
+                            #_#_:status 200}
+                     (:session req) (assoc-in [:session :test] "Test session value"))))
         (catch Throwable e
           (raise e)))))))
 
@@ -57,8 +72,8 @@
                  {:type handler/virtual-host :hosts {"localhost" [{:type handler/simple-error-page}
                                                                   {:type handler/request-dump}
                                                                   (-> (test-ring-handler-fn "localhost")
-                                                                      (ring/as-not-blocking-handler)
-                                                                      (ring/as-async-handler))]
+                                                                      (ring/as-non-blocking-handler)
+                                                                      #_(ring/as-async-handler))]
                                                      "127.0.0.1" (test-ring-handler-fn "127.0.0.1")}}
                  (test-ring-handler-fn "localhost")]
        #_#_:handler (-> (test-ring-handler-fn "default")

@@ -1,7 +1,8 @@
 (ns undertow.exchange
   (:import (io.undertow.io Sender)
            (io.undertow.server HttpServerExchange)
-           (io.undertow.server.session Session SessionConfig SessionManager)))
+           (io.undertow.server.session Session SessionConfig SessionManager)
+           (java.io OutputStream)))
 
 (set! *warn-on-reflection* true)
 
@@ -45,5 +46,27 @@
   ^Sender
   [exchange]
   (.getResponseSender ^HttpServerExchange exchange))
+
+(defn start-blocking*
+  [^HttpServerExchange e]
+  ;; TODO: Explain reasons to close request channel.
+  (when (and (.isRequestChannelAvailable e)
+             (.isRequestComplete e))
+    (-> (.getRequestChannel e)
+        (.close)))
+  (.startBlocking e))
+
+(defn get-input-stream
+  [^HttpServerExchange e]
+  (when-not (.isRequestComplete e)
+    (when-not (.isBlocking e)
+      (.startBlocking e))
+    (.getInputStream e)))
+
+(defn new-output-stream
+  ^OutputStream
+  [^HttpServerExchange e]
+  (start-blocking* e)
+  (.getOutputStream e))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

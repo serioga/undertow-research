@@ -97,7 +97,7 @@
         content-type (.getFirst headers Headers/CONTENT_TYPE)
         content-length (.getRequestContentLength exchange)
         content-length (when-not (neg? content-length) content-length)
-        body (when (.isBlocking exchange) (.getInputStream exchange))
+        body (exchange/get-input-stream exchange)
         session (when (exchange/get-session-manager exchange)
                   (session/as-persistent-map (delay (exchange/get-session exchange false))))]
     (cond-> {:undertow/exchange exchange
@@ -182,11 +182,25 @@
   [handler]
   (vary-meta handler assoc ::async true))
 
-(defn as-not-blocking-handler
+(defn as-non-blocking-handler
   [handler]
-  (vary-meta handler assoc ::not-blocking true))
+  (vary-meta handler assoc ::non-blocking true))
 
-(defn sync-http-handler
+(defn wrap-dispatch
+  [^HttpHandler handler, non-blocking?]
+  (if non-blocking?
+    ;; Dispatch non-blocking handler only if request is incomplete and body can
+    ;; be consumed only using InputStream.
+    (reify HttpHandler
+      (handleRequest [_ e]
+        (if (and (.isInIoThread e)
+                 (not (.isRequestComplete e)))
+          (.dispatch e handler)
+          (.handleRequest handler e))))
+    ;; Always dispatch blocking handlers.
+    (handler/dispatch handler)))
+
+(defn sync-ring-handler
   [handler]
   (reify HttpHandler
     (handleRequest [_ exchange]
@@ -196,7 +210,7 @@
           (handler)
           (response/handle-response exchange)))))
 
-(defn async-http-handler
+(defn async-ring-handler
   [handler]
   ;; TODO: Async exception handler
   (letfn [(exception-callback [e] (throw e))]
@@ -210,10 +224,9 @@
 
 (defn handler-fn-adapter
   [handler]
-  (let [{::keys [async not-blocking]} (meta handler)]
-    (cond->
-      (if async (async-http-handler handler)
-                (sync-http-handler handler))
-      (not not-blocking) (handler/dispatch))))
+  (let [{::keys [async non-blocking]} (meta handler)]
+    (-> (if async (async-ring-handler handler)
+                  (sync-ring-handler handler))
+        (wrap-dispatch non-blocking))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

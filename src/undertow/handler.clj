@@ -75,10 +75,10 @@
   [handler]
   (let [handler (as-handler handler)]
     (reify HttpHandler
-      (handleRequest [this exchange]
-        (if (.isInIoThread exchange)
-          (.dispatch exchange this)
-          (.handleRequest handler exchange))))))
+      (handleRequest [_ e]
+        (if (.isInIoThread e)
+          (.dispatch e handler)
+          (.handleRequest handler e))))))
 
 (declare-type dispatch {:type-alias ::dispatch
                         :as-wrapper (as-wrapper-1-arity dispatch)})
@@ -233,6 +233,7 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
+;; TODO: Check undertow implementation
 (defn graceful-shutdown
   ^HttpHandler
   [next-handler]
