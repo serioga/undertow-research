@@ -7,6 +7,7 @@
            (io.undertow.util HeaderMap HttpString)
            (java.io File InputStream OutputStream)
            (java.nio ByteBuffer)
+           (java.nio.charset Charset)
            (java.util Collection)))
 
 (set! *warn-on-reflection* true)
@@ -44,31 +45,35 @@
 (defprotocol ResponseBody
   ;; TODO: docstring
   (body-handler [body])
-  (send-body [body using]))
+  (send-body [body using charset-fn]))
+
+(defn response-charset-fn
+  [^HttpServerExchange e]
+  (fn [] (Charset/forName (.getResponseCharset e))))
 
 (defn response-sender-handler
   [^HttpServerExchange e, body]
-  (send-body body (.getResponseSender e)))
+  (send-body body (.getResponseSender e) (response-charset-fn e)))
 
 (defn output-stream-handler
   [^HttpServerExchange e, body]
   (if (.isInIoThread e)
     (.dispatch e ^Runnable (^:once fn* [] (output-stream-handler e body)))
     (with-open [output (exchange/new-output-stream e)]
-      (send-body body output))))
+      (send-body body output (response-charset-fn e)))))
 
 ;; TODO: Complete list of response body types
 
 (extend-protocol ResponseBody String
   (body-handler [_] response-sender-handler)
   (send-body
-    [string, sender]
-    (.send ^Sender sender string)))
+    [data, sender, charset-fn]
+    (.send ^Sender sender data ^Charset (charset-fn))))
 
 (extend-protocol ResponseBody ByteBuffer
   (body-handler [_] response-sender-handler)
   (send-body
-    [buffer, sender]
+    [buffer, sender, _]
     (.send ^Sender sender buffer)))
 
 ;; InputStream - The contents of the stream is sent to the client. When the
@@ -76,7 +81,7 @@
 (extend-protocol ResponseBody InputStream
   (body-handler [_] output-stream-handler)
   (send-body
-    [input, output]
+    [input, output, _]
     (with-open [input input]
       (io/copy input output))))
 
@@ -84,16 +89,17 @@
 (extend-protocol ResponseBody ISeq
   (body-handler [_] output-stream-handler)
   (send-body
-    [xs, ^OutputStream output]
-    ;; TODO: encoding?
-    (doseq [x xs]
-      (.write output (-> x str .getBytes)))))
+    [xs, ^OutputStream output, charset-fn]
+    (let [charset (charset-fn)]
+      (doseq [x xs]
+        (.write output (-> x str (.getBytes ^Charset charset)))))))
 
 ;; File - The contents of the referenced file is sent to the client.
 (extend-protocol ResponseBody File
   (body-handler [_] output-stream-handler)
   (send-body
-    [file, ^OutputStream output]
+    ;; TODO: Test charset for File response
+    [file, ^OutputStream output, charset-fn]
     (with-open [input (io/input-stream file)]
       (io/copy input output))))
 

@@ -22,6 +22,11 @@
     (instance? InputStream body)
     (assoc :body (IOUtils/toString ^InputStream body "UTF-8"))))
 
+(def ^String response-charset "ISO-8859-1")
+(def ^String response-charset "utf-8")
+(def ^String response-charset "Windows-1252")
+(def ^String response-charset "Windows-1251")
+
 (defn test-ring-handler-fn
   ([] (test-ring-handler-fn "Hello World"))
   ([greet]
@@ -31,13 +36,13 @@
       (let [body (seq [greet " sync " (.getName (Thread/currentThread))
                        "\n\n"
                        (read-request-body req)])
-            #_#_body (apply str body)
-            #_#_body (ByteArrayInputStream. (.getBytes body))]
+            #_#_#_#_body (apply str body)
+            body (ByteArrayInputStream. (.getBytes ^String body response-charset))]
         (cond-> {:body body
-                 #_#_:headers {"x-a" "1"
-                               "x-b" "2"
-                               "x-c" [3 4]
-                               #_#_"content-type" "xxx"}
+                 :headers {"x-a" "1"
+                           "x-b" "2"
+                           "x-c" [3 4]
+                           "content-type" (str "text/plain; charset=" response-charset)}
                  #_#_:status 200}
           (:session req) (assoc-in [:session :test] "Test session value"))))
      ([req respond raise]
@@ -46,12 +51,12 @@
         (let [body (str greet " async " (.getName (Thread/currentThread))
                         "\n\n"
                         (read-request-body req))
-              body (ByteArrayInputStream. (.getBytes body))]
+              body (ByteArrayInputStream. (.getBytes body response-charset))]
           (respond (cond-> {:body body
                             #_#_:headers {"x-a" "1"
                                           "x-b" "2"
                                           "x-c" [3 4]
-                                          #_#_"content-type" "xxx"}
+                                          #_#_"content-type" (str "text/plain; charset=" response-charset)}
                             #_#_:status 200}
                      (:session req) (assoc-in [:session :test] "Test session value"))))
         (catch Throwable e
@@ -72,7 +77,7 @@
                  {:type handler/session-attachment}
                  {:type handler/virtual-host :hosts {"localhost" [{:type handler/simple-error-page}
                                                                   {:type handler/request-dump}
-                                                                  (-> (test-ring-handler-fn "localhost")
+                                                                  (-> (test-ring-handler-fn "localhost привет")
                                                                       (ring/as-non-blocking-handler)
                                                                       #_(ring/as-async-handler))]
                                                      "127.0.0.1" (test-ring-handler-fn "127.0.0.1")}}
