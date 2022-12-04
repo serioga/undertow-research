@@ -1,9 +1,11 @@
 (ns undertow-ring.response
   (:require [clojure.java.io :as io]
             [undertow.exchange :as exchange])
-  (:import (io.undertow.server HttpServerExchange)
+  (:import (clojure.lang IPersistentMap ISeq)
+           (io.undertow.io Sender)
+           (io.undertow.server HttpServerExchange)
            (io.undertow.util HeaderMap HttpString)
-           (java.io InputStream)
+           (java.io File InputStream OutputStream)
            (java.nio ByteBuffer)
            (java.util Collection)))
 
@@ -41,42 +43,69 @@
 
 (defprotocol ResponseBody
   ;; TODO: docstring
-  (send-response-body [body exchange]))
+  (body-handler [body])
+  (send-body [body using]))
+
+(defn response-sender-handler
+  [^HttpServerExchange e, body]
+  (send-body body (.getResponseSender e)))
+
+(defn output-stream-handler
+  [^HttpServerExchange e, body]
+  (if (.isInIoThread e)
+    (.dispatch e ^Runnable (^:once fn* [] (output-stream-handler e body)))
+    (with-open [output (exchange/new-output-stream e)]
+      (send-body body output))))
 
 ;; TODO: Complete list of response body types
 
-;; - ISeq Each element of the seq is sent to the client as a string.
-;; - File The contents of the referenced file is sent to the client.
-;; - InputStream The contents of the stream is sent to the client. When the stream is exhausted, the stream is closed.
-
 (extend-protocol ResponseBody String
-  (send-response-body [body exchange]
-    (-> (exchange/response-sender exchange)
-        (.send body))))
+  (body-handler [_] response-sender-handler)
+  (send-body
+    [string, sender]
+    (.send ^Sender sender string)))
 
 (extend-protocol ResponseBody ByteBuffer
-  (send-response-body [body exchange]
-    (-> (exchange/response-sender exchange)
-        (.send body))))
+  (body-handler [_] response-sender-handler)
+  (send-body
+    [buffer, sender]
+    (.send ^Sender sender buffer)))
 
+;; InputStream - The contents of the stream is sent to the client. When the
+;; stream is exhausted, the stream is closed.
 (extend-protocol ResponseBody InputStream
-  (send-response-body [input ^HttpServerExchange exchange]
-    (if (.isInIoThread exchange)
-      (.dispatch exchange ^Runnable (^:once fn* [] (send-response-body input exchange)))
-      (with-open [input input, output (exchange/new-output-stream exchange)]
-        (io/copy input output)
-        #_(.endExchange exchange)))))
+  (body-handler [_] output-stream-handler)
+  (send-body
+    [input, output]
+    (with-open [input input]
+      (io/copy input output))))
+
+;; ISeq - Each element of the seq is sent to the client as a string.
+(extend-protocol ResponseBody ISeq
+  (body-handler [_] output-stream-handler)
+  (send-body
+    [xs, ^OutputStream output]
+    ;; TODO: encoding?
+    (doseq [x xs]
+      (.write output (-> x str .getBytes)))))
+
+;; File - The contents of the referenced file is sent to the client.
+(extend-protocol ResponseBody File
+  (body-handler [_] output-stream-handler)
+  (send-body
+    [file, ^OutputStream output]
+    (with-open [input (io/input-stream file)]
+      (io/copy input output))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn handle-response
-  [response, ^HttpServerExchange exchange]
-  (some->> (:headers response) (put-headers exchange))
-  ;; TODO: Add function for set-status-code
-  (some->> (:status response) (.setStatusCode exchange))
-  (when-let [[_ session] (find response :session)]
-    (update-session exchange session))
-  (some-> (:body response) (send-response-body exchange))
+  [^IPersistentMap response, ^HttpServerExchange exchange]
+  (when response
+    (when-some [headers,, (.valAt response :headers)] (doto exchange (put-headers headers)))
+    (when-some [status,,, (.valAt response :status)], (doto exchange (.setStatusCode status)))
+    (when-some [session (.entryAt response :session)] (doto exchange (update-session (val session))))
+    (when-some [body,,,,, (.valAt response :body)],,, (doto exchange ((body-handler body) body))))
   nil)
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

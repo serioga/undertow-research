@@ -28,10 +28,11 @@
    (fn
      ([req]
       #_(throw (ex-info "Oops" {}))
-      (let [body (str greet " sync " (.getName (Thread/currentThread))
-                      "\n\n"
-                      (read-request-body req))
-            body (ByteArrayInputStream. (.getBytes body))]
+      (let [body (seq [greet " sync " (.getName (Thread/currentThread))
+                       "\n\n"
+                       (read-request-body req)])
+            #_#_body (apply str body)
+            #_#_body (ByteArrayInputStream. (.getBytes body))]
         (cond-> {:body body
                  #_#_:headers {"x-a" "1"
                                "x-b" "2"
