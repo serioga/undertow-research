@@ -37,7 +37,7 @@
                        "\n\n"
                        (read-request-body req)])
             body (apply str body)
-            #_#_body (ByteArrayInputStream. (.getBytes ^String body response-charset))]
+            body (ByteArrayInputStream. (.getBytes ^String body response-charset))]
         (cond-> {:body body
                  :headers {"x-a" "1"
                            "x-b" "2"
