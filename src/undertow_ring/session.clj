@@ -7,6 +7,8 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
+;; TODO: Keyword keys in session map?
+
 (defn persistent-map
   [^Session session]
   (when session
