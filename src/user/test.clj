@@ -36,12 +36,12 @@
       (let [body (seq [greet " sync " (.getName (Thread/currentThread))
                        "\n\n"
                        (read-request-body req)])
-            #_#_#_#_body (apply str body)
-            body (ByteArrayInputStream. (.getBytes ^String body response-charset))]
+            body (apply str body)
+            #_#_body (ByteArrayInputStream. (.getBytes ^String body response-charset))]
         (cond-> {:body body
                  :headers {"x-a" "1"
                            "x-b" "2"
-                           "x-c" [3 4]
+                           #_#_"x-c" [3 4]
                            "content-type" (str "text/plain; charset=" response-charset)}
                  #_#_:status 200}
           (:session req) (assoc-in [:session :test] "Test session value"))))
