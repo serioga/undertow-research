@@ -99,7 +99,7 @@
         content-length (when-not (neg? content-length) content-length)
         body (exchange/get-input-stream exchange)
         session (when (exchange/get-session-manager exchange)
-                  (session/as-persistent-map (delay (exchange/get-session exchange false))))]
+                  (session/as-persistent-map (delay (exchange/get-existing-session exchange))))]
     (cond-> {:undertow/exchange exchange
              :server-port (.getPort (.getDestinationAddress exchange))
              :server-name (.getHostName exchange)
@@ -172,8 +172,8 @@
   (.getResolvedPath -exchange)
   (.getRequestURI -exchange)
   (exchange/get-session-manager -exchange)
-  (exchange/get-session -exchange false)
-  (delay (exchange/get-session -exchange false))
+  (exchange/get-existing-session -exchange)
+  (delay (exchange/get-existing-session -exchange))
   )
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

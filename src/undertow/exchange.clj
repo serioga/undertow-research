@@ -29,15 +29,19 @@
   (-> ^HttpServerExchange exchange
       (.getAttachment SessionConfig/ATTACHMENT_KEY)))
 
-(defn get-session
-  (^Session
-   [exchange] (get-session exchange false))
-  (^Session
-   [exchange, create?]
-   (when-let [mgr (get-session-manager exchange)]
-     (let [cfg (get-session-config exchange)]
-       (or (-> mgr (.getSession exchange cfg))
-           (when create? (-> mgr (.createSession exchange cfg))))))))
+(defn get-existing-session
+  ^Session
+  [exchange]
+  (some-> (get-session-manager exchange)
+          (.getSession exchange (get-session-config exchange))))
+
+(defn get-or-create-session
+  ^Session
+  [exchange]
+  (when-let [mgr (get-session-manager exchange)]
+    (let [cfg (get-session-config exchange)]
+      (or (.getSession mgr exchange cfg)
+          (.createSession mgr exchange cfg)))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 

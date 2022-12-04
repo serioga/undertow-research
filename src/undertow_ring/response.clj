@@ -29,7 +29,8 @@
 
 (defn- update-session
   [^HttpServerExchange exchange values]
-  (let [sess (exchange/get-session exchange values)]
+  (let [sess (if values (exchange/get-or-create-session exchange)
+                        (exchange/get-existing-session exchange))]
     ;; TODO: Handle case when session manager is not assigned
     (when (and values (not sess))
       (throw (ex-info "Attempt to set session values in undefined session"
