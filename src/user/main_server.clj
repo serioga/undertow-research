@@ -1,15 +1,14 @@
-(ns user.test
+(ns user.main_server
   (:require [undertow-ring.core :as ring]
             [undertow.adapter :as adapter]
             [undertow.handler :as handler]
-            [undertow.server :as server])
+            [undertow.server :as server]
+            [user.main-handler :as main])
   (:import (io.undertow Undertow Undertow$Builder)
            (io.undertow.server HttpHandler)
            (io.undertow.server.handlers NameVirtualHostHandler RequestDumpingHandler)
            (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler)
-           (io.undertow.util Headers)
-           (java.io ByteArrayInputStream InputStream)
-           (org.apache.commons.io IOUtils)))
+           (io.undertow.util Headers)))
 
 (set! *warn-on-reflection* true)
 
@@ -17,50 +16,7 @@
 
 (adapter/set-handler-fn-adapter ring/handler-fn-adapter)
 
-(defn read-request-body [{:keys [body] :as req}]
-  (cond-> req
-    (instance? InputStream body)
-    (assoc :body (IOUtils/toString ^InputStream body "UTF-8"))))
-
-(def ^String response-charset "ISO-8859-1")
-(def ^String response-charset "utf-8")
-(def ^String response-charset "Windows-1252")
-(def ^String response-charset "Windows-1251")
-
-(defn test-ring-handler-fn
-  ([] (test-ring-handler-fn "Hello World"))
-  ([greet]
-   (fn
-     ([req]
-      #_(throw (ex-info "Oops" {}))
-      (let [body (seq [greet " sync " (.getName (Thread/currentThread))
-                       "\n\n"
-                       (read-request-body req)])
-            body (apply str body)
-            body (ByteArrayInputStream. (.getBytes ^String body response-charset))]
-        (cond-> {:body body
-                 :headers {"x-a" "1"
-                           "x-b" "2"
-                           #_#_"x-c" [3 4]
-                           "content-type" (str "text/plain; charset=" response-charset)}
-                 #_#_:status 200}
-          (:session req) (assoc-in [:session :test] "Test session value"))))
-     ([req respond raise]
-      (try
-        #_(throw (ex-info "Oops" {}))
-        (let [body (str greet " async " (.getName (Thread/currentThread))
-                        "\n\n"
-                        (read-request-body req))
-              body (ByteArrayInputStream. (.getBytes body response-charset))]
-          (respond (cond-> {:body body
-                            #_#_:headers {"x-a" "1"
-                                          "x-b" "2"
-                                          "x-c" [3 4]
-                                          #_#_"content-type" (str "text/plain; charset=" response-charset)}
-                            #_#_:status 200}
-                     (:session req) (assoc-in [:session :test] "Test session value"))))
-        (catch Throwable e
-          (raise e)))))))
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn start-test-server
   []
@@ -71,17 +27,17 @@
                  {:type handler/proxy-peer-address}
                  {:type handler/simple-error-page}
                  {:type handler/virtual-host :hosts {"webapi.localtest.me" [{:type handler/simple-error-page}
-                                                                            (test-ring-handler-fn "webapi")]}}
+                                                                            (main/ring-handler-fn "webapi")]}}
                  {:type handler/path-prefix :prefixes {"static" [{:type handler/request-dump}
                                                                  {:type handler/resource-handler :prefix "public/static"}]}}
                  {:type handler/session-attachment}
                  {:type handler/virtual-host :hosts {"localhost" [{:type handler/simple-error-page}
                                                                   {:type handler/request-dump}
-                                                                  (-> (test-ring-handler-fn "localhost привет")
+                                                                  (-> (main/ring-handler-fn "localhost привет")
                                                                       (ring/as-non-blocking-handler)
                                                                       #_(ring/as-async-handler))]
-                                                     "127.0.0.1" (test-ring-handler-fn "127.0.0.1")}}
-                 (test-ring-handler-fn "localhost")]
+                                                     "127.0.0.1" (main/ring-handler-fn "127.0.0.1")}}
+                 (main/ring-handler-fn "localhost")]
        #_#_:handler (-> (test-ring-handler-fn "default")
                         (handler/virtual-host {:hosts {"localhost" (-> (test-ring-handler-fn "localhost")
                                                                        (handler/request-dump))

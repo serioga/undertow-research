@@ -1,22 +1,23 @@
-(ns user.adapter
-  (:require [ring.adapter.undertow :as undertow]
-            [user.test :as t])
-  (:import (io.undertow Undertow)))
+(ns user.server-immutant
+  (:require [immutant.web :as web]
+            [immutant.web.middleware :as middleware]
+            [user.main-handler :as main]))
 
 (set! *warn-on-reflection* true)
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn start-test-server []
-  (undertow/run-undertow (t/test-ring-handler-fn "adapter привет")
-                         {:port 8082}))
+  (web/run (-> (main/ring-handler-fn "immutant")
+               (middleware/wrap-session))
+           {:port 8084 :dispatch? false}))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defonce server! (atom nil))
 
 (defn stop-server []
-  (swap! server! #(some-> ^Undertow % .stop)))
+  (swap! server! #(some-> % web/stop)))
 
 (defn start-server []
   (stop-server)
