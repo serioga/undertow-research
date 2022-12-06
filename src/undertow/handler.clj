@@ -9,6 +9,8 @@
 
 (set! *warn-on-reflection* true)
 
+;; TODO: Use io.undertow.Handlers to create handlers
+
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (def handler-type (some-fn :type type))

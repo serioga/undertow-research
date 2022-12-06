@@ -1,4 +1,5 @@
 (ns user.main-handler
+  (:require [ring.adapter.undertow.websocket :as ws])
   (:import (java.io ByteArrayInputStream InputStream)
            (org.apache.commons.io IOUtils)))
 
@@ -31,20 +32,27 @@
      ([{:keys [::async?] :as req}]
       #_(throw (ex-info "Oops" {}))
       #_ req
-      (let [body (seq [greet " [" (.getName (Thread/currentThread)) "]"
+      (let [headers {"x-a" "1"
+             "x-b" "2"
+             #_#_"x-c" [3 4]
+             "content-type" (str "text/plain; charset=" charset)}
+            body (seq [greet " [" (.getName (Thread/currentThread)) "]"
                        (if async? " async-ring" " sync-ring")
                        "\n\n"
                        (-> req with-request-body)])
             body (apply str body)
             body (ByteArrayInputStream. (.getBytes ^String body ^String charset))]
-        (cond-> {:body body
-                 :headers {"x-a" "1"
-                           "x-b" "2"
-                           #_#_"x-c" [3 4]
-                           "content-type" (str "text/plain; charset=" charset)}
-                 :session {"test" "Test session value"}
-                 #_#_:status 200}
-          #_#_(:session req) (assoc-in [:session "test"] "Test session value"))))
+        (if (req :websocket?)
+          {:headers headers
+           :status 400
+           :undertow/websocket {:on-message (fn [{:keys [channel data]}]
+                                              (ws/send "OK" channel)
+                                              (ws/send "OK!" channel))}}
+          (cond-> {:body body
+                   :headers headers
+                   :session {"test" "Test session value"}
+                   #_#_:status 200}
+            #_#_(:session req) (assoc-in [:session "test"] "Test session value")))))
      ([req respond raise]
       (try (respond (handler (assoc req ::async? true)))
            (catch Throwable e (raise e)))))))
