@@ -1,6 +1,8 @@
 (ns user.main-handler
-  (:require [ring.adapter.undertow.websocket :as ws])
-  (:import (java.io ByteArrayInputStream InputStream)
+  (:require [undertow-ring.request :as request]
+            [undertow.websocket :as websocket])
+  (:import (io.undertow.websockets.core WebSocketChannel)
+           (java.io ByteArrayInputStream InputStream)
            (org.apache.commons.io IOUtils)))
 
 (set! *warn-on-reflection* true)
@@ -23,15 +25,30 @@
 (def ^String response-charset "Windows-1252")
 (def ^String response-charset "Windows-1251")
 
+(defn websocket-response
+  [response request]
+  (assoc response :body (websocket/handler {:on-message (fn [{:keys [channel message context]}]
+                                                          (if (= "bye" message)
+                                                            (.sendClose ^WebSocketChannel channel)
+                                                            (-> (str (:remote-addr context) ": " message)
+                                                                (websocket/send-text channel nil))))
+                                            :context request})))
+
+(comment
+  (request/websocket? -req)
+  )
+
 (defn ring-handler-fn
   ([] (ring-handler-fn "Hello World" nil))
   ([greet] (ring-handler-fn greet nil))
-  ([greet {:keys [charset]
-           :or {charset response-charset}}]
+  ([greet {:keys [charset websocket-response-fn]
+           :or {charset response-charset
+                websocket-response-fn websocket-response}}]
    (fn handler
      ([{:keys [::async?] :as req}]
       #_(throw (ex-info "Oops" {}))
       #_ req
+      (def -req req)
       (let [headers {"x-a" "1"
              "x-b" "2"
              #_#_"x-c" [3 4]
@@ -42,12 +59,8 @@
                        (-> req with-request-body)])
             body (apply str body)
             body (ByteArrayInputStream. (.getBytes ^String body ^String charset))]
-        (if (req :websocket?)
-          {:headers headers
-           :status 400
-           :undertow/websocket {:on-message (fn [{:keys [channel data]}]
-                                              (ws/send "OK" channel)
-                                              (ws/send "OK!" channel))}}
+        (if (and websocket-response-fn (request/websocket? req))
+          (websocket-response-fn {:headers headers} req)
           (cond-> {:body body
                    :headers headers
                    :session {"test" "Test session value"}

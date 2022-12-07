@@ -2,6 +2,9 @@
 GET http://localhost:{{port}}/
 
 ###
+WEBSOCKET ws://localhost:{{port}}/
+
+###
 POST http://localhost:{{port}}/
 Content-Type: application/x-www-form-urlencoded
 

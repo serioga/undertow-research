@@ -3,7 +3,7 @@
             [undertow.exchange :as exchange])
   (:import (clojure.lang IPersistentMap ISeq)
            (io.undertow.io Sender)
-           (io.undertow.server HttpServerExchange)
+           (io.undertow.server HttpHandler HttpServerExchange)
            (io.undertow.util HeaderMap HttpString)
            (java.io File InputStream OutputStream)
            (java.nio ByteBuffer)
@@ -104,6 +104,13 @@
     (with-output-stream (fn send-file [output, charset-fn]
                           (with-open [input (io/input-stream file)]
                             (io/copy input output))))))
+
+;; Allow to use any Undertow handler as response body.
+(extend-protocol ResponseBody HttpHandler
+  (send-response-fn
+    [handler]
+    (fn [exchange]
+      (.handleRequest handler exchange))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
