@@ -1,9 +1,6 @@
-package undertow;
+package undertow.websocket;
 
-import clojure.lang.IFn;
-import clojure.lang.ILookup;
-import clojure.lang.Keyword;
-import clojure.lang.RT;
+import clojure.lang.*;
 import io.undertow.websockets.core.*;
 import org.xnio.Pooled;
 
@@ -13,18 +10,23 @@ import java.util.Arrays;
 
 // TODO: Document purpose of the class
 
-public class WebSocketChannelListener extends AbstractReceiveListener {
+public class WebSocketChannelListener extends AbstractReceiveListener implements OnOpenListener {
+  private final IFn onOpen;
   private final IFn onMessage;
   private final IFn onClose;
   private final IFn onError;
+  private final Object context;
 
   private static final Keyword k_channel = RT.keyword(null, "channel");
   private static final Keyword k_message = RT.keyword(null, "message");
+  private static final Keyword k_context = RT.keyword(null, "context");
 
-  public WebSocketChannelListener(ILookup handlers) {
-    this.onMessage = (IFn) handlers.valAt(RT.keyword(null, "on-message"));
-    this.onClose = (IFn) handlers.valAt(RT.keyword(null, "on-close"));
-    this.onError = (IFn) handlers.valAt(RT.keyword(null, "on-error"));
+  public WebSocketChannelListener(ILookup config) {
+    this.onOpen = (IFn) config.valAt(RT.keyword(null, "on-open"));
+    this.onMessage = (IFn) config.valAt(RT.keyword(null, "on-message"));
+    this.onClose = (IFn) config.valAt(RT.keyword(null, "on-close"));
+    this.onError = (IFn) config.valAt(RT.keyword(null, "on-error"));
+    this.context = config.valAt(k_context);
   }
 
   @Override
@@ -34,6 +36,7 @@ public class WebSocketChannelListener extends AbstractReceiveListener {
       super.onError(channel, error);
     else
       this.onError.invoke(RT.map(k_channel, channel,
+                                 k_context, context,
                                  RT.keyword(null, "error"), error));
   }
 
@@ -44,7 +47,8 @@ public class WebSocketChannelListener extends AbstractReceiveListener {
       super.onFullTextMessage(channel, message);
     else
       onMessage.invoke(RT.map(k_channel, channel,
-                              k_message, message.getData()));
+                              k_message, message.getData(),
+                              k_context, context));
   }
 
   @Override
@@ -59,7 +63,8 @@ public class WebSocketChannelListener extends AbstractReceiveListener {
       byte[] bytes = Arrays.copyOf(buffer, buffer.length);
       data.free();
       onMessage.invoke(RT.map(k_channel, channel,
-                              k_message, bytes));
+                              k_message, bytes,
+                              k_context, context));
     }
   }
 
@@ -71,6 +76,15 @@ public class WebSocketChannelListener extends AbstractReceiveListener {
     else
       onClose.invoke(RT.map(k_channel, channel,
                             RT.keyword(null, "code"), cm.getCode(),
-                            RT.keyword(null, "reason"), cm.getReason()));
+                            RT.keyword(null, "reason"), cm.getReason(),
+                            k_context, context));
+  }
+
+  @Override
+  public void onOpen(WebSocketChannel channel, Object context) {
+    if (onOpen != null) {
+      onOpen.invoke(RT.map(k_channel, channel,
+                           k_context, context));
+    }
   }
 }

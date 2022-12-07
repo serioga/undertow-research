@@ -5,15 +5,11 @@
             [undertow.server :as server]
             [undertow.websocket :as websocket]
             [user.main-handler :as main])
-  (:import (io.undertow Handlers Undertow Undertow$Builder)
+  (:import (io.undertow Undertow Undertow$Builder)
            (io.undertow.server HttpHandler)
-           (io.undertow.server.handlers BlockingHandler NameVirtualHostHandler RequestDumpingHandler)
+           (io.undertow.server.handlers NameVirtualHostHandler RequestDumpingHandler)
            (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler)
-           (io.undertow.util Headers)
-           (io.undertow.websockets WebSocketConnectionCallback)
-           (io.undertow.websockets.core AbstractReceiveListener WebSocketChannel)
-           (io.undertow.websockets.spi WebSocketHttpExchange)
-           (org.xnio ChannelListener)))
+           (io.undertow.util Headers)))
 
 (set! *warn-on-reflection* true)
 
@@ -26,36 +22,41 @@
 (defn start-test-server
   []
   (-> {:ports {8080 {}}
-       :handler (-> (Handlers/websocket (reify WebSocketConnectionCallback
-                                          (^void onConnect [_ ^WebSocketHttpExchange exchange ^WebSocketChannel channel]
-                                            #_[exchange channel (.getName (Thread/currentThread))]
-                                            #_(on-open {:channel channel})
-                                            (-> (.getReceiveSetter channel)
-                                                (.set (websocket/channel-listener
-                                                        {:on-message (fn [{:keys [channel message]}] #_[:on-message message]
-                                                                       (websocket/send-text (str "What " message "?") channel {}))
-                                                         :on-close (fn [params] #_[:on-close params])
-                                                         :on-error (fn [params] #_[:on-error params])})))
-                                            (.resumeReceives channel))))
-                    (BlockingHandler.)
-                    (handler/path-prefix {:prefixes {"static" {:type handler/resource-handler :prefix "public/static"}}}))
+       #_#_:handler (websocket/handler {:on-open (fn [{:keys [channel context]}]
+                                                   #p [:on-open context]
+                                                   (websocket/send-text "What's up!" channel {}))
+                                        :on-message (fn [{:keys [channel message context]}]
+                                                      #p [:on-message message context]
+                                                      (websocket/send-text (str "What " message "?") channel {}))
+                                        :on-close (fn [params] #p [:on-close params])
+                                        :on-error (fn [params] #p [:on-error params])})
        #_#_:handler [{:type handler/dispatch}
                      {:type handler/path-prefix :prefixes {"static" {:type handler/resource-handler :prefix "public/static"}}}]
-       #_#_:handler [{:type handler/graceful-shutdown}
-                     {:type handler/proxy-peer-address}
-                     {:type handler/simple-error-page}
-                     {:type handler/virtual-host :hosts {"webapi.localtest.me" [{:type handler/simple-error-page}
-                                                                                (main/ring-handler-fn "webapi")]}}
-                     {:type handler/path-prefix :prefixes {"static" [{:type handler/request-dump}
-                                                                     {:type handler/resource-handler :prefix "public/static"}]}}
-                     {:type handler/session-attachment}
-                     {:type handler/virtual-host :hosts {"localhost" [{:type handler/simple-error-page}
-                                                                      {:type handler/request-dump}
-                                                                      (-> (main/ring-handler-fn "localhost привет")
-                                                                          (ring/as-non-blocking-handler)
-                                                                          #_(ring/as-async-handler))]
-                                                         "127.0.0.1" (main/ring-handler-fn "127.0.0.1")}}
-                     (main/ring-handler-fn "localhost")]
+       :handler [{:type handler/graceful-shutdown}
+                 {:type handler/proxy-peer-address}
+                 {:type handler/simple-error-page}
+                 {:type handler/virtual-host :hosts {"webapi.localtest.me" [{:type handler/simple-error-page}
+                                                                            (main/ring-handler-fn "webapi")]}}
+                 {:type handler/path-prefix
+                  :prefixes {"static" [{:type handler/request-dump}
+                                       {:type handler/resource-handler :prefix "public/static"}]}
+                  :exacts {"ws" {:type websocket/handler
+                                 :on-open (fn [{:keys [channel context]}]
+                                            (prn [:on-open context])
+                                            (websocket/send-text "What's up!" channel {}))
+                                 :on-message (fn [{:keys [channel message context]}]
+                                               (prn [:on-message message context])
+                                               (websocket/send-text (str "What " message "?") channel {}))
+                                 :on-close (fn [params] (prn [:on-close params]))
+                                 :on-error (fn [params] (prn [:on-error params]))}}}
+                 {:type handler/session-attachment}
+                 {:type handler/virtual-host :hosts {"localhost" [{:type handler/simple-error-page}
+                                                                  {:type handler/request-dump}
+                                                                  (-> (main/ring-handler-fn "localhost привет")
+                                                                      (ring/as-non-blocking-handler)
+                                                                      #_(ring/as-async-handler))]
+                                                     "127.0.0.1" (main/ring-handler-fn "127.0.0.1")}}
+                 (main/ring-handler-fn "localhost")]
        #_#_:handler (-> (test-ring-handler-fn "default")
                         (handler/virtual-host {:hosts {"localhost" (-> (test-ring-handler-fn "localhost")
                                                                        (handler/request-dump))
