@@ -15,8 +15,8 @@
   (WebSocketChannelListener. config))
 
 (defn websocket-callback
-  {:arglists '([{:keys [on-complete, on-error, context]}])}
-  ^WebSocketCallback
+  {:arglists '([{:keys [on-complete, on-error, context]}])
+   :tag WebSocketCallback}
   [handlers]
   (reify WebSocketCallback
     (complete
@@ -30,8 +30,8 @@
 
 (defn connection-callback
   {:arglists '([{:keys [on-open, on-message, on-close, on-error, context]}]
-               [{:keys [listener, context]}])}
-  ^WebSocketConnectionCallback
+               [{:keys [listener, context]}])
+   :tag WebSocketConnectionCallback}
   [{:keys [listener context] :as config}]
   (reify WebSocketConnectionCallback
     (^void onConnect

@@ -20,7 +20,7 @@
 (defmulti handler-impl handler-type)
 
 (defprotocol HandlerImpl
-  (as-handler ^HttpHandler [obj])
+  (as-handler ^io.undertow.server.HttpHandler [obj])
   (as-wrapper [obj]))
 
 (defn wrap-handler
