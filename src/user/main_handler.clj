@@ -2,7 +2,7 @@
   (:require [undertow-ring.request :as request]
             [undertow.websocket :as websocket])
   (:import (io.undertow.websockets.core WebSocketChannel)
-           (java.io ByteArrayInputStream InputStream)
+           (java.io ByteArrayInputStream File InputStream)
            (org.apache.commons.io IOUtils)))
 
 (set! *warn-on-reflection* true)
@@ -21,8 +21,8 @@
     (assoc :body (IOUtils/toString ^InputStream body ^String (:content-encoding req "UTF-8")))))
 
 (def ^String response-charset "ISO-8859-1")
-(def ^String response-charset "utf-8")
 (def ^String response-charset "Windows-1252")
+(def ^String response-charset "utf-8")
 (def ^String response-charset "Windows-1251")
 
 (defn websocket-response
@@ -36,6 +36,7 @@
 
 (comment
   (request/websocket? -req)
+  (File. "./resources/public/static/test.txt")
   )
 
 (defn ring-handler-fn
@@ -58,7 +59,8 @@
                        "\n\n"
                        (-> req with-request-body)])
             body (apply str body)
-            body (ByteArrayInputStream. (.getBytes ^String body ^String charset))]
+            body (ByteArrayInputStream. (.getBytes ^String body ^String charset))
+            #_#_body (File. "./resources/public/static/test.txt")]
         (if (and websocket-response-fn (request/websocket? req))
           (websocket-response-fn {:headers headers} req)
           (cond-> {:body body
