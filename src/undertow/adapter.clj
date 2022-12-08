@@ -14,7 +14,7 @@
 
 (defn- validate-handler-fn-adapter
   [f]
-  (or (fn? f)
+  (or (ifn? f)
       (throw (IllegalArgumentException. (str "Requires function for handler-fn-adapter: " f)))))
 
 (set-validator! #'*handler-fn-adapter* validate-handler-fn-adapter)

@@ -57,12 +57,13 @@
     (send-response (.getResponseSender e) (response-charset-fn e))))
 
 (defn with-output-stream
-  [send-response]
-  (fn wrap-exchange [^HttpServerExchange e]
-    (if (.isInIoThread e)
-      (.dispatch e ^Runnable (^:once fn* [] (wrap-exchange e)))
-      (with-open [output (exchange/new-output-stream e)]
-        (send-response output (response-charset-fn e))))))
+    [send-response]
+    (fn wrap-exchange [^HttpServerExchange e]
+      (if (.isInIoThread e)
+        (.dispatch e (reify HttpHandler
+                       (handleRequest [_ e] (wrap-exchange e))))
+        (with-open [output (exchange/new-output-stream e)]
+          (send-response output (response-charset-fn e))))))
 
 ;; TODO: Complete list of response body types
 

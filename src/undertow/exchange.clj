@@ -13,6 +13,12 @@
   [exchange]
   (.isInIoThread ^HttpServerExchange exchange))
 
+;; TODO: better name, argument order?
+(defmacro dispatch-async
+  [exchange expr]
+  `(-> ~(with-meta exchange {:tag 'HttpServerExchange})
+       (.dispatch ^Runnable (^:once fn* [] ~expr))))
+
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn get-session-manager

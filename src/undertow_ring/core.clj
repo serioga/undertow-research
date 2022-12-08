@@ -180,53 +180,50 @@
 
 (defn as-async-handler
   [handler]
-  (vary-meta handler assoc ::async true))
+  (vary-meta handler assoc ::handler-type ::async))
 
-(defn as-non-blocking-handler
+(defn as-non-blocking-sync-handler
   [handler]
-  (vary-meta handler assoc ::non-blocking true))
+  (vary-meta handler assoc ::handler-type ::sync-non-blocking))
 
-(defn wrap-dispatch
-  [^HttpHandler handler, non-blocking?]
-  (if non-blocking?
-    ;; Dispatch non-blocking handler only if request is incomplete and body can
-    ;; be consumed only using InputStream.
-    (reify HttpHandler
-      (handleRequest [_ e]
-        (if (and (.isInIoThread e)
-                 (not (.isRequestComplete e)))
-          (.dispatch e handler)
-          (.handleRequest handler e))))
-    ;; Always dispatch blocking handlers.
-    (handler/dispatch handler)))
+(defn- execute-sync
+  [handler exchange]
+  (-> (build-request-map exchange)
+      (handler)
+      (response/handle-response exchange)))
 
-(defn sync-ring-handler
+(defmulti handler-fn-adapter (comp ::handler-type meta))
+
+(defmethod handler-fn-adapter nil
   [handler]
-  (reify HttpHandler
-    (handleRequest [_ exchange]
-      ;; TODO: Remove inline def
-      (def -exchange exchange)
-      (-> (build-request-map exchange)
-          (handler)
-          (response/handle-response exchange)))))
+  (-> (reify HttpHandler
+        (handleRequest [_ exchange]
+          ;; TODO: Remove inline def
+          (def -exchange exchange)
+          (execute-sync handler exchange)))
+      (handler/dispatch)))
 
-(defn async-ring-handler
+(defmethod handler-fn-adapter ::async
   [handler]
   ;; TODO: Async exception handler
   (letfn [(exception-callback [e] (throw e))]
     (reify HttpHandler
-      (handleRequest [_ exchange]
-        ;; TODO: Remove inline def
-        (def -exchange exchange)
-        (handler (build-request-map exchange)
-                 (fn response-callback [response] (response/handle-response response exchange))
-                 exception-callback)))))
+      (handleRequest [_ e]
+        (exchange/dispatch-async e
+          (handler (build-request-map e)
+                   (fn response-callback [response]
+                     (response/handle-response response e))
+                   exception-callback))))))
 
-(defn handler-fn-adapter
+(defmethod handler-fn-adapter ::sync-non-blocking
   [handler]
-  (let [{::keys [async non-blocking]} (meta handler)]
-    (-> (if async (async-ring-handler handler)
-                  (sync-ring-handler handler))
-        (wrap-dispatch non-blocking))))
+  (reify HttpHandler
+    (handleRequest [this e]
+      (if (and (.isInIoThread e)
+               (not (.isRequestComplete e)))
+        ;; Dispatch incomplete request to worker thread
+        (.dispatch e this)
+        ;; Execute handler on IO thread
+        (execute-sync handler e)))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

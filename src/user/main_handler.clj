@@ -61,6 +61,7 @@
             body (apply str body)
             body (ByteArrayInputStream. (.getBytes ^String body ^String charset))
             #_#_body (File. "./resources/public/static/test.txt")]
+        (println (str "\n" {:body/class (class body)} "\n"))
         (if (and websocket-response-fn (request/websocket? req))
           (websocket-response-fn {:headers headers} req)
           (cond-> {:body body
@@ -69,7 +70,9 @@
                    #_#_:status 200}
             #_#_(:session req) (assoc-in [:session "test"] "Test session value")))))
      ([req respond raise]
-      (try (respond (handler (assoc req ::async? true)))
-           (catch Throwable e (raise e)))))))
+      (future
+        #_(Thread/sleep 100)
+        (try (respond (handler (assoc req ::async? true)))
+             (catch Throwable e (raise e))))))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

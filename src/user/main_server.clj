@@ -6,10 +6,10 @@
             [undertow.websocket :as websocket]
             [user.main-handler :as main])
   (:import (io.undertow Undertow Undertow$Builder)
-           (io.undertow.server HttpHandler)
-           (io.undertow.server.handlers NameVirtualHostHandler RequestDumpingHandler)
+           (io.undertow.server Connectors HttpHandler)
+           (io.undertow.server.handlers BlockingHandler NameVirtualHostHandler RequestDumpingHandler)
            (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler)
-           (io.undertow.util Headers)))
+           (io.undertow.util Headers HttpString)))
 
 (set! *warn-on-reflection* true)
 
@@ -18,6 +18,36 @@
 (adapter/set-handler-fn-adapter ring/handler-fn-adapter)
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(def -test-handler
+  (reify HttpHandler
+    (handleRequest [_ e]
+      (-> (.getResponseHeaders e)
+          (.add (HttpString. "Content-Type") "text/plain; charset=utf-8"))
+      (.dispatch e ^Runnable (fn []
+                               (prn [:start (.getName (Thread/currentThread))])
+                               (Thread/sleep 20000)
+                               (prn [:end (.getName (Thread/currentThread))])
+                               (.endExchange e)))
+      #_(.dispatch e ^Runnable
+                 (fn []
+                   (future
+                     #p [:future (.getName (Thread/currentThread))]
+                     (Thread/sleep 2000)
+                     (Connectors/executeRootHandler
+                       (reify HttpHandler
+                         (handleRequest [_ ee]
+                           #p [:handler (.getName (Thread/currentThread))]
+                           (-> (.getResponseSender ee)
+                               (.send "Hello, привет"))))
+                       e))))
+      #_(.dispatch e ^Runnable
+                   (fn []
+                     (future
+                       #p [:future (.getName (Thread/currentThread))]
+                       (Thread/sleep 2000)
+                       (-> (.getResponseSender e)
+                           (.send "Hello, привет"))))))))
 
 (defn start-test-server
   []
@@ -32,6 +62,7 @@
                                         :on-error (fn [params] #p [:on-error params])})
        #_#_:handler [{:type handler/dispatch}
                      {:type handler/path-prefix :prefixes {"static" {:type handler/resource-handler :prefix "public/static"}}}]
+       #_#_:handler (-> -test-handler #_(BlockingHandler.))
        :handler [{:type handler/graceful-shutdown}
                  {:type handler/proxy-peer-address}
                  {:type handler/simple-error-page}
@@ -53,7 +84,7 @@
                  {:type handler/virtual-host :hosts {"localhost" [{:type handler/simple-error-page}
                                                                   {:type handler/request-dump}
                                                                   (-> (main/ring-handler-fn "localhost привет")
-                                                                      (ring/as-non-blocking-handler)
+                                                                      (ring/as-non-blocking-sync-handler)
                                                                       #_(ring/as-async-handler))]
                                                      "127.0.0.1" (main/ring-handler-fn "127.0.0.1")}}
                  (main/ring-handler-fn "localhost")]
