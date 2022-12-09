@@ -15,56 +15,53 @@ public class WebSocketChannelListener extends AbstractReceiveListener implements
   private final IFn onMessage;
   private final IFn onClose;
   private final IFn onError;
-  private final Object context;
 
+  private static final Keyword k_callback = RT.keyword(null, "callback");
   private static final Keyword k_channel = RT.keyword(null, "channel");
-  private static final Keyword k_message = RT.keyword(null, "message");
-  private static final Keyword k_context = RT.keyword(null, "context");
+  private static final Keyword k_text = RT.keyword(null, "text");
+  private static final Keyword k_data = RT.keyword(null, "data");
+  private static final Keyword k_onMessage = RT.keyword(null, "on-message");
 
   public WebSocketChannelListener(ILookup config) {
     this.onOpen = (IFn) config.valAt(RT.keyword(null, "on-open"));
     this.onMessage = (IFn) config.valAt(RT.keyword(null, "on-message"));
     this.onClose = (IFn) config.valAt(RT.keyword(null, "on-close"));
     this.onError = (IFn) config.valAt(RT.keyword(null, "on-error"));
-    this.context = config.valAt(k_context);
   }
 
   @Override
-  protected void onError(WebSocketChannel channel,
-                         Throwable error) {
-    if (this.onError == null)
-      super.onError(channel, error);
-    else
-      this.onError.invoke(RT.map(k_channel, channel,
-                                 k_context, context,
-                                 RT.keyword(null, "error"), error));
+  public void onOpen(WebSocketChannel channel) {
+    if (onOpen != null) {
+      onOpen.invoke(RT.map(k_callback, RT.keyword(null, "on-open"),
+                           k_channel, channel));
+    }
   }
 
   @Override
   protected void onFullTextMessage(WebSocketChannel channel,
-                                   BufferedTextMessage message) throws IOException {
+                                   BufferedTextMessage text) throws IOException {
     if (this.onMessage == null)
-      super.onFullTextMessage(channel, message);
+      super.onFullTextMessage(channel, text);
     else
-      onMessage.invoke(RT.map(k_channel, channel,
-                              k_message, message.getData(),
-                              k_context, context));
+      onMessage.invoke(RT.map(k_callback, k_onMessage,
+                              k_channel, channel,
+                              k_text, text.getData()));
   }
 
   @Override
   protected void onFullBinaryMessage(WebSocketChannel channel,
-                                     BufferedBinaryMessage message) throws IOException {
+                                     BufferedBinaryMessage binary) throws IOException {
     if (this.onMessage == null)
-      super.onFullBinaryMessage(channel, message);
+      super.onFullBinaryMessage(channel, binary);
     else {
       @SuppressWarnings("deprecation")
-      Pooled<ByteBuffer[]> data = message.getData();
-      byte[] buffer = WebSockets.mergeBuffers(data.getResource()).array();
-      byte[] bytes = Arrays.copyOf(buffer, buffer.length);
-      data.free();
-      onMessage.invoke(RT.map(k_channel, channel,
-                              k_message, bytes,
-                              k_context, context));
+      Pooled<ByteBuffer[]> pooled = binary.getData();
+      byte[] buffer = WebSockets.mergeBuffers(pooled.getResource()).array();
+      byte[] data = Arrays.copyOf(buffer, buffer.length);
+      pooled.free();
+      onMessage.invoke(RT.map(k_callback, k_onMessage,
+                              k_channel, channel,
+                              k_data, data));
     }
   }
 
@@ -74,17 +71,21 @@ public class WebSocketChannelListener extends AbstractReceiveListener implements
     if (this.onError == null)
       super.onCloseMessage(cm, channel);
     else
-      onClose.invoke(RT.map(k_channel, channel,
+      onClose.invoke(RT.map(k_callback, RT.keyword(null, "on-close"),
+                            k_channel, channel,
                             RT.keyword(null, "code"), cm.getCode(),
-                            RT.keyword(null, "reason"), cm.getReason(),
-                            k_context, context));
+                            RT.keyword(null, "reason"), cm.getReason()));
   }
 
   @Override
-  public void onOpen(WebSocketChannel channel, Object context) {
-    if (onOpen != null) {
-      onOpen.invoke(RT.map(k_channel, channel,
-                           k_context, context));
-    }
+  protected void onError(WebSocketChannel channel,
+                         Throwable error) {
+    if (this.onError == null)
+      super.onError(channel, error);
+    else
+      this.onError.invoke(RT.map(k_callback, RT.keyword(null, "on-error"),
+                                 k_channel, channel,
+                                 RT.keyword(null, "error"), error));
   }
+
 }

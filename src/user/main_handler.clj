@@ -27,12 +27,11 @@
 
 (defn websocket-response
   [response request]
-  (assoc response :body (websocket/handler {:on-message (fn [{:keys [channel message context]}]
-                                                          (if (= "bye" message)
+  (assoc response :body (websocket/handler {:on-message (fn [{:keys [channel text]}]
+                                                          (if (= "bye" text)
                                                             (.sendClose ^WebSocketChannel channel)
-                                                            (-> (str (:remote-addr context) ": " message)
-                                                                (websocket/send-text channel nil))))
-                                            :context request})))
+                                                            (-> (str (:remote-addr request) ": " text)
+                                                                (websocket/send-text channel nil))))})))
 
 (comment
   (request/websocket? -req)

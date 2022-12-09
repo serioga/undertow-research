@@ -72,14 +72,15 @@
                   :prefixes {"static" [{:type handler/request-dump}
                                        {:type handler/resource-handler :prefix "public/static"}]}
                   :exacts {"ws" {:type websocket/handler
-                                 :on-open (fn [{:keys [channel context]}]
-                                            (prn [:on-open context])
+                                 :on-open (fn [{:keys [channel] :as event}]
+                                            (prn event)
+                                            (prn [:exchange (websocket/get-exchange channel)])
                                             (websocket/send-text "What's up!" channel {}))
-                                 :on-message (fn [{:keys [channel message context]}]
-                                               (prn [:on-message message context])
-                                               (websocket/send-text (str "What " message "?") channel {}))
-                                 :on-close (fn [params] (prn [:on-close params]))
-                                 :on-error (fn [params] (prn [:on-error params]))}}}
+                                 :on-message (fn [{:keys [channel text] :as event}]
+                                               (prn event)
+                                               (websocket/send-text (str "What " text "?") channel {}))
+                                 :on-close (fn [event] (prn event))
+                                 :on-error (fn [event] (prn event))}}}
                  {:type handler/session-attachment}
                  {:type handler/virtual-host :hosts {"localhost" [{:type handler/simple-error-page}
                                                                   {:type handler/request-dump}
