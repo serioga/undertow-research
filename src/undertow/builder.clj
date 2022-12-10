@@ -2,7 +2,7 @@
   (:import (clojure.lang IPersistentMap)
            (io.undertow Undertow Undertow$Builder Undertow$ListenerBuilder Undertow$ListenerType UndertowOptions)
            (io.undertow.server HttpHandler)
-           (org.xnio Option Options)))
+           (org.xnio Option OptionMap Options)))
 
 (set! *warn-on-reflection* true)
 
@@ -38,6 +38,15 @@
   (as-option :xnio/worker-io-threads 4)
   )
 
+(defn as-option-map
+  ^OptionMap
+  [m]
+  (if (seq m)
+    (-> (OptionMap/builder)
+        (.add (->> m (into {} (map (fn [[k v]] (as-option k v))))))
+        (.getMap))
+    OptionMap/EMPTY))
+
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defprotocol HttpListenerBuilder
@@ -58,8 +67,7 @@
         (.setKeyManagers,, (:key-managers https))
         (.setTrustManagers (:trust-managers https))
         (.setSslContext,,, (:ssl-context https))
-        ;; TODO: Set OptionMap
-        #_(.setOverrideSocketOptions nil)
+        (.setOverrideSocketOptions (as-option-map socket-options))
         (.setUseProxyProtocol (boolean use-proxy-protocol))))
   Undertow$ListenerBuilder
   (new-listener-builder [builder port] (.setPort builder port))
