@@ -109,8 +109,6 @@
              :scheme (scheme-keyword (.getRequestScheme exchange))
              :request-method (method-keyword (.toString (.getRequestMethod exchange)))
              :character-encoding (.getRequestCharset exchange)
-             ;; TODO: header conversion is slow
-             #_#_:headers (headers/persistent-map header-map)
              :headers (headers/ring-headers header-map)
              ;; TODO: Don't put empty context in request?
              :context (.getResolvedPath exchange)}
