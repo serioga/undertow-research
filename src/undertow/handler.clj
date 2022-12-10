@@ -1,5 +1,4 @@
 (ns undertow.handler
-  (:require [undertow.adapter :as adapter])
   (:import (clojure.lang Fn IPersistentMap MultiFn Sequential)
            (io.undertow.server HttpHandler)
            (io.undertow.server.handlers GracefulShutdownHandler NameVirtualHostHandler PathHandler ProxyPeerAddressHandler RequestDumpingHandler)
@@ -10,6 +9,28 @@
 (set! *warn-on-reflection* true)
 
 ;; TODO: Use io.undertow.Handlers to create handlers
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defn default-handler-fn-adapter
+  [f]
+  (reify HttpHandler
+    (handleRequest [_ exchange] (f exchange))))
+
+(def ^:dynamic *handler-fn-adapter* default-handler-fn-adapter)
+
+(defn- validate-handler-fn-adapter
+  [f]
+  (or (ifn? f)
+      (throw (IllegalArgumentException. (str "Requires function for handler-fn-adapter: " f)))))
+
+(set-validator! #'*handler-fn-adapter* validate-handler-fn-adapter)
+
+;; TODO: Add macro to wrap server start?
+
+(defn set-handler-fn-adapter
+  [f]
+  (alter-var-root #'*handler-fn-adapter* (constantly f)))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -33,7 +54,7 @@
   HttpHandler
   (as-handler [handler] handler)
   Fn
-  (as-handler [handler-fn] (adapter/*handler-fn-adapter* handler-fn))
+  (as-handler [handler-fn] (*handler-fn-adapter* handler-fn))
   (as-wrapper [wrapper-fn] wrapper-fn)
   IPersistentMap
   (as-handler [m] (as-handler (handler-impl m)))

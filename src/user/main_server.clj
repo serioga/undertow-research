@@ -1,6 +1,5 @@
 (ns user.main_server
   (:require [undertow-ring.core :as ring]
-            [undertow.adapter :as adapter]
             [undertow.handler :as handler]
             [undertow.server :as server]
             [undertow.websocket :as websocket]
@@ -15,7 +14,7 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(adapter/set-handler-fn-adapter ring/handler-fn-adapter)
+(handler/set-handler-fn-adapter ring/handler-fn-adapter)
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
