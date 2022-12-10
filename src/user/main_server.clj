@@ -2,7 +2,7 @@
   (:require [undertow-ring.core :as ring]
             [undertow.handler :as handler]
             [undertow.server :as server]
-            [undertow.websocket :as websocket]
+            [undertow.websockets :as websocket]
             [user.main-handler :as main])
   (:import (io.undertow Undertow Undertow$Builder)
            (io.undertow.server Connectors HttpHandler)

@@ -1,6 +1,6 @@
 (ns user.main-handler
   (:require [undertow-ring.request :as request]
-            [undertow.websocket :as websocket])
+            [undertow.websockets :as websocket])
   (:import (java.io ByteArrayInputStream File InputStream)
            (org.apache.commons.io IOUtils)))
 
