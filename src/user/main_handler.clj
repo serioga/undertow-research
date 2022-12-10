@@ -65,7 +65,10 @@
           (websocket-response-fn {:headers headers} req)
           (cond-> {:body body
                    :headers headers
-                   :session {"test" "Test session value"}
+                   :session {:test (or (some-> req :session :test inc) 0)
+                             :blink (when-not (-> req :session :blink) true)}
+                   #_#_:session (when-not (-> req :session :test)
+                              {:test "Test session value"})
                    #_#_:status 200}
             #_#_(:session req) (assoc-in [:session "test"] "Test session value")))))
      ([req respond raise]

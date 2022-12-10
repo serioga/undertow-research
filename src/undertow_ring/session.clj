@@ -1,88 +1,28 @@
 (ns undertow-ring.session
-  (:import (clojure.lang IEditableCollection IFn IPersistentMap MapEquivalence)
-           (io.undertow.server.session Session)
-           (java.util Map)))
+  (:require [undertow.exchange :as exchange])
+  (:import (io.undertow.server HttpServerExchange)))
 
 (set! *warn-on-reflection* true)
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-;; TODO: Keyword keys in session map?
+(def ^:const ring-session-key "ring-session-data")
 
-(defn persistent-map
-  [^Session session]
-  (when session
-    (persistent! (reduce (fn [m! k] (assoc! m! k (.getAttribute session k)))
-                         (transient {})
-                         (.getAttributeNames session)))))
+(defn get-session
+  [exchange]
+  (some-> (exchange/get-existing-session exchange)
+          (.getAttribute ring-session-key)))
 
-(deftype HeaderMapProxy [session-ref]
-  Map
-  (size
-    [_]
-    (count (some-> ^Session @session-ref (.getAttributeNames))))
-  (get
-    [this k]
-    (.valAt this k))
-  MapEquivalence
-  IFn
-  (invoke
-    [_ k]
-    (some-> ^Session @session-ref (.getAttribute (str k))))
-  (invoke
-    [_ k not-found]
-    (when-some [v (some-> ^Session @session-ref (.getAttribute (str k)))]
-      v, not-found))
-  IPersistentMap
-  (valAt
-    [_ k]
-    (some-> ^Session @session-ref (.getAttribute (str k))))
-  (valAt
-    [_ k not-found]
-    (when-some [v (some-> ^Session @session-ref (.getAttribute (str k)))]
-      v, not-found))
-  (entryAt
-    [_ k]
-    (throw (ex-info "Not implemented: entryAt" {})))
-  (containsKey
-    [_ k]
-    (some? (some-> ^Session @session-ref (.getAttribute (str k)))))
-  (assoc
-    [_ k v]
-    (-> (persistent-map @session-ref)
-        (assoc k v)))
-  (assocEx
-    [_ k v]
-    (throw (ex-info "Not implemented: assocEx" {})))
-  (cons
-    [_ o]
-    (-> (or (persistent-map @session-ref) {})
-        (conj o)))
-  (without
-    [_ k]
-    (-> (persistent-map @session-ref)
-        (dissoc (.toLowerCase (str k)))))
-  (empty
-    [_]
-    {})
-  (count
-    [_]
-    (count (some-> ^Session @session-ref (.getAttributeNames))))
-  (seq
-    [_]
-    (seq (persistent-map @session-ref)))
-  (equiv
-    [_ o]
-    (= o (persistent-map @session-ref)))
-  (iterator
-    [_]
-    (throw (ex-info "Not implemented: iterator" {})))
-  IEditableCollection
-  (asTransient
-    [_]
-    (transient (persistent-map @session-ref))))
-
-(defn as-persistent-map [session-ref]
-  (HeaderMapProxy. session-ref))
+(defn update-values
+  [^HttpServerExchange e, values]
+  (if-let [session! (exchange/get-or-create-session e)]
+    (.setAttribute session! ring-session-key
+                   (some->> values (reduce-kv (fn [session k v]
+                                                (if (some? v) (assoc session k v)
+                                                              (dissoc session k)))
+                                              (.getAttribute session! ring-session-key))))
+    (when values
+      (throw (ex-info "Attempt to set session values when sessions are disabled"
+                      {:undertow/exchange e})))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

@@ -17,6 +17,7 @@
                  [org.slf4j/slf4j-api "1.7.36" :upgrade false]]
 
   :java-source-paths ["src"]
+  :javac-options ["-source" "1.8" "-target" "1.8"]
 
   :profiles {:dev {:dependencies [[luminus/ring-undertow-adapter "1.2.9"]
                                   [org.immutant/web "2.1.10"]]}})

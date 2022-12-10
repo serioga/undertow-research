@@ -1,5 +1,6 @@
 (ns undertow-ring.response
   (:require [clojure.java.io :as io]
+            [undertow-ring.session :as session]
             [undertow.exchange :as exchange])
   (:import (clojure.lang IPersistentMap ISeq)
            (io.undertow.io Sender)
@@ -27,20 +28,6 @@
              (.getResponseHeaders ^HttpServerExchange exchange)
              headers))
 
-(defn- update-session
-  [^HttpServerExchange exchange values]
-  (let [sess (if values (exchange/get-or-create-session exchange)
-                        (exchange/get-existing-session exchange))]
-    ;; TODO: Handle case when session manager is not assigned
-    (when (and values (not sess))
-      (throw (ex-info "Attempt to set session values in undefined session"
-                      {:undertow/exchange exchange})))
-    (if values
-      (doseq [[k v] values]
-        (if (some? v) (-> sess (.setAttribute (name k) v))
-                      (-> sess (.removeAttribute (name k)))))
-      (some-> sess (.invalidate exchange)))))
-
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defprotocol ResponseBody
@@ -57,13 +44,13 @@
     (send-response (.getResponseSender e) (response-charset-fn e))))
 
 (defn with-output-stream
-    [send-response]
-    (fn wrap-exchange [^HttpServerExchange e]
-      (if (.isInIoThread e)
-        (.dispatch e (reify HttpHandler
-                       (handleRequest [_ e] (wrap-exchange e))))
-        (with-open [output (exchange/new-output-stream e)]
-          (send-response output (response-charset-fn e))))))
+  [send-response]
+  (fn wrap-exchange [^HttpServerExchange e]
+    (if (.isInIoThread e)
+      (.dispatch e (reify HttpHandler
+                     (handleRequest [_ e] (wrap-exchange e))))
+      (with-open [output (exchange/new-output-stream e)]
+        (send-response output (response-charset-fn e))))))
 
 ;; TODO: Complete list of response body types
 
@@ -120,7 +107,7 @@
   (when response
     (when-some [headers,, (.valAt response :headers)] (doto exchange (put-headers headers)))
     (when-some [status,,, (.valAt response :status)], (doto exchange (.setStatusCode status)))
-    (when-some [session (.entryAt response :session)] (doto exchange (update-session (val session))))
+    (when-some [session (.entryAt response :session)] (doto exchange (session/update-values (val session))))
     (when-some [body,,,,, (.valAt response :body)],,, (doto exchange ((send-response-fn body)))))
   nil)
 
