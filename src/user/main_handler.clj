@@ -47,12 +47,12 @@
    (fn handler
      ([{:keys [::async?] :as req}]
       #_(throw (ex-info "Oops" {}))
-      #_ req
+      #_req
       (def -req req)
       (let [headers {"x-a" "1"
-             "x-b" "2"
-             #_#_"x-c" [3 4]
-             "content-type" (str "text/plain; charset=" charset)}
+                     "x-b" "2"
+                     #_#_"x-c" [3 4]
+                     "content-type" (str "text/plain; charset=" charset)}
             body (seq [greet " [" (.getName (Thread/currentThread)) "]"
                        (if async? " async-ring" " sync-ring")
                        "\n\n"
@@ -68,7 +68,7 @@
                    :session {:test (or (some-> req :session :test inc) 0)
                              :blink (when-not (-> req :session :blink) true)}
                    #_#_:session (when-not (-> req :session :test)
-                              {:test "Test session value"})
+                                  {:test "Test session value"})
                    #_#_:status 200}
             #_#_(:session req) (assoc-in [:session "test"] "Test session value")))))
      ([req respond raise]

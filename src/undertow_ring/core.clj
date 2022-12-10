@@ -51,13 +51,13 @@
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (comment
-  (headers/as-persistent-map (.getRequestHeaders -exchange))
+  (headers/ring-headers (.getRequestHeaders -exchange))
   ;             Execution time mean : 9,855630 ns
   ;    Execution time std-deviation : 0,413126 ns
   ;   Execution time lower quantile : 9,354131 ns ( 2,5%)
   ;   Execution time upper quantile : 10,413843 ns (97,5%)
 
-  (def -headers (headers/as-persistent-map (.getRequestHeaders -exchange)))
+  (def -headers (headers/ring-headers (.getRequestHeaders -exchange)))
 
   (get -headers "Host")
   #_=> "localhost:8080"
@@ -91,10 +91,10 @@
 (defn build-request-map
   [^HttpServerExchange exchange]
   ;; TODO: `path-info` in request (see immutant)
-  (let [headers (.getRequestHeaders exchange)
+  (let [header-map (.getRequestHeaders exchange)
         query-string (.getQueryString exchange)
         query-string (when-not (.isEmpty query-string) query-string)
-        content-type (.getFirst headers Headers/CONTENT_TYPE)
+        content-type (.getFirst header-map Headers/CONTENT_TYPE)
         content-length (.getRequestContentLength exchange)
         content-length (when-not (neg? content-length) content-length)
         body (exchange/get-input-stream exchange)
@@ -110,8 +110,8 @@
              :request-method (method-keyword (.toString (.getRequestMethod exchange)))
              :character-encoding (.getRequestCharset exchange)
              ;; TODO: header conversion is slow
-             #_#_:headers (headers/persistent-map headers)
-             :headers (headers/as-persistent-map headers)
+             #_#_:headers (headers/persistent-map header-map)
+             :headers (headers/ring-headers header-map)
              ;; TODO: Don't put empty context in request?
              :context (.getResolvedPath exchange)}
       query-string,, (assoc :query-string query-string)

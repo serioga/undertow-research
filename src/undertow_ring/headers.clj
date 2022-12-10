@@ -1,15 +1,10 @@
 (ns undertow-ring.headers
   (:require [clojure.string :as string])
-  (:import (clojure.lang IEditableCollection IFn IPersistentMap MapEquivalence)
+  (:import (clojure.lang APersistentMap IEditableCollection IFn IPersistentMap MapEntry MapEquivalence Util)
            (io.undertow.util HeaderMap HeaderValues)
            (java.util Map)))
 
 (set! *warn-on-reflection* true)
-
-;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-
-(defprotocol PersistentMapProxy
-  (as-persistent-map [host]))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -20,19 +15,23 @@
 (defn header-value
   [^HeaderValues x]
   (if (< 1 (.size x))
-    ;; TODO: Why comma separated values?
+    ;; Comma separated values.
     ;; Discussion: https://groups.google.com/g/ring-clojure/c/N6vv3JkScik
     ;; RFC: https://www.rfc-editor.org/rfc/rfc9110.html#section-5.3
     (string/join "," x)
     (or (.peekFirst x) "")))
 
-(defn persistent-map
-  [^HeaderMap headers]
-  (persistent! (reduce (fn [m! x] (assoc! m! (header-name x) (header-value x)))
-                       (transient {})
-                       headers)))
+(defprotocol PersistentMap
+  (persistent-map ^APersistentMap [_]))
 
-(deftype HeaderMapProxy [^HeaderMap headers]
+(extend-protocol PersistentMap HeaderMap
+  (persistent-map
+    [headers]
+    (persistent! (reduce (fn [m! x] (assoc! m! (header-name x) (header-value x)))
+                            (transient {})
+                            headers))))
+
+(deftype HeaderMapProxy [^HeaderMap headers, ^:volatile-mutable persistent-copy]
   Map
   (size
     [_]
@@ -58,25 +57,28 @@
     (or (some-> (.get headers (str k)) header-value)
         not-found))
   (entryAt
-    [_ k]
-    (throw (ex-info "Not implemented: entryAt" {})))
+    [this k]
+    (when-let [v (.valAt this k)]
+      (MapEntry. k v)))
   (containsKey
     [_ k]
     (.contains headers (str k)))
   (assoc
-    [_ k v]
-    (-> (persistent-map headers)
+    [this k v]
+    (-> (persistent-map this)
         (assoc k v)))
   (assocEx
-    [_ k v]
-    (throw (ex-info "Not implemented: assocEx" {})))
+    [this k v]
+    (if (.containsKey this k)
+      (throw (Util/runtimeException "Key already present"))
+      (assoc this k v)))
   (cons
-    [_ o]
-    (-> (persistent-map headers)
+    [this o]
+    (-> (persistent-map this)
         (conj o)))
   (without
-    [_ k]
-    (-> (persistent-map headers)
+    [this k]
+    (-> (persistent-map this)
         (dissoc (.toLowerCase (str k)))))
   (empty
     [_]
@@ -85,21 +87,28 @@
     [_]
     (.size headers))
   (seq
-    [_]
-    (seq (persistent-map headers)))
+    [this]
+    (seq (persistent-map this)))
   (equiv
-    [_ o]
-    (= o (persistent-map headers)))
+    [this o]
+    (= o (persistent-map this)))
   (iterator
-    [_]
-    (throw (ex-info "Not implemented: iterator" {})))
+    [this]
+    (.iterator (persistent-map this)))
   IEditableCollection
   (asTransient
+    [this]
+    (transient (persistent-map this)))
+  PersistentMap
+  (persistent-map
     [_]
-    (transient (persistent-map headers))))
+    (or persistent-copy
+        (set! persistent-copy (persistent-map headers)))))
 
-(extend-protocol PersistentMapProxy
-  HeaderMap
-  (as-persistent-map [headers] (HeaderMapProxy. headers)))
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defn ring-headers
+  [header-map]
+  (HeaderMapProxy. header-map nil))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
