@@ -2,7 +2,7 @@
   (:require [undertow.adapter :as adapter])
   (:import (clojure.lang Fn IPersistentMap MultiFn Sequential)
            (io.undertow.server HttpHandler)
-           (io.undertow.server.handlers BlockingHandler GracefulShutdownHandler NameVirtualHostHandler PathHandler ProxyPeerAddressHandler RequestDumpingHandler)
+           (io.undertow.server.handlers GracefulShutdownHandler NameVirtualHostHandler PathHandler ProxyPeerAddressHandler RequestDumpingHandler)
            (io.undertow.server.handlers.error SimpleErrorPageHandler)
            (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler ResourceManager)
            (io.undertow.server.session InMemorySessionManager SecureRandomSessionIdGenerator SessionAttachmentHandler SessionConfig SessionCookieConfig SessionManager)))

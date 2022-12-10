@@ -1,4 +1,5 @@
 (ns undertow.builder
+  (:require [undertow.handler :as handler])
   (:import (clojure.lang IPersistentMap)
            (io.undertow Undertow Undertow$Builder Undertow$ListenerBuilder Undertow$ListenerType UndertowOptions)
            (io.undertow.server HttpHandler)
@@ -108,6 +109,26 @@
      (.setWorkerOption ^Undertow$Builder builder option value))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defn- apply-map
+  ^Undertow$Builder
+  [builder set-fn entries]
+  (reduce set-fn builder entries))
+
+(defn configure
+  [builder {:keys [ports, handler, buffer-size, io-threads, worker-threads, direct-buffers
+                   server-options, socket-options, worker-options]}]
+  (-> builder
+      (apply-map add-listener ports)
+      (apply-map set-server-option server-options)
+      (apply-map set-socket-option socket-options)
+      (apply-map set-worker-option worker-options)
+      (cond->
+        handler,,,,,,, (.setHandler (handler/as-handler handler))
+        buffer-size,,, (.setBufferSize buffer-size)
+        io-threads,,,, (.setIoThreads io-threads)
+        worker-threads (.setWorkerThreads worker-threads)
+        direct-buffers (.setDirectBuffers direct-buffers))))
 
 (defn build
   ^Undertow
