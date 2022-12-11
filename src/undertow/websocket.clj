@@ -1,4 +1,4 @@
-(ns undertow.websockets
+(ns undertow.websocket
   (:require [undertow.handler :as handler])
   (:import (clojure.lang IFn IPersistentMap)
            (io.undertow.websockets WebSocketConnectionCallback WebSocketProtocolHandshakeHandler)
@@ -6,7 +6,7 @@
            (io.undertow.websockets.spi WebSocketHttpExchange)
            (java.nio ByteBuffer)
            (org.xnio ChannelListener)
-           (undertow.websockets OnOpenListener WebSocketChannelListener)))
+           (undertow.websocket OnOpenListener WebSocketChannelListener)))
 
 (set! *warn-on-reflection* true)
 

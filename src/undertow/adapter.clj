@@ -1,5 +1,5 @@
 (ns undertow.adapter
-  (:import (clojure.lang AFn)
+  (:import (clojure.lang Fn MultiFn)
            (io.undertow.server HttpHandler)))
 
 (set! *warn-on-reflection* true)
@@ -14,7 +14,8 @@
 
 (defn- validate-fn-as-handler
   [f]
-  (or (instance? AFn f)
+  (or (instance? Fn f)
+      (instance? MultiFn f)
       (throw (IllegalArgumentException. (str "Requires function for handler fn-adapter: " f)))))
 
 (set-validator! #'*fn-as-handler* validate-fn-as-handler)

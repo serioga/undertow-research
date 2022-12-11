@@ -1,6 +1,6 @@
 (ns undertow.handler
   (:require [undertow.adapter :as adapter])
-  (:import (clojure.lang AFn IPersistentMap MultiFn Sequential)
+  (:import (clojure.lang Fn IPersistentMap MultiFn Sequential)
            (io.undertow.server HttpHandler)
            (io.undertow.server.handlers GracefulShutdownHandler NameVirtualHostHandler PathHandler ProxyPeerAddressHandler RequestDumpingHandler)
            (io.undertow.server.handlers.error SimpleErrorPageHandler)
@@ -32,7 +32,10 @@
 (extend-protocol HandlerImpl
   HttpHandler
   (as-handler [handler] handler)
-  AFn
+  Fn
+  (as-handler [handler-fn] (adapter/*fn-as-handler* handler-fn))
+  (as-wrapper [wrapper-fn] wrapper-fn)
+  MultiFn
   (as-handler [handler-fn] (adapter/*fn-as-handler* handler-fn))
   (as-wrapper [wrapper-fn] wrapper-fn)
   IPersistentMap

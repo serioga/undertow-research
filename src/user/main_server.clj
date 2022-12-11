@@ -3,7 +3,7 @@
             [undertow.adapter :as adapter]
             [undertow.handler :as handler]
             [undertow.server :as server]
-            [undertow.websockets :as websocket]
+            [undertow.websocket :as websocket]
             [user.main-handler :as main])
   (:import (io.undertow Undertow Undertow$Builder)
            (io.undertow.server Connectors HttpHandler)

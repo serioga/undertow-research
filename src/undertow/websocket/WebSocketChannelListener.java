@@ -1,4 +1,4 @@
-package undertow.websockets;
+package undertow.websocket;
 
 import clojure.lang.*;
 import io.undertow.websockets.core.*;

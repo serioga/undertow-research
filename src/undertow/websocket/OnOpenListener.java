@@ -1,4 +1,4 @@
-package undertow.websockets;
+package undertow.websocket;
 
 import io.undertow.websockets.core.WebSocketChannel;
 
