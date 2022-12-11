@@ -52,14 +52,14 @@
 (defn start-test-server
   []
   (-> {:ports {8080 {#_#_:socket-options {:xnio/worker-io-threads 2}}}
-       #_#_:handler (websocket/handler {:on-open (fn [{:keys [channel context]}]
-                                                   #p [:on-open context]
-                                                   (websocket/send-text "What's up!" channel {}))
-                                        :on-message (fn [{:keys [channel message context]}]
-                                                      #p [:on-message message context]
-                                                      (websocket/send-text (str "What " message "?") channel {}))
-                                        :on-close (fn [params] #p [:on-close params])
-                                        :on-error (fn [params] #p [:on-error params])})
+       #_#_:handler (handler/websocket {:on-open (fn [{:keys [channel context]}]
+                                                             #p [:on-open context]
+                                                             (websocket/send-text "What's up!" channel {}))
+                                                  :on-message (fn [{:keys [channel message context]}]
+                                                                #p [:on-message message context]
+                                                                (websocket/send-text (str "What " message "?") channel {}))
+                                                  :on-close (fn [params] #p [:on-close params])
+                                                  :on-error (fn [params] #p [:on-error params])})
        #_#_:handler [{:type handler/dispatch}
                      {:type handler/path-prefix :prefixes {"static" {:type handler/resource-handler :prefix "public/static"}}}]
        #_#_:handler (-> -test-handler #_(BlockingHandler.))
@@ -71,7 +71,7 @@
                  {:type handler/path-prefix
                   :prefixes {"static" [{:type handler/request-dump}
                                        {:type handler/resource-handler :prefix "public/static"}]}
-                  :exacts {"ws" {:type websocket/handler
+                  :exacts {"ws" {:type handler/websocket
                                  :on-open (fn [{:keys [channel] :as event}]
                                             (prn event)
                                             (prn [:exchange (websocket/get-exchange channel)])

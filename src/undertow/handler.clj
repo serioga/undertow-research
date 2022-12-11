@@ -1,11 +1,13 @@
 (ns undertow.handler
-  (:require [undertow.adapter :as adapter])
-  (:import (clojure.lang Fn IPersistentMap MultiFn Sequential)
+  (:require [undertow.types :as types]
+            [undertow.websocket :as websocket])
+  (:import (clojure.lang IPersistentMap MultiFn Sequential)
            (io.undertow.server HttpHandler)
            (io.undertow.server.handlers GracefulShutdownHandler NameVirtualHostHandler PathHandler ProxyPeerAddressHandler RequestDumpingHandler)
            (io.undertow.server.handlers.error SimpleErrorPageHandler)
            (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler ResourceManager)
-           (io.undertow.server.session InMemorySessionManager SecureRandomSessionIdGenerator SessionAttachmentHandler SessionConfig SessionCookieConfig SessionManager)))
+           (io.undertow.server.session InMemorySessionManager SecureRandomSessionIdGenerator SessionAttachmentHandler SessionConfig SessionCookieConfig SessionManager)
+           (io.undertow.websockets WebSocketProtocolHandshakeHandler)))
 
 (set! *warn-on-reflection* true)
 
@@ -15,53 +17,49 @@
 
 (def handler-type (some-fn :type type))
 
-#_(do (def as-handler-type nil) (def as-wrapper-type nil))
-
 (defmulti handler-impl handler-type)
 
-(defprotocol HandlerImpl
-  (as-handler ^io.undertow.server.HttpHandler [obj])
-  (as-wrapper [obj]))
+(defmulti wrapper-impl handler-type)
 
 (defn wrap-handler
   [handler with]
-  (reduce (fn [handler wrapper] ((as-wrapper wrapper) (as-handler handler)))
-          (as-handler handler)
+  (reduce (fn [handler wrapper]
+            ((types/as-wrapper wrapper) (types/as-handler handler)))
+          (types/as-handler handler)
           (reverse with)))
 
-(extend-protocol HandlerImpl
-  HttpHandler
-  (as-handler [handler] handler)
-  Fn
-  (as-handler [handler-fn] (adapter/*fn-as-handler* handler-fn))
-  (as-wrapper [wrapper-fn] wrapper-fn)
-  MultiFn
-  (as-handler [handler-fn] (adapter/*fn-as-handler* handler-fn))
-  (as-wrapper [wrapper-fn] wrapper-fn)
-  IPersistentMap
-  (as-handler [m] (as-handler (handler-impl m)))
-  (as-wrapper [m] (as-wrapper (handler-impl m)))
-  Sequential
-  (as-handler [xs] (when-let [xs (seq xs)]
+(extend-protocol types/AsHandler IPersistentMap
+  (as-handler
+    [m]
+    (types/as-handler (handler-impl m))))
+
+(extend-protocol types/AsHandler Sequential
+  (as-handler
+    [xs]
+    (when-let [xs (seq xs)]
                      ;; TODO: Raise exception for empty seq?
                      (wrap-handler (last xs) (butlast xs)))))
+
+(extend-protocol types/AsHandlerWrapper IPersistentMap
+  (as-wrapper
+    [m]
+    (types/as-wrapper (wrapper-impl m))))
 
 (defn declare-type
   [t {as-handler-fn :as-handler, as-wrapper-fn :as-wrapper, alias :type-alias}]
   (assert (or (fn? as-handler-fn) (fn? as-wrapper-fn)))
-  (letfn [(impl-method [obj]
-            (reify HandlerImpl
-              (as-handler [_]
-                (if as-handler-fn
-                  (as-handler-fn obj)
-                  (throw (ex-info (str "Cannot be user as HttpHandler: " obj) {}))))
-              (as-wrapper [_]
-                (if as-wrapper-fn
-                  (as-wrapper-fn obj)
-                  (throw (ex-info (str "Cannot be user as handler wrapper: " obj) {}))))))]
-    (.addMethod ^MultiFn handler-impl t impl-method)
-    (when alias
-      (.addMethod ^MultiFn handler-impl alias impl-method))))
+  (letfn [(handler-impl-method [obj] (reify types/AsHandler
+                                       (as-handler [_] (as-handler-fn obj))))
+          (wrapper-impl-method [obj] (reify types/AsHandlerWrapper
+                                       (as-wrapper [_] (as-wrapper-fn obj))))]
+    (when as-handler-fn
+      (.addMethod ^MultiFn handler-impl t handler-impl-method)
+      (when alias
+        (.addMethod ^MultiFn handler-impl alias handler-impl-method)))
+    (when as-wrapper-fn
+      (.addMethod ^MultiFn wrapper-impl t wrapper-impl-method)
+      (when alias
+        (.addMethod ^MultiFn wrapper-impl alias wrapper-impl-method)))))
 
 (defn as-wrapper-2-arity
   [f]
@@ -78,7 +76,7 @@
   "A HttpHandler that initiates a blocking request. If the thread is currently
   running in the io thread it will be dispatched."
   [handler]
-  (let [handler (as-handler handler)]
+  (let [handler (types/as-handler handler)]
     (reify HttpHandler
       (handleRequest [_ e]
         (if (.isInIoThread e)
@@ -96,12 +94,12 @@
   (^PathHandler
    [default-handler {:keys [prefixes exacts cache-size]}]
    (letfn [(add-prefix-path [this [path handler]]
-             (.addPrefixPath ^PathHandler this path (as-handler handler)))
+             (.addPrefixPath ^PathHandler this path (types/as-handler handler)))
            (add-exact-path [this [path handler]]
-             (.addExactPath ^PathHandler this path (as-handler handler)))]
+             (.addExactPath ^PathHandler this path (types/as-handler handler)))]
      (as->
-       (cond (and default-handler cache-size) (PathHandler. (as-handler default-handler) cache-size)
-             default-handler,,,,,,,,,,,,,,,,, (PathHandler. (as-handler default-handler))
+       (cond (and default-handler cache-size) (PathHandler. (types/as-handler default-handler) cache-size)
+             default-handler,,,,,,,,,,,,,,,,, (PathHandler. (types/as-handler default-handler))
              cache-size,,,,,,,,,,,,,,,,,,,,,, (PathHandler. (int cache-size))
              :else,,,,,,,,,,,,,,,,,,,,,,,,,,, (PathHandler.))
        handler
@@ -118,21 +116,21 @@
   (^NameVirtualHostHandler
    [{:keys [hosts]}]
    (reduce (fn [this [host handler]]
-             (.addHost ^NameVirtualHostHandler this host (as-handler handler)))
+             (.addHost ^NameVirtualHostHandler this host (types/as-handler handler)))
            (NameVirtualHostHandler.)
            hosts))
   (^NameVirtualHostHandler
    [default-handler opts]
    (-> (virtual-host opts)
-       (.setDefaultHandler (as-handler default-handler)))))
+       (.setDefaultHandler (types/as-handler default-handler)))))
 
 (declare-type virtual-host {:type-alias ::virtual-host
                             :as-handler virtual-host
                             :as-wrapper (as-wrapper-2-arity virtual-host)})
 
 (comment
-  (as-handler {:type virtual-host :hosts {"localhost" identity}})
-  (as-handler {:type ::virtual-host :hosts {"localhost" identity}})
+  (types/as-handler {:type virtual-host :hosts {"localhost" identity}})
+  (types/as-handler {:type ::virtual-host :hosts {"localhost" identity}})
   )
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
@@ -149,7 +147,7 @@
    (ResourceHandler. (resource-manager opts)))
   (^ResourceHandler
    [next-handler opts]
-   (ResourceHandler. (resource-manager opts) (as-handler next-handler))))
+   (ResourceHandler. (resource-manager opts) (types/as-handler next-handler))))
 
 (declare-type resource-handler {:type-alias ::resource-handler
                                 :as-handler resource-handler
@@ -196,7 +194,7 @@
   ^SessionAttachmentHandler
   [next-handler {:keys [session-manager, session-config]
                  :or {session-manager {} session-config {}}}]
-  (SessionAttachmentHandler. (as-handler next-handler)
+  (SessionAttachmentHandler. (types/as-handler next-handler)
                              (as-session-manager session-manager)
                              (as-session-config session-config)))
 
@@ -224,16 +222,16 @@
   "Handler that generates an extremely simple no frills error page."
   ^SimpleErrorPageHandler
   [next-handler]
-  (SimpleErrorPageHandler. (as-handler next-handler)))
+  (SimpleErrorPageHandler. (types/as-handler next-handler)))
 
 (declare-type simple-error-page {:type-alias ::simple-error-page
                                  :as-wrapper (as-wrapper-1-arity simple-error-page)})
 
 (comment
-  (as-handler {:type simple-error-page})
-  (as-handler {:type ::simple-error-page})
-  ((as-wrapper {:type simple-error-page}) identity)
-  ((as-wrapper {:type ::simple-error-page}) identity)
+  (types/as-handler {:type simple-error-page})
+  (types/as-handler {:type ::simple-error-page})
+  ((types/as-wrapper {:type simple-error-page}) identity)
+  ((types/as-wrapper {:type ::simple-error-page}) identity)
   )
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
@@ -241,7 +239,7 @@
 (defn graceful-shutdown
   ^HttpHandler
   [next-handler]
-  (GracefulShutdownHandler. (as-handler next-handler)))
+  (GracefulShutdownHandler. (types/as-handler next-handler)))
 
 (declare-type graceful-shutdown {:type-alias ::graceful-shutdown
                                  :as-wrapper (as-wrapper-1-arity graceful-shutdown)})
@@ -251,11 +249,29 @@
 (defn request-dump
   ^HttpHandler
   [next-handler]
-  (RequestDumpingHandler. (as-handler next-handler)))
+  (RequestDumpingHandler. (types/as-handler next-handler)))
 
 (fn [next-handler _] (request-dump next-handler))
 
 (declare-type request-dump {:type-alias ::request-dump
                             :as-wrapper (as-wrapper-1-arity request-dump)})
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defn websocket
+  {:arglists '([{:as listener :keys [on-open, on-message, on-close, on-error]}]
+               [next-handler, {:as listener :keys [on-open, on-message, on-close, on-error]}]
+               [listener]
+               [next-handler, listener])}
+  ^WebSocketProtocolHandshakeHandler
+  ([callback]
+   (websocket/handshake callback))
+  ^WebSocketProtocolHandshakeHandler
+  ([next-handler, callback]
+   (websocket/handshake next-handler callback)))
+
+(declare-type websocket {:type-alias ::websocket
+                         :as-handler websocket
+                         :as-wrapper (as-wrapper-2-arity websocket)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

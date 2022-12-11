@@ -26,7 +26,7 @@
 
 (defn websocket-response
   [response request]
-  (assoc response :body (websocket/handler {:on-message (fn [{:keys [channel text]}]
+  (assoc response :body (websocket/handshake {:on-message (fn [{:keys [channel text]}]
                                                           (if (= "bye" text)
                                                             (do (websocket/send-text "Bye-bye!" channel nil)
                                                                 (websocket/send-close nil channel nil))

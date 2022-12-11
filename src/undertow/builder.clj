@@ -1,5 +1,5 @@
 (ns undertow.builder
-  (:require [undertow.handler :as handler])
+  (:require [undertow.types :as types])
   (:import (clojure.lang IPersistentMap)
            (io.undertow Undertow Undertow$Builder Undertow$ListenerBuilder Undertow$ListenerType UndertowOptions)
            (io.undertow.server HttpHandler)
@@ -124,7 +124,7 @@
       (apply-map set-socket-option socket-options)
       (apply-map set-worker-option worker-options)
       (cond->
-        handler,,,,,,, (.setHandler (handler/as-handler handler))
+        handler,,,,,,, (.setHandler (types/as-handler handler))
         buffer-size,,, (.setBufferSize buffer-size)
         io-threads,,,, (.setIoThreads io-threads)
         worker-threads (.setWorkerThreads worker-threads)

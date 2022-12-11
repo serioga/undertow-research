@@ -1,4 +1,5 @@
 (ns undertow.adapter
+  (:require [undertow.types :as types])
   (:import (clojure.lang Fn MultiFn)
            (io.undertow.server HttpHandler)))
 
@@ -20,6 +21,12 @@
 
 (set-validator! #'*fn-as-handler* validate-fn-as-handler)
 
+(extend-protocol types/AsHandler
+  Fn
+  (as-handler [handler-fn] (*fn-as-handler* handler-fn))
+  MultiFn
+  (as-handler [handler-fn] (*fn-as-handler* handler-fn)))
+
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn set-fn-as-handler
@@ -39,4 +46,3 @@
     (handleRequest [_ exchange] (f exchange))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-

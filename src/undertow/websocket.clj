@@ -1,5 +1,5 @@
 (ns undertow.websocket
-  (:require [undertow.handler :as handler])
+  (:require [undertow.types :as types])
   (:import (clojure.lang IFn IPersistentMap)
            (io.undertow.websockets WebSocketConnectionCallback WebSocketProtocolHandshakeHandler)
            (io.undertow.websockets.core CloseMessage WebSocketCallback WebSocketChannel WebSockets)
@@ -12,37 +12,15 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defprotocol AsChannelListener
-  (as-channel-listener ^ChannelListener [obj]))
+(def ^:const exchange-attr "websocket/exchange")
 
-(extend-protocol AsChannelListener
-  ChannelListener
-  (as-channel-listener
-    [listener] listener)
-  nil
-  (as-channel-listener
-    [_] nil)
-  IPersistentMap
-  (as-channel-listener
+(extend-protocol types/AsWebSocketListener IPersistentMap
+  (as-websocket-listener
     [config]
     (WebSocketChannelListener. config)))
 
-;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-
-(def ^:const exchange-attr "websocket/exchange")
-
-(defprotocol AsConnectionCallback
-  (as-connection-callback ^WebSocketConnectionCallback [obj]))
-
-(extend-protocol AsConnectionCallback
-  WebSocketConnectionCallback
-  (as-connection-callback
-    [callback] callback)
-  nil
-  (as-connection-callback
-    [_] nil)
-  ChannelListener
-  (as-connection-callback
+(extend-protocol types/AsWebSocketConnectionCallback ChannelListener
+  (as-websocket-connection-callback
     [listener]
     (reify WebSocketConnectionCallback
       (^void onConnect
@@ -51,11 +29,7 @@
         (when (instance? OnOpenListener listener)
           (.onOpen ^OnOpenListener listener chan))
         (.set (.getReceiveSetter chan) listener)
-        (.resumeReceives chan))))
-  Object
-  (as-connection-callback
-    [obj]
-    (as-connection-callback (as-channel-listener obj))))
+        (.resumeReceives chan)))))
 
 (defn get-exchange
   ^WebSocketHttpExchange
@@ -64,36 +38,24 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defn handler
+(defn handshake
   {:arglists '([{:as listener :keys [on-open, on-message, on-close, on-error]}]
                [next-handler, {:as listener :keys [on-open, on-message, on-close, on-error]}]
                [^ChannelListener listener]
                [next-handler, ^ChannelListener listener])}
   (^WebSocketProtocolHandshakeHandler
    [callback]
-   (WebSocketProtocolHandshakeHandler. (as-connection-callback callback)))
+   (WebSocketProtocolHandshakeHandler. (types/as-websocket-connection-callback callback)))
   (^WebSocketProtocolHandshakeHandler
    [next-handler, callback]
-   (WebSocketProtocolHandshakeHandler. (as-connection-callback callback)
-                                       (handler/as-handler next-handler))))
-
-(handler/declare-type handler {:type-alias ::handler
-                               :as-handler handler
-                               :as-wrapper (handler/as-wrapper-2-arity handler)})
+   (WebSocketProtocolHandshakeHandler. (types/as-websocket-connection-callback callback)
+                                       (types/as-handler next-handler))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defprotocol AsWebSocketCallback
-  ;; TODO: docstring
-  (as-websocket-callback ^WebSocketCallback [obj]))
-
-(extend-protocol AsWebSocketCallback
-  WebSocketCallback
-  (as-websocket-callback [listener] listener)
-  nil
-  (as-websocket-callback [_] nil)
-  IPersistentMap
-  (as-websocket-callback [handlers]
+(extend-protocol types/AsWebSocketCallback IPersistentMap
+  (as-websocket-callback
+    [handlers]
     (reify WebSocketCallback
       (complete
         [_ channel _]
@@ -102,9 +64,11 @@
       (onError
         [_ channel _ throwable]
         (when-let [on-error (:on-error handlers)]
-          (on-error {:channel channel :error throwable :callback :on-error})))))
-  IFn
-  (as-websocket-callback [callback-fn]
+          (on-error {:channel channel :error throwable :callback :on-error}))))))
+
+(extend-protocol types/AsWebSocketCallback IFn
+  (as-websocket-callback
+    [callback-fn]
     (reify WebSocketCallback
       (complete
         [_ channel _]
@@ -112,7 +76,6 @@
       (onError
         [_ channel _ throwable]
         (callback-fn {:channel channel :error throwable :callback :on-error})))))
-
 
 ;; TODO: docstrings
 
@@ -135,7 +98,7 @@
   (send-text
     [text chan opts]
     (WebSockets/sendText text, ^WebSocketChannel chan
-                         (some-> opts :callback as-websocket-callback)
+                         (some-> opts :callback types/as-websocket-callback)
                          ^long (:timeout opts -1)))
   (send-text!!
     [text chan]
@@ -145,7 +108,7 @@
   (send-binary
     [data chan opts]
     (WebSockets/sendBinary data, ^WebSocketChannel chan
-                           (some-> opts :callback as-websocket-callback)
+                           (some-> opts :callback types/as-websocket-callback)
                            ^long (:timeout opts -1)))
   (send-binary!!
     [data chan]
@@ -198,7 +161,7 @@
   (send-close
     [message chan opts]
     (WebSockets/sendClose message, ^WebSocketChannel chan
-                          (some-> opts :callback as-websocket-callback)))
+                          (some-> opts :callback types/as-websocket-callback)))
   (send-close!!
     [message chan]
     (WebSockets/sendCloseBlocking message, ^WebSocketChannel chan)))
