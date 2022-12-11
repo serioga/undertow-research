@@ -190,9 +190,9 @@
       (handler)
       (response/handle-response exchange)))
 
-(defmulti handler-fn-adapter (comp ::handler-type meta))
+(defmulti fn-as-handler (comp ::handler-type meta))
 
-(defmethod handler-fn-adapter nil
+(defmethod fn-as-handler nil
   [handler]
   (-> (reify HttpHandler
         (handleRequest [_ exchange]
@@ -201,7 +201,7 @@
           (execute-sync handler exchange)))
       (handler/dispatch)))
 
-(defmethod handler-fn-adapter ::async
+(defmethod fn-as-handler ::async
   [handler]
   ;; TODO: Async exception handler
   (letfn [(exception-callback [e] (throw e))]
@@ -213,7 +213,7 @@
                      (response/handle-response response e))
                    exception-callback))))))
 
-(defmethod handler-fn-adapter ::sync-non-blocking
+(defmethod fn-as-handler ::sync-non-blocking
   [handler]
   (reify HttpHandler
     (handleRequest [this e]
