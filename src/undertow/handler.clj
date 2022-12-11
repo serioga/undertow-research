@@ -1,5 +1,5 @@
 (ns undertow.handler
-  (:import (clojure.lang Fn IPersistentMap MultiFn Sequential)
+  (:import (clojure.lang AFn Fn IPersistentMap MultiFn Sequential)
            (io.undertow.server HttpHandler)
            (io.undertow.server.handlers GracefulShutdownHandler NameVirtualHostHandler PathHandler ProxyPeerAddressHandler RequestDumpingHandler)
            (io.undertow.server.handlers.error SimpleErrorPageHandler)
@@ -21,7 +21,7 @@
 
 (defn- validate-handler-fn-adapter
   [f]
-  (or (ifn? f)
+  (or (instance? AFn f)
       (throw (IllegalArgumentException. (str "Requires function for handler-fn-adapter: " f)))))
 
 (set-validator! #'*handler-fn-adapter* validate-handler-fn-adapter)
