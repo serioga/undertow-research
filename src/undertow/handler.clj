@@ -155,9 +155,6 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defmulti as-session-manager (some-fn :type type))
-(.addMethod ^MultiFn as-session-manager SessionManager identity)
-
 (defn in-memory-session-manager
   [{:keys [session-id-generator
            deployment-name
@@ -171,10 +168,8 @@
                            expire-oldest-unused-session-on-max
                            (boolean statistics-enabled)))
 
-(.addMethod ^MultiFn as-session-manager IPersistentMap in-memory-session-manager)
-
-(defmulti as-session-config (some-fn :type type))
-(.addMethod ^MultiFn as-session-config SessionConfig identity)
+(.addMethod ^MultiFn types/as-session-manager IPersistentMap
+            in-memory-session-manager)
 
 (defn session-cookie-config
   [{:keys [cookie-name path domain discard secure http-only max-age comment]}]
@@ -188,15 +183,16 @@
     max-age (.setMaxAge max-age)
     comment (.setComment comment)))
 
-(.addMethod ^MultiFn as-session-config IPersistentMap session-cookie-config)
+(.addMethod ^MultiFn types/as-session-config IPersistentMap
+            session-cookie-config)
 
 (defn session-attachment
   ^SessionAttachmentHandler
   [next-handler {:keys [session-manager, session-config]
                  :or {session-manager {} session-config {}}}]
   (SessionAttachmentHandler. (types/as-handler next-handler)
-                             (as-session-manager session-manager)
-                             (as-session-config session-config)))
+                             (types/as-session-manager session-manager)
+                             (types/as-session-config session-config)))
 
 (declare-type session-attachment {:type-alias ::session-attachment
                                   :as-wrapper (as-wrapper-2-arity session-attachment)})

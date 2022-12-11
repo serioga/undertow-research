@@ -1,6 +1,7 @@
 (ns undertow.types
   (:import (clojure.lang Fn IPersistentMap MultiFn)
            (io.undertow.server HttpHandler)
+           (io.undertow.server.session SessionConfig SessionManager)
            (io.undertow.websockets WebSocketConnectionCallback)
            (io.undertow.websockets.core WebSocketCallback)
            (org.xnio ChannelListener Option OptionMap)
@@ -54,6 +55,14 @@
         (.add (->> m (into {} (map (fn [[k v]] (as-option k v))))))
         (.getMap))
     OptionMap/EMPTY))
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defmulti as-session-manager (some-fn :type type))
+(.addMethod ^MultiFn as-session-manager SessionManager identity)
+
+(defmulti as-session-config (some-fn :type type))
+(.addMethod ^MultiFn as-session-config SessionConfig identity)
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
