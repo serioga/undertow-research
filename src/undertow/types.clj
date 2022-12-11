@@ -3,7 +3,7 @@
            (io.undertow.server HttpHandler)
            (io.undertow.websockets WebSocketConnectionCallback)
            (io.undertow.websockets.core WebSocketCallback)
-           (org.xnio ChannelListener)
+           (org.xnio ChannelListener Option OptionMap)
            (undertow.websocket WebSocketChannelListener)))
 
 (set! *warn-on-reflection* true)
@@ -29,6 +29,31 @@
   MultiFn
   (as-wrapper
     [wrapper-fn] wrapper-fn))
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defmulti as-option (fn [k _] k))
+
+(defn define-option
+  ([alias option] (define-option alias option identity))
+  ([alias option value-fn]
+   (defmethod as-option alias [_ v] [option (value-fn v)])))
+
+(defmethod as-option :default
+  [option value]
+  (if (instance? Option option)
+    [option value]
+    (throw (ex-info (str "Unknown undertow option: " option "\n"
+                         "Use `define-option` to define new options.") {}))))
+
+(defn as-option-map
+  ^OptionMap
+  [m]
+  (if (seq m)
+    (-> (OptionMap/builder)
+        (.add (->> m (into {} (map (fn [[k v]] (as-option k v))))))
+        (.getMap))
+    OptionMap/EMPTY))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
