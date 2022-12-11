@@ -1,4 +1,4 @@
-(ns undertow-ring.headers
+(ns undertow-ring.impl.headers
   (:require [clojure.string :as string])
   (:import (clojure.lang APersistentMap IEditableCollection IFn IPersistentMap MapEntry MapEquivalence Util)
            (io.undertow.util HeaderMap HeaderValues)

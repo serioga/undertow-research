@@ -1,6 +1,6 @@
-(ns undertow-ring.response
+(ns undertow-ring.impl.response
   (:require [clojure.java.io :as io]
-            [undertow-ring.session :as session]
+            [undertow-ring.impl.session :as session]
             [undertow.api.exchange :as exchange])
   (:import (clojure.lang IPersistentMap ISeq)
            (io.undertow.io Sender)

@@ -1,5 +1,5 @@
 (ns user.main-handler
-  (:require [undertow-ring.request :as request]
+  (:require [undertow-ring.core :as ring]
             [undertow.handler :as handler]
             [undertow.websocket.channel :as channel])
   (:import (java.io ByteArrayInputStream File InputStream)
@@ -35,7 +35,7 @@
                                                                 (channel/send-text channel nil))))})))
 
 (comment
-  (request/websocket? -req)
+  (ring/websocket? -req)
   (File. "./resources/public/static/test.txt")
   )
 
@@ -62,7 +62,7 @@
             body (ByteArrayInputStream. (.getBytes ^String body ^String charset))
             #_#_body (File. "./resources/public/static/test.txt")]
         (println (str "\n" {:body/class (class body)} "\n"))
-        (if (and websocket-response-fn (request/websocket? req))
+        (if (and websocket-response-fn (ring/websocket? req))
           (websocket-response-fn {:headers headers} req)
           (cond-> {:body body
                    :headers headers

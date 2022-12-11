@@ -1,4 +1,4 @@
-(ns undertow-ring.session
+(ns undertow-ring.impl.session
   (:require [undertow.api.exchange :as exchange])
   (:import (io.undertow.server HttpServerExchange)))
 
