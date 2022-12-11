@@ -1,6 +1,6 @@
 (ns undertow.handler
-  (:require [undertow.types :as types]
-            [undertow.websocket :as websocket])
+  (:require [undertow.api.types :as types]
+            [undertow.websocket.handler :as websocket])
   (:import (clojure.lang IPersistentMap MultiFn Sequential)
            (io.undertow.server HttpHandler)
            (io.undertow.server.handlers GracefulShutdownHandler NameVirtualHostHandler PathHandler ProxyPeerAddressHandler RequestDumpingHandler)
@@ -141,7 +141,7 @@
   (ClassPathResourceManager. (ClassLoader/getSystemClassLoader)
                              ^String prefix))
 
-(defn resource-handler
+(defn resource-files
   (^ResourceHandler
    [opts]
    (ResourceHandler. (resource-manager opts)))
@@ -149,9 +149,9 @@
    [next-handler opts]
    (ResourceHandler. (resource-manager opts) (types/as-handler next-handler))))
 
-(declare-type resource-handler {:type-alias ::resource-handler
-                                :as-handler resource-handler
-                                :as-wrapper (as-wrapper-2-arity resource-handler)})
+(declare-type resource-files {:type-alias ::resource-files
+                              :as-handler resource-files
+                              :as-wrapper (as-wrapper-2-arity resource-files)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 

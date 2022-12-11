@@ -1,4 +1,4 @@
-(ns undertow.exchange
+(ns undertow.api.exchange
   (:import (io.undertow.io Sender)
            (io.undertow.server HttpServerExchange)
            (io.undertow.server.session Session SessionConfig SessionManager)

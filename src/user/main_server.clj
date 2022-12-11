@@ -3,7 +3,7 @@
             [undertow.adapter :as adapter]
             [undertow.handler :as handler]
             [undertow.server :as server]
-            [undertow.websocket :as websocket]
+            [undertow.websocket.channel :as channel]
             [user.main-handler :as main])
   (:import (io.undertow Undertow Undertow$Builder)
            (io.undertow.server Connectors HttpHandler)
@@ -54,14 +54,14 @@
   (-> {:ports {8080 {#_#_:socket-options {:xnio/worker-io-threads 2}}}
        #_#_:handler (handler/websocket {:on-open (fn [{:keys [channel context]}]
                                                              #p [:on-open context]
-                                                             (websocket/send-text "What's up!" channel {}))
+                                                             (channel/send-text "What's up!" channel {}))
                                                   :on-message (fn [{:keys [channel message context]}]
                                                                 #p [:on-message message context]
-                                                                (websocket/send-text (str "What " message "?") channel {}))
+                                                                (channel/send-text (str "What " message "?") channel {}))
                                                   :on-close (fn [params] #p [:on-close params])
                                                   :on-error (fn [params] #p [:on-error params])})
        #_#_:handler [{:type handler/dispatch}
-                     {:type handler/path-prefix :prefixes {"static" {:type handler/resource-handler :prefix "public/static"}}}]
+                     {:type handler/path-prefix :prefixes {"static" {:type handler/resource-files :prefix "public/static"}}}]
        #_#_:handler (-> -test-handler #_(BlockingHandler.))
        :handler [{:type handler/graceful-shutdown}
                  {:type handler/proxy-peer-address}
@@ -70,15 +70,15 @@
                                                                             (main/ring-handler-fn "webapi")]}}
                  {:type handler/path-prefix
                   :prefixes {"static" [{:type handler/request-dump}
-                                       {:type handler/resource-handler :prefix "public/static"}]}
+                                       {:type handler/resource-files :prefix "public/static"}]}
                   :exacts {"ws" {:type handler/websocket
                                  :on-open (fn [{:keys [channel] :as event}]
                                             (prn event)
-                                            (prn [:exchange (websocket/get-exchange channel)])
-                                            (websocket/send-text "What's up!" channel {}))
+                                            (prn [:exchange (channel/get-exchange channel)])
+                                            (channel/send-text "What's up!" channel {}))
                                  :on-message (fn [{:keys [channel text] :as event}]
                                                (prn event)
-                                               (websocket/send-text (str "What " text "?") channel {}))
+                                               (channel/send-text (str "What " text "?") channel {}))
                                  :on-close (fn [event] (prn event))
                                  :on-error (fn [event] (prn event))}}}
                  {:type handler/session-attachment}
@@ -94,7 +94,7 @@
                                                                        (handler/request-dump))
                                                        "127.0.0.1" (test-ring-handler-fn "127.0.0.1")}})
                         (handler/session-attachment {})
-                        (handler/path-prefix {:prefixes {"static" (handler/resource-handler {:prefix "public/static"})}})
+                        (handler/path-prefix {:prefixes {"static" (handler/resource-files {:prefix "public/static"})}})
                         (handler/virtual-host {:hosts {"webapi.localtest.me" (test-ring-handler-fn "webapi")}})
                         (handler/simple-error-page)
                         (handler/proxy-peer-address)
@@ -104,7 +104,7 @@
   #_(server/start {:ports {8080 {:host "localhost"}}
                    :handler (-> (test-ring-handler-fn "2")
                                 (handler/session-attachment {})
-                                #_(handler/resource-handler {})
+                                #_(handler/resource-files {})
                                 (RequestDumpingHandler.))
                    :io-threads 6
                    #_#_:handler {:type :undertow/resource-handler

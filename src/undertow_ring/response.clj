@@ -1,7 +1,7 @@
 (ns undertow-ring.response
   (:require [clojure.java.io :as io]
             [undertow-ring.session :as session]
-            [undertow.exchange :as exchange])
+            [undertow.api.exchange :as exchange])
   (:import (clojure.lang IPersistentMap ISeq)
            (io.undertow.io Sender)
            (io.undertow.server HttpHandler HttpServerExchange)

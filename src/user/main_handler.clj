@@ -1,6 +1,7 @@
 (ns user.main-handler
   (:require [undertow-ring.request :as request]
-            [undertow.websocket :as websocket])
+            [undertow.handler :as handler]
+            [undertow.websocket.channel :as channel])
   (:import (java.io ByteArrayInputStream File InputStream)
            (org.apache.commons.io IOUtils)))
 
@@ -26,12 +27,12 @@
 
 (defn websocket-response
   [response request]
-  (assoc response :body (websocket/handshake {:on-message (fn [{:keys [channel text]}]
+  (assoc response :body (handler/websocket {:on-message (fn [{:keys [channel text]}]
                                                           (if (= "bye" text)
-                                                            (do (websocket/send-text "Bye-bye!" channel nil)
-                                                                (websocket/send-close nil channel nil))
+                                                            (do (channel/send-text "Bye-bye!" channel nil)
+                                                                (channel/send-close nil channel nil))
                                                             (-> (str (:remote-addr request) ": " text)
-                                                                (websocket/send-text channel nil))))})))
+                                                                (channel/send-text channel nil))))})))
 
 (comment
   (request/websocket? -req)

@@ -1,12 +1,9 @@
-(ns undertow.websocket
-  (:require [undertow.types :as types])
+(ns undertow.websocket.channel
+  (:require [undertow.api.types :as types])
   (:import (clojure.lang IFn IPersistentMap)
-           (io.undertow.websockets WebSocketConnectionCallback WebSocketProtocolHandshakeHandler)
            (io.undertow.websockets.core CloseMessage WebSocketCallback WebSocketChannel WebSockets)
            (io.undertow.websockets.spi WebSocketHttpExchange)
-           (java.nio ByteBuffer)
-           (org.xnio ChannelListener)
-           (undertow.websocket OnOpenListener WebSocketChannelListener)))
+           (java.nio ByteBuffer)))
 
 (set! *warn-on-reflection* true)
 
@@ -14,42 +11,10 @@
 
 (def ^:const exchange-attr "websocket/exchange")
 
-(extend-protocol types/AsWebSocketListener IPersistentMap
-  (as-websocket-listener
-    [config]
-    (WebSocketChannelListener. config)))
-
-(extend-protocol types/AsWebSocketConnectionCallback ChannelListener
-  (as-websocket-connection-callback
-    [listener]
-    (reify WebSocketConnectionCallback
-      (^void onConnect
-        [_, ^WebSocketHttpExchange exchange, ^WebSocketChannel chan]
-        (.setAttribute chan exchange-attr exchange)
-        (when (instance? OnOpenListener listener)
-          (.onOpen ^OnOpenListener listener chan))
-        (.set (.getReceiveSetter chan) listener)
-        (.resumeReceives chan)))))
-
 (defn get-exchange
   ^WebSocketHttpExchange
   [^WebSocketChannel channel]
   (.getAttribute channel exchange-attr))
-
-;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-
-(defn handshake
-  {:arglists '([{:as listener :keys [on-open, on-message, on-close, on-error]}]
-               [next-handler, {:as listener :keys [on-open, on-message, on-close, on-error]}]
-               [^ChannelListener listener]
-               [next-handler, ^ChannelListener listener])}
-  (^WebSocketProtocolHandshakeHandler
-   [callback]
-   (WebSocketProtocolHandshakeHandler. (types/as-websocket-connection-callback callback)))
-  (^WebSocketProtocolHandshakeHandler
-   [next-handler, callback]
-   (WebSocketProtocolHandshakeHandler. (types/as-websocket-connection-callback callback)
-                                       (types/as-handler next-handler))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 

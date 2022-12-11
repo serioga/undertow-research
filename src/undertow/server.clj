@@ -1,6 +1,6 @@
 (ns undertow.server
-  (:require [undertow.builder :as builder]
-            [undertow.types :as types])
+  (:require [undertow.api.builder :as builder]
+            [undertow.api.types :as types])
   (:import (io.undertow Undertow UndertowOptions)
            (org.xnio Options)))
 

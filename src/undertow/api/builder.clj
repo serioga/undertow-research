@@ -1,5 +1,5 @@
-(ns undertow.builder
-  (:require [undertow.types :as types])
+(ns undertow.api.builder
+  (:require [undertow.api.types :as types])
   (:import (clojure.lang IPersistentMap)
            (io.undertow Undertow Undertow$Builder Undertow$ListenerBuilder Undertow$ListenerType)
            (io.undertow.server HttpHandler)))

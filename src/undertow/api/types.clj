@@ -1,4 +1,4 @@
-(ns undertow.types
+(ns undertow.api.types
   (:import (clojure.lang Fn IPersistentMap MultiFn)
            (io.undertow.server HttpHandler)
            (io.undertow.server.session SessionConfig SessionManager)

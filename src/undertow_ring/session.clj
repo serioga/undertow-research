@@ -1,5 +1,5 @@
 (ns undertow-ring.session
-  (:require [undertow.exchange :as exchange])
+  (:require [undertow.api.exchange :as exchange])
   (:import (io.undertow.server HttpServerExchange)))
 
 (set! *warn-on-reflection* true)

@@ -7,7 +7,7 @@
             [undertow-ring.headers :as headers]
             [undertow-ring.response :as response]
             [undertow-ring.session :as session]
-            [undertow.exchange :as exchange]
+            [undertow.api.exchange :as exchange]
             [undertow.handler :as handler])
   (:import (io.undertow.server HttpHandler HttpServerExchange)
            (io.undertow.util Headers)))

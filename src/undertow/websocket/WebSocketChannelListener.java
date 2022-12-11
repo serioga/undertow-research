@@ -1,6 +1,9 @@
 package undertow.websocket;
 
-import clojure.lang.*;
+import clojure.lang.IFn;
+import clojure.lang.ILookup;
+import clojure.lang.Keyword;
+import clojure.lang.RT;
 import io.undertow.websockets.core.*;
 import org.xnio.Pooled;
 

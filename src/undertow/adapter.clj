@@ -1,5 +1,5 @@
 (ns undertow.adapter
-  (:require [undertow.types :as types])
+  (:require [undertow.api.types :as types])
   (:import (clojure.lang Fn MultiFn)
            (io.undertow.server HttpHandler)))
 
