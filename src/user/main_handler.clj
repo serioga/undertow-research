@@ -57,7 +57,7 @@
             body (seq [greet " [" (.getName (Thread/currentThread)) "]"
                        (if async? " async-ring" " sync-ring")
                        "\n\n"
-                       (-> req with-request-body)])
+                       (-> req with-request-body pr-str)])
             body (apply str body)
             body (ByteArrayInputStream. (.getBytes ^String body ^String charset))
             #_#_body (File. "./resources/public/static/test.txt")]
