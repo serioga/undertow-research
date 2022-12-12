@@ -9,20 +9,20 @@
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn in-io-thread?
-  {:inline (fn [exchange] `(.isInIoThread ~(with-meta exchange {:tag 'HttpServerExchange})))}
+  {:inline (fn [exchange] `(.isInIoThread ~(with-meta exchange {:tag 'io.undertow.server.HttpServerExchange})))}
   [exchange]
   (.isInIoThread ^HttpServerExchange exchange))
 
 ;; TODO: better name, argument order?
 (defmacro dispatch-async
   [exchange expr]
-  `(-> ~(with-meta exchange {:tag 'HttpServerExchange})
+  `(-> ~(with-meta exchange {:tag 'io.undertow.server.HttpServerExchange})
        (.dispatch ^Runnable (^:once fn* [] ~expr))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn get-session-manager
-  {:inline (fn [exchange] `^SessionManager (.getAttachment ~(with-meta exchange {:tag 'HttpServerExchange})
+  {:inline (fn [exchange] `^SessionManager (.getAttachment ~(with-meta exchange {:tag 'io.undertow.server.HttpServerExchange})
                                               SessionManager/ATTACHMENT_KEY))}
   ^SessionManager
   [exchange]
@@ -52,7 +52,7 @@
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn response-sender
-  {:inline (fn [exchange] `^Sender (.getResponseSender ~(with-meta exchange {:tag 'HttpServerExchange})))}
+  {:inline (fn [exchange] `^Sender (.getResponseSender ~(with-meta exchange {:tag 'io.undertow.server.HttpServerExchange})))}
   ^Sender
   [exchange]
   (.getResponseSender ^HttpServerExchange exchange))
