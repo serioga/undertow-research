@@ -1,11 +1,11 @@
 ###
-GET http://localhost:{{port}}/
+GET http://localhost:{{port}}/?a=1
 
 ###
 WEBSOCKET ws://localhost:{{port}}/
 
 ###
-POST http://localhost:{{port}}/
+POST http://localhost:{{port}}/?a=1
 Content-Type: application/x-www-form-urlencoded
 
 id=999&value=content

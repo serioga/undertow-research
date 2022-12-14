@@ -3,16 +3,19 @@
             [ring.adapter.undertow.headers :as adapter.headers]
             [ring.adapter.undertow.request :as adapter.request]
             [ring.util.response :as ring.response]
-            [strojure.zizzmap.core :as zizz]
+            [strojure.zizzmap.impl :as zizz*]
             [undertow-ring.impl.headers :as headers]
             [undertow-ring.impl.session :as session]
             [undertow.api.exchange :as exchange])
-  (:import (io.undertow.server HttpServerExchange)
+  (:import (clojure.lang PersistentHashMap)
+           (io.undertow.server HttpServerExchange)
            (io.undertow.util Headers)))
 
 (set! *warn-on-reflection* true)
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(declare ^:deprecated ^HttpServerExchange -exchange)
 
 (defn method-keyword
   [s]
@@ -44,65 +47,62 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(declare ^:deprecated ^HttpServerExchange -exchange)
-
 (defn build-request-map
+  ;; TODO: Refer to https://github.com/ring-clojure/ring/wiki/Concepts#requests
   [^HttpServerExchange e]
   ;; TODO: Remove inline def
-  (def ^HttpServerExchange -exchange e)
-  ;; TODO: `path-info` in request (see immutant)
-  (let [header-map (.getRequestHeaders e)
-        query-string (.getQueryString e)
+  #_ (def ^HttpServerExchange -exchange e)
+  (let [query-string (.getQueryString e)
         query-string (when-not (.isEmpty query-string) query-string)
-        ;; TODO: exclude content headers in not sending requests?
-        content-type (->> Headers/CONTENT_TYPE (.getFirst header-map))
-        content-length (.getRequestContentLength e)
-        content-length (when-not (neg? content-length) content-length)
-        body (exchange/get-input-stream e)
-        ;; TODO: Delayed getting of the session?
-        session (session/get-session e)]
-    (cond-> {:undertow/exchange e
-             :server-port (.getPort (.getDestinationAddress e))
-             :server-name (.getHostName e)
-             #_#_:remote-addr (-> e .getSourceAddress .getAddress .getHostAddress)
-             :uri (.getRequestURI e)
-             :scheme (scheme-keyword (.getRequestScheme e))
-             :request-method (method-keyword (.toString (.getRequestMethod e)))
-             :character-encoding (.getRequestCharset e)
-             :headers (headers/ring-headers header-map)
-             ;; TODO: Don't put empty context in request?
-             :context (.getResolvedPath e)}
-      query-string,, (assoc :query-string query-string)
-      content-type,, (assoc :content-type content-type)
-      content-length (assoc :content-length content-length)
-      body,,,,,,,,,, (assoc :body body)
-      session,,,,,,, (assoc :session session)
-      true (-> #_(zizz/assoc* :server-port (.getPort (.getDestinationAddress e)))
-             (zizz/assoc* :remote-addr (-> e .getSourceAddress .getAddress .getHostAddress))))))
+        context (.getResolvedPath e)
+        context (when-not (.isEmpty context) context)
+        session (session/get-session e)
+        body (exchange/get-input-stream e)]
+    (-> (.asTransient PersistentHashMap/EMPTY)
+        (.assoc :undertow/exchange e)
+        (.assoc :server-port,,, ^Object (.getPort (.getDestinationAddress e)))
+        (.assoc :server-name,,, (.getHostName e))
+        (.assoc :remote-addr,,, (.getHostAddress (.getAddress (.getSourceAddress e))))
+        (.assoc :uri,,,,,,,,,,, (.getRequestURI e))
+        (.assoc :scheme,,,,,,,, (scheme-keyword (.getRequestScheme e)))
+        (.assoc :request-method (method-keyword (.toString (.getRequestMethod e))))
+        (.assoc :headers,,,,,,, (headers/ring-headers (.getRequestHeaders e)))
+        (cond->
+          query-string,,, (.assoc :query-string query-string)
+          context,,,,,,,, (.assoc :context context)
+          session,,,,,,,, (.assoc :session session)
+          body,,,,,,,,,,, (.assoc :body body))
+        (.persistent))))
 
-(defn exchange->lazy-request
+(defn build-request-map-zizz
   [^HttpServerExchange e]
-  (let [headers (.getRequestHeaders e)]
-    (zizz/init {:undertow/exchange e
-                :server-port (.getPort (.getDestinationAddress e))
-                :server-name (.getHostName e)
-                ;; TODO: remote addr
-                :remote-addr (-> e .getSourceAddress .getAddress .getHostAddress)
-                :uri (.getRequestURI e)
-                :query-string (let [s (.getQueryString e)] (when-not (.isEmpty s) s))
-                :scheme (scheme-keyword (.getRequestScheme e))
-                :request-method (method-keyword (.toString (.getRequestMethod e)))
-                :content-type (.getFirst headers Headers/CONTENT_TYPE)
-                :content-length (.getRequestContentLength e)
-                :character-encoding (.getRequestCharset e)
-                :headers (headers/persistent-map headers)
-                :body (when (.isBlocking e) (.getInputStream e))
-                :context (.getResolvedPath e)})))
+  (let [query-string (.getQueryString e)
+        query-string (when-not (.isEmpty query-string) query-string)
+        context (.getResolvedPath e)
+        context (when-not (.isEmpty context) context)
+        session (session/get-session e)
+        body (exchange/get-input-stream e)]
+    (-> (.asTransient PersistentHashMap/EMPTY)
+        (.assoc :undertow/exchange e)
+        (.assoc :server-port,,, (zizz*/boxed-value (.getPort (.getDestinationAddress e))))
+        (.assoc :server-name,,, (zizz*/boxed-value (.getHostName e)))
+        (.assoc :remote-addr,,, (zizz*/boxed-value (.getHostAddress (.getAddress (.getSourceAddress e)))))
+        (.assoc :uri,,,,,,,,,,, (.getRequestURI e))
+        (.assoc :scheme,,,,,,,, (scheme-keyword (.getRequestScheme e)))
+        (.assoc :request-method (method-keyword (.toString (.getRequestMethod e))))
+        (.assoc :headers,,,,,,, (headers/ring-headers (.getRequestHeaders e)))
+        (cond->
+          query-string,,, (.assoc :query-string query-string)
+          context,,,,,,,, (.assoc :context context)
+          session,,,,,,,, (.assoc :session session)
+          body,,,,,,,,,,, (.assoc :body body))
+        (.persistent)
+        (zizz*/persistent-map))))
 
 (comment
   -exchange
   (build-request-map -exchange)
-  (exchange->lazy-request -exchange)
+  (build-request-map-zizz -exchange)
   ;;; immutant
   (require 'immutant.web.internal.undertow)
   (immutant.ring/ring-request-map -exchange)
@@ -121,7 +121,9 @@
   (.getHostPort -exchange)
   (-> -exchange .getDestinationAddress .getPort)
   (-> -exchange .getDestinationAddress)
+  (zizz*/boxed-value (.getPort (.getDestinationAddress -exchange)))
   (.getHostName -exchange)
+  (zizz*/boxed-value (.getHostName -exchange))
   (.getHostAddress (.getAddress (.getSourceAddress -exchange))) ; Execution time mean : 126,172175 ns
   (-> -exchange .getSourceAddress .getAddress .getHostAddress)
   (.getRequestScheme -exchange)
@@ -132,13 +134,16 @@
   (let [s (.getQueryString -exchange)]
     (when-not (.isEmpty s) s))
   (-> -exchange .getRequestHeaders (.getFirst Headers/CONTENT_TYPE))
+  (-> -exchange .getRequestHeaders headers/ring-headers)
   (.getRequestCharset -exchange)
   (.getResolvedPath -exchange)
+  (.isEmpty (.getResolvedPath -exchange))
   (.getRequestURI -exchange)
   (exchange/get-session-manager -exchange)
   (exchange/get-existing-session -exchange)
   (delay (exchange/get-existing-session -exchange))
   (exchange/get-input-stream -exchange)
+  (session/get-session -exchange)
   )
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
