@@ -1,6 +1,6 @@
 (ns undertow-ring.impl.headers
   (:require [clojure.string :as string])
-  (:import (clojure.lang APersistentMap IEditableCollection IFn IPersistentMap MapEntry MapEquivalence RT Util)
+  (:import (clojure.lang APersistentMap IEditableCollection IFn IKVReduce IPersistentMap MapEntry MapEquivalence RT Util)
            (io.undertow.util HeaderMap HeaderValues)
            (java.util Map)))
 
@@ -95,6 +95,10 @@
   (iterator
     [this]
     (.iterator (persistent-map this)))
+  IKVReduce
+  (kvreduce
+    [this f init]
+    (.kvreduce ^IKVReduce (persistent-map this) f init))
   IEditableCollection
   (asTransient
     [this]

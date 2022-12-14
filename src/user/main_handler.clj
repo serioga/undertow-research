@@ -37,6 +37,7 @@
 (comment
   (ring/websocket? -req)
   (str (:headers -req))
+  (reduce-kv (fn [_ k v] [k v]) nil (:headers -req))
   (str -req)
   (File. "./resources/public/static/test.txt")
   )
