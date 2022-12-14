@@ -19,7 +19,7 @@
 
 (defn method-keyword
   [s]
-  (case s "OPTIONS" :options "GET" :get "HEAD" :head "POST" :post "PUT" :put "DELETE" :delete
+  (case s "GET" :get "POST" :post "PUT" :put "DELETE" :delete "HEAD" :head "OPTIONS" :options
           (keyword (.toLowerCase ^String s))))
 
 (comment
