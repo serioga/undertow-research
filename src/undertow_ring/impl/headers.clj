@@ -1,6 +1,6 @@
 (ns undertow-ring.impl.headers
   (:require [clojure.string :as string])
-  (:import (clojure.lang APersistentMap IEditableCollection IFn IPersistentMap MapEntry MapEquivalence Util)
+  (:import (clojure.lang APersistentMap IEditableCollection IFn IPersistentMap MapEntry MapEquivalence RT Util)
            (io.undertow.util HeaderMap HeaderValues)
            (java.util Map)))
 
@@ -103,7 +103,11 @@
   (persistent-map
     [_]
     (or persistent-copy
-        (set! persistent-copy (persistent-map headers)))))
+        (set! persistent-copy (persistent-map headers))))
+  Object
+  (toString
+    [this]
+    (RT/printString this)))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 

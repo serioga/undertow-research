@@ -36,6 +36,8 @@
 
 (comment
   (ring/websocket? -req)
+  (str (:headers -req))
+  (str -req)
   (File. "./resources/public/static/test.txt")
   )
 
