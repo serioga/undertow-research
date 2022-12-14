@@ -37,8 +37,8 @@
 
 (defn define-option
   ([alias option] (define-option alias option identity))
-  ([alias option value-fn]
-   (defmethod as-option alias [_ v] [option (value-fn v)])))
+  ([alias option coerce-fn]
+   (defmethod as-option alias [_ v] [option (coerce-fn v)])))
 
 (defmethod as-option :default
   [option value]
