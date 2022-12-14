@@ -15,7 +15,6 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-;; TODO: Move function to headers?
 (defn- put-headers
   [exchange headers]
   (reduce-kv (fn [^HeaderMap hs k v]

@@ -8,10 +8,14 @@
 
 (def ^:const ring-session-key "ring-session-data")
 
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
 (defn get-session
   [exchange]
   (some-> (exchange/get-existing-session exchange)
           (.getAttribute ring-session-key)))
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn update-values
   [^HttpServerExchange e, values]
