@@ -3,7 +3,7 @@
             [ring.adapter.undertow.headers :as adapter.headers]
             [ring.adapter.undertow.request :as adapter.request]
             [ring.util.response :as ring.response]
-            [strojure.zizzmap.impl :as zizz*]
+            [strojure.zizzmap.core :as zizz]
             [undertow-ring.impl.headers :as headers]
             [undertow-ring.impl.session :as session]
             [undertow.api.exchange :as exchange])
@@ -84,9 +84,9 @@
         body (exchange/get-input-stream e)]
     (-> (.asTransient PersistentHashMap/EMPTY)
         (.assoc :undertow/exchange e)
-        (.assoc :server-port,,, (zizz*/boxed-value (.getPort (.getDestinationAddress e))))
-        (.assoc :server-name,,, (zizz*/boxed-value (.getHostName e)))
-        (.assoc :remote-addr,,, (zizz*/boxed-value (.getHostAddress (.getAddress (.getSourceAddress e)))))
+        (.assoc :server-port,,, (zizz/delay* (.getPort (.getDestinationAddress e))))
+        (.assoc :server-name,,, (zizz/delay* (.getHostName e)))
+        (.assoc :remote-addr,,, (zizz/delay* (.getHostAddress (.getAddress (.getSourceAddress e)))))
         (.assoc :uri,,,,,,,,,,, (.getRequestURI e))
         (.assoc :scheme,,,,,,,, (scheme-keyword (.getRequestScheme e)))
         (.assoc :request-method (method-keyword (.toString (.getRequestMethod e))))
@@ -97,7 +97,7 @@
           session,,,,,,,, (.assoc :session session)
           body,,,,,,,,,,, (.assoc :body body))
         (.persistent)
-        (zizz*/persistent-map))))
+        (zizz/convert-map))))
 
 (comment
   -exchange
@@ -121,9 +121,9 @@
   (.getHostPort -exchange)
   (-> -exchange .getDestinationAddress .getPort)
   (-> -exchange .getDestinationAddress)
-  (zizz*/boxed-value (.getPort (.getDestinationAddress -exchange)))
+  (zizz/delay* (.getPort (.getDestinationAddress -exchange)))
   (.getHostName -exchange)
-  (zizz*/boxed-value (.getHostName -exchange))
+  (zizz/delay* (.getHostName -exchange))
   (.getHostAddress (.getAddress (.getSourceAddress -exchange))) ; Execution time mean : 126,172175 ns
   (-> -exchange .getSourceAddress .getAddress .getHostAddress)
   (.getRequestScheme -exchange)
