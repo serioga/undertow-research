@@ -9,14 +9,6 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defn as-async-handler
-  [handler]
-  (vary-meta handler assoc ::handler-type ::async))
-
-(defn as-non-blocking-sync-handler
-  [handler]
-  (vary-meta handler assoc ::handler-type ::sync-non-blocking))
-
 (defmulti fn-as-handler (comp ::handler-type meta))
 
 (defmethod fn-as-handler nil
@@ -28,7 +20,7 @@
               (response/handle-response exchange))))
       (handler/dispatch)))
 
-(defmethod fn-as-handler ::async
+(defmethod fn-as-handler ::async-handler
   [handler]
   (reify HttpHandler
     (handleRequest [_ exchange]
@@ -38,18 +30,11 @@
                    (response/handle-response response exchange))
                  (partial exchange/throw* exchange))))))
 
-(defmethod fn-as-handler ::sync-non-blocking
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defn as-async-handler
   [handler]
-  (reify HttpHandler
-    (handleRequest [this e]
-      (if (and (.isInIoThread e)
-               (not (.isRequestComplete e)))
-        ;; Dispatch incomplete request to worker thread
-        (.dispatch e this)
-        ;; Execute handler on IO thread
-        (-> (request/build-request-map e)
-            (handler)
-            (response/handle-response e))))))
+  (vary-meta handler assoc ::handler-type ::async-handler))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 

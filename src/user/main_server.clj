@@ -1,5 +1,6 @@
 (ns user.main_server
   (:require [undertow-ring.core :as ring]
+            [undertow-ring.non-blocking :as ring-nb]
             [undertow.adapter :as adapter]
             [undertow.handler :as handler]
             [undertow.server :as server]
@@ -85,7 +86,7 @@
                  {:type handler/virtual-host :hosts {"localhost" [{:type handler/simple-error-page}
                                                                   {:type handler/request-dump}
                                                                   (-> (main/ring-handler-fn "localhost привет")
-                                                                      #_(ring/as-non-blocking-sync-handler)
+                                                                      (ring-nb/as-non-blocking-sync-handler)
                                                                       #_(ring/as-async-handler))]
                                                      "127.0.0.1" (main/ring-handler-fn "127.0.0.1")}}
                  (main/ring-handler-fn "localhost")]
