@@ -30,15 +30,13 @@
 
 (defmethod fn-as-handler ::async
   [handler]
-  ;; TODO: Async exception handler
-  (letfn [(exception-callback [e] (throw e))]
-    (reify HttpHandler
-      (handleRequest [_ e]
-        (exchange/dispatch-async e
-          (handler (request/build-request-map e)
-                   (fn response-callback [response]
-                     (response/handle-response response e))
-                   exception-callback))))))
+  (reify HttpHandler
+    (handleRequest [_ exchange]
+      (exchange/dispatch-async exchange
+        (handler (request/build-request-map exchange)
+                 (fn handle-async-response [response]
+                   (response/handle-response response exchange))
+                 (partial exchange/throw* exchange))))))
 
 (defmethod fn-as-handler ::sync-non-blocking
   [handler]

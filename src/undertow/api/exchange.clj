@@ -1,6 +1,6 @@
 (ns undertow.api.exchange
   (:import (io.undertow.io Sender)
-           (io.undertow.server HttpServerExchange)
+           (io.undertow.server Connectors HttpHandler HttpServerExchange)
            (io.undertow.server.session Session SessionConfig SessionManager)
            (java.io OutputStream)))
 
@@ -78,5 +78,12 @@
   [^HttpServerExchange e]
   (start-blocking* e)
   (.getOutputStream e))
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defn throw*
+  [exchange, throwable]
+  (-> (reify HttpHandler (handleRequest [_ _] (throw throwable)))
+      (Connectors/executeRootHandler exchange)))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
