@@ -1,6 +1,5 @@
 (ns undertow.api.exchange
-  (:import (io.undertow.io Sender)
-           (io.undertow.server Connectors HttpHandler HttpServerExchange)
+  (:import (io.undertow.server Connectors HttpHandler HttpServerExchange)
            (io.undertow.server.session Session SessionConfig SessionManager)
            (java.io OutputStream)))
 
@@ -49,12 +48,6 @@
           (.createSession mgr exchange cfg)))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-
-(defn response-sender
-  {:inline (fn [exchange] `^Sender (.getResponseSender ~(with-meta exchange {:tag 'io.undertow.server.HttpServerExchange})))}
-  ^Sender
-  [exchange]
-  (.getResponseSender ^HttpServerExchange exchange))
 
 (defn start-blocking*
   "Custom version of the `startBlocking` method which avoids exception in
