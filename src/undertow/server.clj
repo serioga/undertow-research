@@ -49,7 +49,6 @@
   CanBeStopped
   (stop
     [{::keys [undertow]}]
-    ;; TODO: Exception if no key?
     (stop undertow)))
 
 (extend-type Undertow$Builder
