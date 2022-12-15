@@ -11,8 +11,8 @@
 
 (defmulti fn-as-handler (comp ::handler-type meta))
 
-;; *Synchronous* handlers take one argument, a map representing a HTTP request,
-;; and return a map representing the HTTP response.
+;; **Synchronous** handlers take one argument, a map representing a HTTP
+;; request, and return a map representing the HTTP response.
 
 (defmethod fn-as-handler nil
   [ring-handler]
@@ -23,7 +23,7 @@
             (ring-handler)
             (response/handle-response exchange))))))
 
-;; Handlers may also be *asynchronous*. Handlers of this type take three
+;; Handlers may also be **asynchronous**. Handlers of this type take three
 ;; arguments: the request map, a response callback and an exception callback.
 
 (defmethod fn-as-handler ::async-handler
