@@ -54,14 +54,14 @@
   []
   (-> {:ports {8080 {#_#_:socket-options {:xnio/worker-io-threads 2}}}
        #_#_:handler (handler/websocket {:on-open (fn [{:keys [channel context]}]
-                                                             #p [:on-open context]
-                                                             (channel/send-text "What's up!" channel {}))
-                                                  :on-message (fn [{:keys [channel message context]}]
-                                                                #p [:on-message message context]
-                                                                (channel/send-text (str "What " message "?") channel {}))
-                                                  :on-close (fn [params] #p [:on-close params])
-                                                  :on-error (fn [params] #p [:on-error params])})
-       #_#_:handler [{:type handler/dispatch}
+                                                   #p [:on-open context]
+                                                   (channel/send-text "What's up!" channel {}))
+                                        :on-message (fn [{:keys [channel message context]}]
+                                                      #p [:on-message message context]
+                                                      (channel/send-text (str "What " message "?") channel {}))
+                                        :on-close (fn [params] #p [:on-close params])
+                                        :on-error (fn [params] #p [:on-error params])})
+       #_#_:handler [{:type handler/force-dispatch}
                      {:type handler/path-prefix :prefixes {"static" {:type handler/resource-files :prefix "public/static"}}}]
        #_#_:handler (-> -test-handler #_(BlockingHandler.))
        :handler [{:type handler/graceful-shutdown}
@@ -86,7 +86,7 @@
                  {:type handler/virtual-host :hosts {"localhost" [{:type handler/simple-error-page}
                                                                   {:type handler/request-dump}
                                                                   (-> (main/ring-handler-fn "localhost привет")
-                                                                      (ring-nb/as-non-blocking-sync-handler)
+                                                                      #_(ring-nb/as-non-blocking-sync-handler)
                                                                       #_(ring/as-async-handler))]
                                                      "127.0.0.1" (main/ring-handler-fn "127.0.0.1")}}
                  (main/ring-handler-fn "localhost")]

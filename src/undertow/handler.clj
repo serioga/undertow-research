@@ -71,20 +71,18 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defn dispatch
-  ;; TODO: Update docstring
-  "A HttpHandler that initiates a blocking request. If the thread is currently
-  running in the io thread it will be dispatched."
+(defn force-dispatch
+  "A HttpHandler that dispatches request if it is running in the io thread."
   [handler]
   (let [handler (types/as-handler handler)]
     (reify HttpHandler
-      (handleRequest [_ e]
-        (if (.isInIoThread e)
-          (.dispatch e handler)
-          (.handleRequest handler e))))))
+      (handleRequest [_ exchange]
+        (if (.isInIoThread exchange)
+          (-> exchange (.dispatch handler))
+          (-> handler (.handleRequest exchange)))))))
 
-(declare-type dispatch {:type-alias ::dispatch
-                        :as-wrapper (as-wrapper-1-arity dispatch)})
+(declare-type force-dispatch {:type-alias ::force-dispatch
+                              :as-wrapper (as-wrapper-1-arity force-dispatch)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 

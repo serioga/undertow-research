@@ -11,24 +11,29 @@
 
 (defmulti fn-as-handler (comp ::handler-type meta))
 
+;; *Synchronous* handlers take one argument, a map representing a HTTP request,
+;; and return a map representing the HTTP response.
+
 (defmethod fn-as-handler nil
-  [handler]
-  (-> (reify HttpHandler
-        (handleRequest [_ exchange]
-          (-> (request/build-request-map exchange)
-              (handler)
-              (response/handle-response exchange))))
-      (handler/dispatch)))
+  [ring-handler]
+  (handler/force-dispatch
+    (reify HttpHandler
+      (handleRequest [_ exchange]
+        (-> (request/build-request exchange)
+            (ring-handler)
+            (response/handle-response exchange))))))
+
+;; Handlers may also be *asynchronous*. Handlers of this type take three
+;; arguments: the request map, a response callback and an exception callback.
 
 (defmethod fn-as-handler ::async-handler
-  [handler]
+  [ring-handler]
   (reify HttpHandler
     (handleRequest [_ exchange]
-      (exchange/dispatch-async exchange
-        (handler (request/build-request-map exchange)
-                 (fn handle-async-response [response]
-                   (response/handle-response response exchange))
-                 (partial exchange/throw* exchange))))))
+      (exchange/async-dispatch exchange
+        (ring-handler (request/build-request exchange)
+                      (fn handle-async [response] (response/handle-response response exchange))
+                      (partial exchange/throw* exchange))))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 

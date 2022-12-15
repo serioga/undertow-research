@@ -194,7 +194,7 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defn build-request-map
+(defn build-request
   ;; TODO: Refer to https://github.com/ring-clojure/ring/wiki/Concepts#requests
   [^HttpServerExchange e]
   ;; TODO: Remove inline def
@@ -221,7 +221,7 @@
           body,,,,,,,,,,, (.assoc :body body))
         (.persistent))))
 
-(defn build-request-map-zizz
+(defn build-request-zizz
   [^HttpServerExchange e]
   (let [query-string (.getQueryString e)
         query-string (when-not (.isEmpty query-string) query-string)
@@ -248,8 +248,8 @@
 
 (comment
   -exchange
-  (build-request-map -exchange)
-  (build-request-map-zizz -exchange)
+  (build-request -exchange)
+  (build-request-zizz -exchange)
   ;;; immutant
   (require 'immutant.web.internal.undertow)
   (immutant.ring/ring-request-map -exchange)

@@ -21,7 +21,7 @@
         ;; Dispatch incomplete request to worker thread
         (.dispatch e this)
         ;; Execute handler on IO thread
-        (-> (request/build-request-map e)
+        (-> (request/build-request e)
             (handler)
             (response/handle-response e))))))
 

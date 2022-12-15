@@ -8,13 +8,7 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defn in-io-thread?
-  {:inline (fn [exchange] `(.isInIoThread ~(with-meta exchange {:tag 'io.undertow.server.HttpServerExchange})))}
-  [exchange]
-  (.isInIoThread ^HttpServerExchange exchange))
-
-;; TODO: better name, argument order?
-(defmacro dispatch-async
+(defmacro async-dispatch
   [exchange expr]
   `(-> ~(with-meta exchange {:tag 'io.undertow.server.HttpServerExchange})
        (.dispatch ^Runnable (^:once fn* [] ~expr))))
