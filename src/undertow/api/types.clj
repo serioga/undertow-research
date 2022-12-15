@@ -11,17 +11,20 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-;; TODO: protocol method docstrings
-
 (defprotocol AsHandler
-  (as-handler ^io.undertow.server.HttpHandler [obj]))
+  (as-handler
+    ^io.undertow.server.HttpHandler [obj]
+    "Coerces `obj` to the instance of `io.undertow.server.HttpHandler`."))
 
 (extend-protocol AsHandler HttpHandler
   (as-handler
     [handler] handler))
 
 (defprotocol AsHandlerWrapper
-  (as-wrapper [obj]))
+  (as-wrapper
+    [obj]
+    "Coerces `obj` to the 1-arity function which wraps handler and returns new
+    handler."))
 
 (extend-protocol AsHandlerWrapper
   Fn
@@ -67,7 +70,9 @@
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defprotocol AsWebSocketListener
-  (as-websocket-listener ^org.xnio.ChannelListener [obj]))
+  (as-websocket-listener
+    ^org.xnio.ChannelListener [obj]
+    "Coerces `obj` to the instance of `org.xnio.ChannelListener`."))
 
 (extend-protocol AsWebSocketListener
   ChannelListener
@@ -82,7 +87,10 @@
     (WebSocketChannelListener. config)))
 
 (defprotocol AsWebSocketConnectionCallback
-  (as-websocket-connection-callback ^WebSocketConnectionCallback [obj]))
+  (as-websocket-connection-callback
+    ^WebSocketConnectionCallback [obj]
+    "Coerces `obj` to the instance of
+    `io.undertow.websockets.WebSocketConnectionCallback`."))
 
 (extend-protocol AsWebSocketConnectionCallback
   WebSocketConnectionCallback
@@ -97,7 +105,10 @@
     (as-websocket-connection-callback (as-websocket-listener obj))))
 
 (defprotocol AsWebSocketCallback
-  (as-websocket-callback ^WebSocketCallback [obj]))
+  (as-websocket-callback
+    ^WebSocketCallback [obj]
+    "Coerces `obj` to the instance of
+    `io.undertow.websockets.core.WebSocketConnectionCallback`."))
 
 (extend-protocol AsWebSocketCallback
   WebSocketCallback
