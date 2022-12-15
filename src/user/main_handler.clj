@@ -52,6 +52,7 @@
      ([{:keys [::async?] :as req}]
       #_(throw (ex-info "Oops" {}))
       #_req
+      #_(ring/sessions-enabled? req)
       (def -req req)
       (let [headers {"x-a" "1"
                      "x-b" "2"

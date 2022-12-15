@@ -43,7 +43,14 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
+(defn sessions-enabled?
+  "True if sessions are enabled in Undertow server configuration. When sessions
+  are disabled then attempts to set :session keys will raise exception."
+  [req]
+  (some-> req :undertow/exchange exchange/sessions-enabled?))
+
 (defn websocket?
+  "True if `Upgrade` header in the request is \"websocket\". Case-insensitive."
   [req]
   (some-> req :headers ^String (get "upgrade")
           (.equalsIgnoreCase "websocket")))

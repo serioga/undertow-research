@@ -16,12 +16,17 @@
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn get-session-manager
-  {:inline (fn [exchange] `^SessionManager (.getAttachment ~(with-meta exchange {:tag 'io.undertow.server.HttpServerExchange})
-                                              SessionManager/ATTACHMENT_KEY))}
+  {:inline (fn [e] `^SessionManager (.getAttachment ~(with-meta e {:tag 'io.undertow.server.HttpServerExchange})
+                                                    SessionManager/ATTACHMENT_KEY))}
   ^SessionManager
   [exchange]
   (-> ^HttpServerExchange exchange
       (.getAttachment SessionManager/ATTACHMENT_KEY)))
+
+(defn sessions-enabled?
+  {:inline (fn [e] `(boolean (get-session-manager ~e)))}
+  [exchange]
+  (boolean (get-session-manager exchange)))
 
 (defn get-session-config
   ^SessionConfig
