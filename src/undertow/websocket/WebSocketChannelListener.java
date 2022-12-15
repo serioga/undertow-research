@@ -4,7 +4,9 @@ import clojure.lang.IFn;
 import clojure.lang.ILookup;
 import clojure.lang.Keyword;
 import clojure.lang.RT;
+import io.undertow.websockets.WebSocketConnectionCallback;
 import io.undertow.websockets.core.*;
+import io.undertow.websockets.spi.WebSocketHttpExchange;
 import org.xnio.Pooled;
 
 import java.io.IOException;
@@ -13,13 +15,13 @@ import java.util.Arrays;
 
 /**
  * Websocket channel listener implementation configured by Clojure map with
- * optional keys `:on-open`, `:on-message`, `:on-close` and `:on-error`.
+ * optional keys `:on-connect`, `:on-message`, `:on-close` and `:on-error`.
  *
  * <p>Implemented in Java because Clojure's proxy is slow and does not allow to
  * call super methods.
  */
-public class WebSocketChannelListener extends AbstractReceiveListener implements OnOpenListener {
-  private final IFn onOpen;
+public class WebSocketChannelListener extends AbstractReceiveListener implements WebSocketConnectionCallback {
+  private final IFn onConnect;
   private final IFn onMessage;
   private final IFn onClose;
   private final IFn onError;
@@ -31,17 +33,19 @@ public class WebSocketChannelListener extends AbstractReceiveListener implements
   private static final Keyword k_onMessage = RT.keyword(null, "on-message");
 
   public WebSocketChannelListener(ILookup config) {
-    this.onOpen = (IFn) config.valAt(RT.keyword(null, "on-open"));
+    this.onConnect = (IFn) config.valAt(RT.keyword(null, "on-connect"));
     this.onMessage = (IFn) config.valAt(RT.keyword(null, "on-message"));
     this.onClose = (IFn) config.valAt(RT.keyword(null, "on-close"));
     this.onError = (IFn) config.valAt(RT.keyword(null, "on-error"));
   }
 
   @Override
-  public void onOpen(WebSocketChannel channel) {
-    if (onOpen != null) {
-      onOpen.invoke(RT.map(k_callback, RT.keyword(null, "on-open"),
-                           k_channel, channel));
+  public void onConnect(WebSocketHttpExchange exchange,
+                        WebSocketChannel channel) {
+    if (onConnect != null) {
+      onConnect.invoke(RT.map(k_callback, RT.keyword(null, "on-connect"),
+                              RT.keyword(null, "exchange"), exchange,
+                              k_channel, channel));
     }
   }
 

@@ -253,8 +253,8 @@
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn websocket
-  {:arglists '([{:as listener :keys [on-open, on-message, on-close, on-error]}]
-               [next-handler, {:as listener :keys [on-open, on-message, on-close, on-error]}]
+  {:arglists '([{:as listener :keys [on-connect, on-message, on-close, on-error]}]
+               [next-handler, {:as listener :keys [on-connect, on-message, on-close, on-error]}]
                [listener]
                [next-handler, listener])}
   ^WebSocketProtocolHandshakeHandler

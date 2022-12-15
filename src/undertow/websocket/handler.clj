@@ -1,12 +1,11 @@
 (ns undertow.websocket.handler
-  (:require [undertow.api.types :as types]
-            [undertow.websocket.channel :as channel])
+  (:require [undertow.api.types :as types])
   (:import (clojure.lang IPersistentMap)
            (io.undertow.websockets WebSocketConnectionCallback WebSocketProtocolHandshakeHandler)
            (io.undertow.websockets.core WebSocketChannel)
            (io.undertow.websockets.spi WebSocketHttpExchange)
            (org.xnio ChannelListener)
-           (undertow.websocket OnOpenListener WebSocketChannelListener)))
+           (undertow.websocket WebSocketChannelListener)))
 
 (set! *warn-on-reflection* true)
 
@@ -23,17 +22,16 @@
     (reify WebSocketConnectionCallback
       (^void onConnect
         [_, ^WebSocketHttpExchange exchange, ^WebSocketChannel chan]
-        (.setAttribute chan channel/exchange-attr exchange)
-        (when (instance? OnOpenListener listener)
-          (.onOpen ^OnOpenListener listener chan))
+        (when (instance? WebSocketConnectionCallback listener)
+          (.onConnect ^WebSocketConnectionCallback listener exchange chan))
         (.set (.getReceiveSetter chan) listener)
         (.resumeReceives chan)))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn handshake
-  {:arglists '([{:as callback :keys [on-open, on-message, on-close, on-error]}]
-               [next-handler, {:as callback :keys [on-open, on-message, on-close, on-error]}]
+  {:arglists '([{:as callback :keys [on-connect, on-message, on-close, on-error]}]
+               [next-handler, {:as callback :keys [on-connect, on-message, on-close, on-error]}]
                [callback]
                [next-handler, callback])}
   (^WebSocketProtocolHandshakeHandler

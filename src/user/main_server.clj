@@ -31,17 +31,17 @@
                                (prn [:end (.getName (Thread/currentThread))])
                                (.endExchange e)))
       #_(.dispatch e ^Runnable
-                 (fn []
-                   (future
-                     #p [:future (.getName (Thread/currentThread))]
-                     (Thread/sleep 2000)
-                     (Connectors/executeRootHandler
-                       (reify HttpHandler
-                         (handleRequest [_ ee]
-                           #p [:handler (.getName (Thread/currentThread))]
-                           (-> (.getResponseSender ee)
-                               (.send "Hello, привет"))))
-                       e))))
+                   (fn []
+                     (future
+                       #p [:future (.getName (Thread/currentThread))]
+                       (Thread/sleep 2000)
+                       (Connectors/executeRootHandler
+                         (reify HttpHandler
+                           (handleRequest [_ ee]
+                             #p [:handler (.getName (Thread/currentThread))]
+                             (-> (.getResponseSender ee)
+                                 (.send "Hello, привет"))))
+                         e))))
       #_(.dispatch e ^Runnable
                    (fn []
                      (future
@@ -53,9 +53,9 @@
 (defn start-test-server
   []
   (-> {:ports {8080 {#_#_:socket-options {:xnio/worker-io-threads 2}}}
-       #_#_:handler (handler/websocket {:on-open (fn [{:keys [channel context]}]
-                                                   #p [:on-open context]
-                                                   (channel/send-text "What's up!" channel {}))
+       #_#_:handler (handler/websocket {:on-connect (fn [{:keys [channel context]}]
+                                                      #p [:on-connect context]
+                                                      (channel/send-text "What's up!" channel {}))
                                         :on-message (fn [{:keys [channel message context]}]
                                                       #p [:on-message message context]
                                                       (channel/send-text (str "What " message "?") channel {}))
@@ -73,10 +73,9 @@
                   :prefixes {"static" [{:type handler/request-dump}
                                        {:type handler/resource-files :prefix "public/static"}]}
                   :exacts {"ws" {:type handler/websocket
-                                 :on-open (fn [{:keys [channel] :as event}]
-                                            (prn event)
-                                            (prn [:exchange (channel/get-exchange channel)])
-                                            (channel/send-text "What's up!" channel {}))
+                                 :on-connect (fn [{:keys [channel] :as event}]
+                                               (prn event)
+                                               (channel/send-text "What's up!" channel {}))
                                  :on-message (fn [{:keys [channel text] :as event}]
                                                (prn event)
                                                (channel/send-text (str "What " text "?") channel {}))

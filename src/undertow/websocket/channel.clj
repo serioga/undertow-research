@@ -2,19 +2,9 @@
   (:require [undertow.api.types :as types])
   (:import (clojure.lang IFn IPersistentMap)
            (io.undertow.websockets.core CloseMessage WebSocketCallback WebSocketChannel WebSockets)
-           (io.undertow.websockets.spi WebSocketHttpExchange)
            (java.nio ByteBuffer)))
 
 (set! *warn-on-reflection* true)
-
-;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-
-(def ^:const exchange-attr "websocket/exchange")
-
-(defn get-exchange
-  ^WebSocketHttpExchange
-  [^WebSocketChannel channel]
-  (.getAttribute channel exchange-attr))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
