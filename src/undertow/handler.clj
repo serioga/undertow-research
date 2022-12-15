@@ -23,8 +23,8 @@
 
 (defn wrap-handler
   [handler with]
-  (reduce (fn [handler wrapper]
-            ((types/as-wrapper wrapper) (types/as-handler handler)))
+  (reduce (fn [next-handler wrapper]
+            ((types/as-wrapper wrapper) (types/as-handler next-handler)))
           (types/as-handler handler)
           (reverse with)))
 
@@ -37,8 +37,7 @@
   (as-handler
     [xs]
     (when-let [xs (seq xs)]
-                     ;; TODO: Raise exception for empty seq?
-                     (wrap-handler (last xs) (butlast xs)))))
+      (wrap-handler (last xs) (butlast xs)))))
 
 (extend-protocol types/AsHandlerWrapper IPersistentMap
   (as-wrapper
