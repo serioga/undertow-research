@@ -17,14 +17,14 @@
 
 (defn- put-headers
   [exchange headers]
-  (reduce-kv (fn [^HeaderMap hs k v]
+  (reduce-kv (fn [^HeaderMap hm k v]
                (cond (sequential? v)
-                     (-> hs (.putAll (HttpString. (str k))
+                     (-> hm (.putAll (HttpString. (str k))
                                      ^Collection (map str v)))
                      (some? v)
-                     (-> hs (.put (HttpString. (str k)) (str v)))
+                     (-> hm (.put (HttpString. (str k)) (str v)))
                      :else
-                     (-> hs (.remove (HttpString. (str k))))))
+                     (-> hm (.remove (HttpString. (str k))))))
              (.getResponseHeaders ^HttpServerExchange exchange)
              headers))
 
