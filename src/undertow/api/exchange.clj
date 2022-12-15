@@ -57,8 +57,12 @@
   (.getResponseSender ^HttpServerExchange exchange))
 
 (defn start-blocking*
+  "Custom version of the `startBlocking` method which avoids exception in
+  completed requests."
   [^HttpServerExchange e]
-  ;; TODO: Explain reasons to close request channel.
+  ;; We close request channel in completed request to avoid exception caused by
+  ;; `DefaultBlockingHttpExchange.getInputStream`:
+  ;; java.io.IOException: UT000034: Stream is closed
   (when (and (.isRequestChannelAvailable e)
              (.isRequestComplete e))
     (-> (.getRequestChannel e)
