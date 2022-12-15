@@ -32,8 +32,6 @@
         [_ channel _ throwable]
         (callback-fn {:callback :on-error :channel channel :error throwable})))))
 
-;; TODO: docstrings
-
 (defprotocol WebSocketSendText
   (send-text
     [text chan opts]
