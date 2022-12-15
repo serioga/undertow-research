@@ -11,8 +11,13 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
-// TODO: Document purpose of the class
-
+/**
+ * Websocket channel listener implementation configured by Clojure map with
+ * optional keys `:on-open`, `:on-message`, `:on-close` and `:on-error`.
+ *
+ * <p>Implemented in Java because Clojure's proxy is slow and does not allow to
+ * call super methods.
+ */
 public class WebSocketChannelListener extends AbstractReceiveListener implements OnOpenListener {
   private final IFn onOpen;
   private final IFn onMessage;
