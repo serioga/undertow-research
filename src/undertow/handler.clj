@@ -86,14 +86,14 @@
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn path
-  "Creates a new path handler, with optional default handler. Handler that
-  dispatches to a given handler based of a prefix match of the path. This only
-  matches a single level of a request, e.g. if you have a request that takes the
-  form: `/foo/bar`.
+  "Creates a new path handler, with optional default handler. A `HttpHandler`
+  that dispatches to a given handler based of a prefix match of the path. This
+  only matches a single level of a request, e.g. if you have a request that
+  takes the form: `/foo/bar`.
 
-  Options:
+  Configuration options:
 
-  **`prefix`** (map) The map of path prefixes and their handlers.
+  **`:prefix`** (map) The map of path prefixes and their handlers.
 
   If the path does not start with a `/` then one will be prepended. The match is
   done on a prefix bases, so registering `/foo` will also match `/foo/bar`.
@@ -101,12 +101,12 @@
   So if an exact path match exists its handler will be triggered. If `/` is
   specified as the path then it will replace the default handler.
 
-  **`exact`** (map) The map of exact paths and their handlers.
+  **`:exact`** (map) The map of exact paths and their handlers.
 
   If the request path is exactly equal to the given path, run the handler. Exact
   paths are prioritized higher than prefix paths.
 
-  **`cache-size`** (int) The cache size, unlimited by default.
+  **`:cache-size`** (int) The cache size, unlimited by default.
 
   Example:
 
@@ -114,7 +114,7 @@
                      :exact {\"ws\" (handler/websocket {...})}})
   "
   (^PathHandler
-   [opts] (path nil opts))
+   [config] (path nil config))
   (^PathHandler
    [default-handler {:keys [prefix exact cache-size]}]
    (letfn [(add-prefix-path [this [path handler]]
@@ -138,12 +138,13 @@
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn virtual-host
-  "Creates a new virtual host handler, with optional default handler. A handler
-  that implements virtual hosts based on the `Host:` http header.
+  "Creates a new virtual host handler, with optional default handler.
+  A `HttpHandler` that implements virtual hosts based on the `Host:` http
+  header.
 
-  Options:
+  Configuration options:
 
-  **`host`** (map) The map of hostnames and their handlers.
+  **`:host`** (map) The map of hostnames and their handlers.
 
   Example:
 
@@ -157,8 +158,8 @@
            (NameVirtualHostHandler.)
            host))
   (^NameVirtualHostHandler
-   [default-handler, opts]
-   (-> (virtual-host opts)
+   [default-handler, config]
+   (-> (virtual-host config)
        (.setDefaultHandler (types/as-handler default-handler)))))
 
 (declare-type virtual-host {:type-alias ::virtual-host
@@ -169,6 +170,55 @@
   (types/as-handler {:type virtual-host :host {"localhost" identity}})
   (types/as-handler {:type ::virtual-host :host {"localhost" identity}})
   )
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defn websocket
+  "Creates a new web socket session handler with optional next handler to invoke
+  if the web socket connection fails. A `HttpHandler` which will process the
+  `HttpServerExchange` and do the actual handshake/upgrade to WebSocket.
+
+  **`callback`** WebSocketConnectionCallback
+
+  - The instance of the connection callback or callback configuration map.
+
+  Callback configuration options:
+
+  **`:on-connect`** `(fn [{:keys [callback exchange channel]}])`
+
+  - Is called once the WebSocket connection is established, which means the
+    handshake was successful.
+
+  **`:on-message`** `(fn [{:keys [callback channel text data]}])`
+
+  - Is called when listener receives a message.
+  - The text message is provided in `:text` and binary message is provided in
+    `:data`.
+
+  **`:on-close`** `(fn [{:keys [callback channel code reason]}])`
+
+  - Is called once the WebSocket connection is closed.
+  - The `:code` is status code to close messages: http://tools.ietf.org/html/rfc6455#section-7.4
+
+  **`:on-error`** `(fn [{:keys [callback channel error]}])`
+
+  - Is called on WebSocket connection error.
+  - Default implementation just closes WebSocket connection.
+  "
+  {:arglists '([{:as callback :keys [on-connect, on-message, on-close, on-error]}]
+               [next-handler, {:as callback :keys [on-connect, on-message, on-close, on-error]}]
+               [callback]
+               [next-handler, callback])}
+  ^WebSocketProtocolHandshakeHandler
+  ([callback]
+   (websocket/handshake callback))
+  ^WebSocketProtocolHandshakeHandler
+  ([next-handler, callback]
+   (websocket/handshake next-handler callback)))
+
+(declare-type websocket {:type-alias ::websocket
+                         :as-handler websocket
+                         :as-wrapper (as-wrapper-2-arity websocket)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -288,23 +338,5 @@
 
 (declare-type request-dump {:type-alias ::request-dump
                             :as-wrapper (as-wrapper-1-arity request-dump)})
-
-;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-
-(defn websocket
-  {:arglists '([{:as listener :keys [on-connect, on-message, on-close, on-error]}]
-               [next-handler, {:as listener :keys [on-connect, on-message, on-close, on-error]}]
-               [listener]
-               [next-handler, listener])}
-  ^WebSocketProtocolHandshakeHandler
-  ([callback]
-   (websocket/handshake callback))
-  ^WebSocketProtocolHandshakeHandler
-  ([next-handler, callback]
-   (websocket/handshake next-handler callback)))
-
-(declare-type websocket {:type-alias ::websocket
-                         :as-handler websocket
-                         :as-wrapper (as-wrapper-2-arity websocket)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
