@@ -51,7 +51,8 @@
 
 (defn start-test-server
   []
-  (-> {:ports {8080 {#_#_:socket-options {:xnio/worker-io-threads 2}}}
+  (-> {#_#_:fn-as-handler adapter/fn-as-handler
+       :ports {8080 {#_#_:socket-options {:xnio/worker-io-threads 2}}}
        #_#_:handler (handler/websocket {:on-connect (fn [{:keys [channel context]}]
                                                       #p [:on-connect context]
                                                       (channel/send-text "What's up!" channel {}))

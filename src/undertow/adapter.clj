@@ -33,11 +33,6 @@
   [f]
   (alter-var-root #'*fn-as-handler* (constantly f)))
 
-(defmacro with-fn-as-handler
-  [f expr]
-  `(binding [*fn-as-handler* ~f]
-     ~expr))
-
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn simple-fn-as-handler

@@ -1,5 +1,6 @@
 (ns undertow.server
-  (:require [undertow.api.builder :as builder]
+  (:require [undertow.adapter :as adapter]
+            [undertow.api.builder :as builder]
             [undertow.api.types :as types])
   (:import (clojure.lang IPersistentMap)
            (io.undertow Undertow Undertow$Builder UndertowOptions)
@@ -10,15 +11,15 @@
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defprotocol CanBeStarted
-  (start 
+  (start
     [config-or-server]
     ;; TODO: Document configuration map
     "Starts Undertow server given instance, builder or configuration map.
 
     "))
 
-(defprotocol CanBeStopped 
-  (stop 
+(defprotocol CanBeStopped
+  (stop
     [instance]
     "Stops server instance, returns nil. The instance can be an instance of
     `Undertow` or map with `::undertow` key."))
@@ -36,16 +37,17 @@
   #_{:arglists '([{:keys [ports, handler,
                           buffer-size, io-threads, worker-threads, direct-buffers,
                           server-options, socket-options, worker-options,
-                          wrap-builder-fn, instance-data]}])}
+                          fn-as-handler, wrap-builder-fn, instance-data]}])}
   (start
-    [{:keys [wrap-builder-fn, instance-data] :as config}]
-    (let [builder-fn (cond-> builder/configure wrap-builder-fn (wrap-builder-fn))
-          server (-> (Undertow/builder)
-                     (builder-fn config)
-                     (builder/build))]
-      (.start server)
-      ;; TODO: Decide about instance-data and instance as map.
-      (-> server (wrapped-instance instance-data))))
+    [{:keys [fn-as-handler, wrap-builder-fn, instance-data] :as config}]
+    (binding [adapter/*fn-as-handler* (or fn-as-handler adapter/*fn-as-handler*)]
+      (let [builder-fn (cond-> builder/configure wrap-builder-fn (wrap-builder-fn))
+            server (-> (Undertow/builder)
+                       (builder-fn config)
+                       (builder/build))]
+        (.start server)
+        ;; TODO: Decide about instance-data and instance as map.
+        (-> server (wrapped-instance instance-data)))))
   CanBeStopped
   (stop
     [{::keys [undertow]}]
