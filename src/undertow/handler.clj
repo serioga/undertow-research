@@ -143,19 +143,19 @@
 
   Options:
 
-  **`hosts`** (map) The map of hostnames and their handlers.
+  **`host`** (map) The map of hostnames and their handlers.
 
   Example:
 
-      (handler/virtual-host {:hosts {\"static.localhost\" (handler/resource {...})
-                                     \"ws.localhost\" (handler/websocket {...})})
+      (handler/virtual-host {:host {\"static.localhost\" (handler/resource {...})
+                                    \"ws.localhost\" (handler/websocket {...})})
   "
   (^NameVirtualHostHandler
-   [{:keys [hosts]}]
+   [{:keys [host]}]
    (reduce (fn [this [host handler]]
              (.addHost ^NameVirtualHostHandler this host (types/as-handler handler)))
            (NameVirtualHostHandler.)
-           hosts))
+           host))
   (^NameVirtualHostHandler
    [default-handler, opts]
    (-> (virtual-host opts)
@@ -166,8 +166,8 @@
                             :as-wrapper (as-wrapper-2-arity virtual-host)})
 
 (comment
-  (types/as-handler {:type virtual-host :hosts {"localhost" identity}})
-  (types/as-handler {:type ::virtual-host :hosts {"localhost" identity}})
+  (types/as-handler {:type virtual-host :host {"localhost" identity}})
+  (types/as-handler {:type ::virtual-host :host {"localhost" identity}})
   )
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

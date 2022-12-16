@@ -67,8 +67,8 @@
        :handler [{:type handler/graceful-shutdown}
                  {:type handler/proxy-peer-address}
                  {:type handler/simple-error-page}
-                 {:type handler/virtual-host :hosts {"webapi.localtest.me" [{:type handler/simple-error-page}
-                                                                            (main/ring-handler-fn "webapi")]}}
+                 {:type handler/virtual-host :host {"webapi.localtest.me" [{:type handler/simple-error-page}
+                                                                           (main/ring-handler-fn "webapi")]}}
                  {:type handler/path
                   :prefix {"static" [{:type handler/request-dump}
                                      {:type handler/resource-files :prefix "public/static"}]}
@@ -82,20 +82,20 @@
                                 :on-close (fn [event] (prn event))
                                 :on-error (fn [event] (prn event))}}}
                  {:type handler/session-attachment}
-                 {:type handler/virtual-host :hosts {"localhost" [{:type handler/simple-error-page}
-                                                                  {:type handler/request-dump}
-                                                                  (-> (main/ring-handler-fn "localhost привет")
-                                                                      #_(adapter*/as-non-blocking-sync-handler)
-                                                                      #_(adapter/as-async-handler))]
-                                                     "127.0.0.1" (main/ring-handler-fn "127.0.0.1")}}
+                 {:type handler/virtual-host :host {"localhost" [{:type handler/simple-error-page}
+                                                                 {:type handler/request-dump}
+                                                                 (-> (main/ring-handler-fn "localhost привет")
+                                                                     #_(adapter*/as-non-blocking-sync-handler)
+                                                                     #_(adapter/as-async-handler))]
+                                                    "127.0.0.1" (main/ring-handler-fn "127.0.0.1")}}
                  (main/ring-handler-fn "localhost")]
        #_#_:handler (-> (test-ring-handler-fn "default")
-                        (handler/virtual-host {:hosts {"localhost" (-> (test-ring-handler-fn "localhost")
-                                                                       (handler/request-dump))
-                                                       "127.0.0.1" (test-ring-handler-fn "127.0.0.1")}})
+                        (handler/virtual-host {:host {"localhost" (-> (test-ring-handler-fn "localhost")
+                                                                      (handler/request-dump))
+                                                      "127.0.0.1" (test-ring-handler-fn "127.0.0.1")}})
                         (handler/session-attachment {})
                         (handler/path {:prefix {"static" (handler/resource-files {:prefix "public/static"})}})
-                        (handler/virtual-host {:hosts {"webapi.localtest.me" (test-ring-handler-fn "webapi")}})
+                        (handler/virtual-host {:host {"webapi.localtest.me" (test-ring-handler-fn "webapi")}})
                         (handler/simple-error-page)
                         (handler/proxy-peer-address)
                         (handler/graceful-shutdown))
@@ -109,8 +109,8 @@
                    :io-threads 6
                    #_#_:handler {:type :undertow/resource-handler
                                  :next-handler {:type :undertow/name-virtual-host-handler
-                                                :hosts {"localhost" (test-ring-handler-fn "1")
-                                                        "127.0.0.1" (test-ring-handler-fn "2")}}}
+                                                :host {"localhost" (test-ring-handler-fn "1")
+                                                       "127.0.0.1" (test-ring-handler-fn "2")}}}
                    ::server/wrap-builder-fn (fn [builder-fn]
                                               (fn [builder options]
                                                 (-> ^Undertow$Builder (builder-fn builder options)
