@@ -1,5 +1,6 @@
 (ns undertow.api.types
   (:import (clojure.lang Fn IPersistentMap MultiFn)
+           (io.undertow Undertow$ListenerBuilder)
            (io.undertow.server HttpHandler)
            (io.undertow.server.session SessionConfig SessionManager)
            (io.undertow.websockets WebSocketConnectionCallback)
@@ -33,6 +34,18 @@
   MultiFn
   (as-wrapper
     [wrapper-fn] wrapper-fn))
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defprotocol AsListenerBuilder
+  (as-listener-builder
+    ^io.undertow.Undertow$ListenerBuilder [obj]
+    "Coerces `obj` to the instance of `io.undertow.Undertow$ListenerBuilder`."))
+
+(extend-protocol AsListenerBuilder
+  Undertow$ListenerBuilder
+  (as-listener-builder
+    [builder] builder))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 

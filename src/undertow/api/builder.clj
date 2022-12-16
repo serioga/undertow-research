@@ -1,44 +1,35 @@
 (ns undertow.api.builder
   (:require [undertow.api.types :as types])
   (:import (clojure.lang IPersistentMap)
-           (io.undertow Undertow Undertow$Builder Undertow$ListenerBuilder Undertow$ListenerType)
-           (io.undertow.server HttpHandler)))
+           (io.undertow Undertow Undertow$Builder Undertow$ListenerBuilder Undertow$ListenerType)))
 
 (set! *warn-on-reflection* true)
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defprotocol HttpListenerBuilder
-  (new-listener-builder [opts port]))
-
-(extend-protocol HttpListenerBuilder
-  IPersistentMap
+(extend-protocol types/AsListenerBuilder IPersistentMap
   ;; TODO: Document, that it covers only HTTP/HTTPS but not AJP
-  (new-listener-builder
-    [{:keys [host https handler socket-options use-proxy-protocol] :or {host "localhost"}}
-     port]
+  (as-listener-builder
+    [{:keys [port host https handler socket-options use-proxy-protocol]}]
     (-> (Undertow$ListenerBuilder.)
         (.setType (if https Undertow$ListenerType/HTTPS
                             Undertow$ListenerType/HTTP))
-        (.setPort port)
-        (.setHost host)
+        (cond-> port (.setPort port))
+        (.setHost (or host "localhost"))
         (.setRootHandler handler)
         (.setKeyManagers,, (:key-managers https))
         (.setTrustManagers (:trust-managers https))
         (.setSslContext,,, (:ssl-context https))
         (.setOverrideSocketOptions (types/as-option-map socket-options))
-        (.setUseProxyProtocol (boolean use-proxy-protocol))))
-  Undertow$ListenerBuilder
-  (new-listener-builder [builder port] (.setPort builder port))
-  HttpHandler
-  (new-listener-builder [handler port] (new-listener-builder {:handler handler} port)))
+        (.setUseProxyProtocol (boolean use-proxy-protocol)))))
 
 (defn add-listener
   (^Undertow$Builder
    [builder [port opts]] (add-listener builder port opts))
   (^Undertow$Builder
    [builder port opts]
-   (.addListener ^Undertow$Builder builder (new-listener-builder opts port))))
+   (.addListener ^Undertow$Builder builder (-> (types/as-listener-builder opts)
+                                               (.setPort (int port))))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
