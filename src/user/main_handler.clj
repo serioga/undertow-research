@@ -1,5 +1,5 @@
 (ns user.main-handler
-  (:require [undertow-ring.core :as ring]
+  (:require [undertow-ring.request :as request]
             [undertow.handler :as handler]
             [undertow.websocket.channel :as channel])
   (:import (java.io ByteArrayInputStream File InputStream)
@@ -35,7 +35,7 @@
                                                                 (channel/send-text channel nil))))})))
 
 (comment
-  (ring/websocket? -req)
+  (request/websocket? -req)
   (str (:headers -req))
   (reduce-kv (fn [_ k v] [k v]) nil (:headers -req))
   (str -req)
@@ -52,7 +52,7 @@
      ([{:keys [::async?] :as req}]
       #_(throw (ex-info "Oops" {}))
       #_req
-      #_(ring/sessions-enabled? req)
+      #_(request/sessions-enabled? req)
       (def -req req)
       (let [headers {"x-a" "1"
                      "x-b" "2"
@@ -66,7 +66,7 @@
             body (ByteArrayInputStream. (.getBytes ^String body ^String charset))
             #_#_body (File. "./resources/public/static/test.txt")]
         (println (str "\n" {:body/class (class body)} "\n"))
-        (if (and websocket-response-fn (ring/websocket? req))
+        (if (and websocket-response-fn (request/websocket? req))
           (websocket-response-fn {:headers headers} req)
           (cond-> {:body body
                    :headers headers

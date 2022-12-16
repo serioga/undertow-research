@@ -1,7 +1,6 @@
 (ns user.main_server
-  (:require [undertow-ring.core :as ring]
-            [undertow-ring.non-blocking :as ring-nb]
-            [undertow.adapter :as adapter]
+  (:require [undertow-ring.adapter :as adapter]
+            [undertow-ring.adapter.non-blocking :as adapter*]
             [undertow.handler :as handler]
             [undertow.server :as server]
             [undertow.websocket.channel :as channel]
@@ -16,7 +15,7 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(adapter/set-fn-as-handler ring/fn-as-handler)
+(adapter/enable-ring-handler)
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -85,8 +84,8 @@
                  {:type handler/virtual-host :hosts {"localhost" [{:type handler/simple-error-page}
                                                                   {:type handler/request-dump}
                                                                   (-> (main/ring-handler-fn "localhost привет")
-                                                                      #_(ring-nb/as-non-blocking-sync-handler)
-                                                                      #_(ring/as-async-handler))]
+                                                                      #_(adapter*/as-non-blocking-sync-handler)
+                                                                      #_(adapter/as-async-handler))]
                                                      "127.0.0.1" (main/ring-handler-fn "127.0.0.1")}}
                  (main/ring-handler-fn "localhost")]
        #_#_:handler (-> (test-ring-handler-fn "default")

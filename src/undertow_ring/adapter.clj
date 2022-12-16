@@ -1,6 +1,7 @@
-(ns undertow-ring.core
+(ns undertow-ring.adapter
   (:require [undertow-ring.impl.request :as request]
             [undertow-ring.impl.response :as response]
+            [undertow.adapter :as adapter]
             [undertow.api.exchange :as exchange]
             [undertow.handler :as handler])
   (:import (io.undertow.server HttpHandler)))
@@ -37,22 +38,14 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defn as-async-handler
-  [handler]
-  (vary-meta handler assoc ::handler-type ::async-handler))
+(defn enable-ring-handler
+  []
+  (adapter/set-fn-as-handler fn-as-handler))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defn sessions-enabled?
-  "True if sessions are enabled in Undertow server configuration. When sessions
-  are disabled then attempts to set :session keys will raise exception."
-  [req]
-  (some-> req :undertow/exchange exchange/sessions-enabled?))
-
-(defn websocket?
-  "True if `Upgrade` header in the request is \"websocket\". Case-insensitive."
-  [req]
-  (some-> req :headers ^String (get "upgrade")
-          (.equalsIgnoreCase "websocket")))
+(defn as-async-handler
+  [handler]
+  (vary-meta handler assoc ::handler-type ::async-handler))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

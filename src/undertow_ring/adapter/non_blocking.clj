@@ -1,5 +1,5 @@
-(ns undertow-ring.non-blocking
-  (:require [undertow-ring.core :as ring]
+(ns undertow-ring.adapter.non-blocking
+  (:require [undertow-ring.adapter :as adapter]
             [undertow-ring.impl.request :as request]
             [undertow-ring.impl.response :as response])
   (:import (io.undertow.server HttpHandler)))
@@ -10,9 +10,9 @@
 
 (defn as-non-blocking-sync-handler
   [handler]
-  (vary-meta handler assoc ::ring/handler-type ::sync-non-blocking-handler))
+  (vary-meta handler assoc ::adapter/handler-type ::sync-non-blocking-handler))
 
-(defmethod ring/fn-as-handler ::sync-non-blocking-handler
+(defmethod adapter/fn-as-handler ::sync-non-blocking-handler
   [handler]
   (reify HttpHandler
     (handleRequest [this e]
