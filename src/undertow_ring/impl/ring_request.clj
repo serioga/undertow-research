@@ -1,17 +1,15 @@
-(ns undertow-ring.impl.request
-  (:require [clojure.string :as string]
-            [immutant.web.internal.ring :as immutant.ring]
+(ns undertow-ring.impl.ring-request
+  (:require [immutant.web.internal.ring :as immutant.ring]
             [ring.adapter.undertow.headers :as adapter.headers]
             [ring.adapter.undertow.request :as adapter.request]
             [ring.util.response :as ring.response]
             [strojure.zizzmap.core :as zizz]
+            [undertow-ring.impl.request-headers :as headers]
             [undertow-ring.impl.session :as session]
             [undertow.api.exchange :as exchange])
-  (:import (clojure.lang APersistentMap IEditableCollection IFn IKVReduce IPersistentMap
-                         MapEntry MapEquivalence PersistentHashMap RT Util)
+  (:import (clojure.lang PersistentHashMap)
            (io.undertow.server HttpServerExchange)
-           (io.undertow.util HeaderMap HeaderValues Headers)
-           (java.util Map)))
+           (io.undertow.util Headers)))
 
 (set! *warn-on-reflection* true)
 
@@ -49,123 +47,14 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defn header-name
-  [^HeaderValues x]
-  (.toLowerCase (.toString (.getHeaderName x))))
-
-(defn header-value
-  [^HeaderValues x]
-  (if (< 1 (.size x))
-    ;; Comma separated values.
-    ;; Discussion: https://groups.google.com/g/ring-clojure/c/N6vv3JkScik
-    ;; RFC: https://www.rfc-editor.org/rfc/rfc9110.html#section-5.3
-    (string/join "," x)
-    (or (.peekFirst x) "")))
-
-(defprotocol PersistentMap
-  (as-persistent-map ^APersistentMap [_]))
-
-(extend-protocol PersistentMap HeaderMap
-  (as-persistent-map
-    [headers]
-    (persistent! (reduce (fn [m! x] (assoc! m! (header-name x) (header-value x)))
-                         (transient {})
-                         headers))))
-
-(deftype HeaderMapProxy [^HeaderMap headers, ^:volatile-mutable persistent-copy]
-  Map
-  (size
-    [_]
-    (.size headers))
-  (get
-    [this k]
-    (.valAt this k))
-  MapEquivalence
-  IFn
-  (invoke
-    [_ k]
-    (some-> (.get headers (str k)) header-value))
-  (invoke
-    [_ k not-found]
-    (or (some-> (.get headers (str k)) header-value)
-        not-found))
-  IPersistentMap
-  (valAt
-    [_ k]
-    (some-> (.get headers (str k)) header-value))
-  (valAt
-    [_ k not-found]
-    (or (some-> (.get headers (str k)) header-value)
-        not-found))
-  (entryAt
-    [this k]
-    (when-let [v (.valAt this k)]
-      (MapEntry. k v)))
-  (containsKey
-    [_ k]
-    (.contains headers (str k)))
-  (assoc
-    [this k v]
-    (-> (as-persistent-map this)
-        (assoc k v)))
-  (assocEx
-    [this k v]
-    (if (.containsKey this k)
-      (throw (Util/runtimeException "Key already present"))
-      (assoc this k v)))
-  (cons
-    [this o]
-    (-> (as-persistent-map this)
-        (conj o)))
-  (without
-    [this k]
-    (-> (as-persistent-map this)
-        (dissoc (.toLowerCase (str k)))))
-  (empty
-    [_]
-    {})
-  (count
-    [_]
-    (.size headers))
-  (seq
-    [this]
-    (seq (as-persistent-map this)))
-  (equiv
-    [this o]
-    (= o (as-persistent-map this)))
-  (iterator
-    [this]
-    (.iterator (as-persistent-map this)))
-  IKVReduce
-  (kvreduce
-    [this f init]
-    (.kvreduce ^IKVReduce (as-persistent-map this) f init))
-  IEditableCollection
-  (asTransient
-    [this]
-    (transient (as-persistent-map this)))
-  PersistentMap
-  (as-persistent-map
-    [_]
-    (or persistent-copy
-        (set! persistent-copy (as-persistent-map headers))))
-  Object
-  (toString
-    [this]
-    (RT/printString this)))
-
-(defn wrap-headers
-  [header-map]
-  (HeaderMapProxy. header-map nil))
-
 (comment
-  (wrap-headers (.getRequestHeaders -exchange))
+  (headers/ring-headers (.getRequestHeaders -exchange))
   ;             Execution time mean : 14,033375 ns
   ;    Execution time std-deviation : 0,509849 ns
   ;   Execution time lower quantile : 13,565789 ns ( 2,5%)
   ;   Execution time upper quantile : 14,883741 ns (97,5%)
 
-  (def -headers (wrap-headers (.getRequestHeaders -exchange)))
+  (def -headers (headers/ring-headers (.getRequestHeaders -exchange)))
 
   (get -headers "Host")
   #_=> "localhost:8080"
@@ -174,7 +63,7 @@
   ;   Execution time lower quantile : 31,427326 ns ( 2,5%)
   ;   Execution time upper quantile : 36,320641 ns (97,5%)
 
-  (as-persistent-map (.getRequestHeaders -exchange))
+  (headers/as-persistent-map (.getRequestHeaders -exchange))
   #_=> {"connection" "Keep-Alive",
         "accept-encoding" "br,deflate,gzip,x-gzip",
         "cookie" "JSESSIONID=YXnPYqFOpP3kLAb-f8aLZ4SnJ2WGdyVV7TedaYQK",
@@ -213,7 +102,7 @@
         (.assoc :uri,,,,,,,,,,, (.getRequestURI e))
         (.assoc :scheme,,,,,,,, (scheme-keyword (.getRequestScheme e)))
         (.assoc :request-method (method-keyword (.toString (.getRequestMethod e))))
-        (.assoc :headers,,,,,,, (wrap-headers (.getRequestHeaders e)))
+        (.assoc :headers,,,,,,, (headers/ring-headers (.getRequestHeaders e)))
         (cond->
           query-string,,, (.assoc :query-string query-string)
           context,,,,,,,, (.assoc :context context)
@@ -237,7 +126,7 @@
         (.assoc :uri,,,,,,,,,,, (.getRequestURI e))
         (.assoc :scheme,,,,,,,, (scheme-keyword (.getRequestScheme e)))
         (.assoc :request-method (method-keyword (.toString (.getRequestMethod e))))
-        (.assoc :headers,,,,,,, (wrap-headers (.getRequestHeaders e)))
+        (.assoc :headers,,,,,,, (headers/ring-headers (.getRequestHeaders e)))
         (cond->
           query-string,,, (.assoc :query-string query-string)
           context,,,,,,,, (.assoc :context context)
@@ -281,7 +170,7 @@
   (let [s (.getQueryString -exchange)]
     (when-not (.isEmpty s) s))
   (-> -exchange .getRequestHeaders (.getFirst Headers/CONTENT_TYPE))
-  (-> -exchange .getRequestHeaders wrap-headers)
+  (-> -exchange .getRequestHeaders headers/ring-headers)
   (.getRequestCharset -exchange)
   (.getResolvedPath -exchange)
   (.isEmpty (.getResolvedPath -exchange))

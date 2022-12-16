@@ -1,6 +1,6 @@
 (ns undertow-ring.adapter
-  (:require [undertow-ring.impl.request :as request]
-            [undertow-ring.impl.response :as response]
+  (:require [undertow-ring.impl.ring-request :as ring-request]
+            [undertow-ring.impl.ring-response :as ring-response]
             [undertow.adapter :as adapter]
             [undertow.api.exchange :as exchange]
             [undertow.handler :as handler])
@@ -20,9 +20,9 @@
   (handler/force-dispatch
     (reify HttpHandler
       (handleRequest [_ exchange]
-        (-> (request/build-request exchange)
+        (-> (ring-request/build-request exchange)
             (ring-handler)
-            (response/handle-response exchange))))))
+            (ring-response/handle-response exchange))))))
 
 ;; Handlers may also be **asynchronous**. Handlers of this type take three
 ;; arguments: the request map, a response callback and an exception callback.
@@ -32,8 +32,8 @@
   (reify HttpHandler
     (handleRequest [_ exchange]
       (exchange/async-dispatch exchange
-        (ring-handler (request/build-request exchange)
-                      (fn handle-async [response] (response/handle-response response exchange))
+        (ring-handler (ring-request/build-request exchange)
+                      (fn handle-async [response] (ring-response/handle-response response exchange))
                       (partial exchange/throw* exchange))))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

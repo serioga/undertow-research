@@ -1,7 +1,7 @@
 (ns undertow-ring.adapter.non-blocking
   (:require [undertow-ring.adapter :as adapter]
-            [undertow-ring.impl.request :as request]
-            [undertow-ring.impl.response :as response])
+            [undertow-ring.impl.ring-request :as ring-request]
+            [undertow-ring.impl.ring-response :as ring-response])
   (:import (io.undertow.server HttpHandler)))
 
 (set! *warn-on-reflection* true)
@@ -21,8 +21,8 @@
         ;; Dispatch incomplete request to worker thread
         (.dispatch e this)
         ;; Execute handler on IO thread
-        (-> (request/build-request e)
+        (-> (ring-request/build-request e)
             (handler)
-            (response/handle-response e))))))
+            (ring-response/handle-response e))))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

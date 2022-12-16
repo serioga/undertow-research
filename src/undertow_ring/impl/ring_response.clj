@@ -1,4 +1,4 @@
-(ns undertow-ring.impl.response
+(ns undertow-ring.impl.ring-response
   (:require [clojure.java.io :as io]
             [undertow-ring.impl.session :as session]
             [undertow.api.exchange :as exchange])
