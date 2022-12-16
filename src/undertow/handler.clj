@@ -60,11 +60,11 @@
       (when alias
         (.addMethod ^MultiFn wrapper-impl alias wrapper-impl-method)))))
 
-(defn as-wrapper-2-arity
+(defn as-arity-2-wrapper
   [f]
   (fn [opts] (fn [handler] (f handler opts))))
 
-(defn as-wrapper-1-arity
+(defn as-arity-1-wrapper
   [f]
   (fn [_] f))
 
@@ -81,7 +81,7 @@
           (-> handler (.handleRequest exchange)))))))
 
 (declare-type force-dispatch {:type-alias ::force-dispatch
-                              :as-wrapper (as-wrapper-1-arity force-dispatch)})
+                              :as-wrapper (as-arity-1-wrapper force-dispatch)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -134,7 +134,7 @@
 
 (declare-type path {:type-alias ::path
                     :as-handler path
-                    :as-wrapper (as-wrapper-2-arity path)})
+                    :as-wrapper (as-arity-2-wrapper path)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -165,7 +165,7 @@
 
 (declare-type virtual-host {:type-alias ::virtual-host
                             :as-handler virtual-host
-                            :as-wrapper (as-wrapper-2-arity virtual-host)})
+                            :as-wrapper (as-arity-2-wrapper virtual-host)})
 
 (comment
   (types/as-handler {:type virtual-host :host {"localhost" identity}})
@@ -218,7 +218,7 @@
 
 (declare-type websocket {:type-alias ::websocket
                          :as-handler websocket
-                         :as-wrapper (as-wrapper-2-arity websocket)})
+                         :as-wrapper (as-arity-2-wrapper websocket)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -255,7 +255,7 @@
 
 (declare-type resource {:type-alias ::resource
                         :as-handler resource
-                        :as-wrapper (as-wrapper-2-arity resource)})
+                        :as-wrapper (as-arity-2-wrapper resource)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -299,7 +299,7 @@
                              (types/as-session-config session-config)))
 
 (declare-type session-attachment {:type-alias ::session-attachment
-                                  :as-wrapper (as-wrapper-2-arity session-attachment)})
+                                  :as-wrapper (as-arity-2-wrapper session-attachment)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -314,7 +314,7 @@
   (ProxyPeerAddressHandler. next-handler))
 
 (declare-type proxy-peer-address {:type-alias ::proxy-peer-address
-                                  :as-wrapper (as-wrapper-1-arity proxy-peer-address)})
+                                  :as-wrapper (as-arity-1-wrapper proxy-peer-address)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -325,7 +325,7 @@
   (SimpleErrorPageHandler. (types/as-handler next-handler)))
 
 (declare-type simple-error-page {:type-alias ::simple-error-page
-                                 :as-wrapper (as-wrapper-1-arity simple-error-page)})
+                                 :as-wrapper (as-arity-1-wrapper simple-error-page)})
 
 (comment
   (types/as-handler {:type simple-error-page})
@@ -344,7 +344,7 @@
   (GracefulShutdownHandler. (types/as-handler next-handler)))
 
 (declare-type graceful-shutdown {:type-alias ::graceful-shutdown
-                                 :as-wrapper (as-wrapper-1-arity graceful-shutdown)})
+                                 :as-wrapper (as-arity-1-wrapper graceful-shutdown)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -355,6 +355,6 @@
   (RequestDumpingHandler. (types/as-handler next-handler)))
 
 (declare-type request-dump {:type-alias ::request-dump
-                            :as-wrapper (as-wrapper-1-arity request-dump)})
+                            :as-wrapper (as-arity-1-wrapper request-dump)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
