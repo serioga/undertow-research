@@ -5,13 +5,11 @@
            (io.undertow.server HttpHandler)
            (io.undertow.server.handlers GracefulShutdownHandler NameVirtualHostHandler PathHandler ProxyPeerAddressHandler RequestDumpingHandler)
            (io.undertow.server.handlers.error SimpleErrorPageHandler)
-           (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler ResourceManager)
-           (io.undertow.server.session InMemorySessionManager SecureRandomSessionIdGenerator SessionAttachmentHandler SessionConfig SessionCookieConfig SessionManager)
+           (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler)
+           (io.undertow.server.session InMemorySessionManager SecureRandomSessionIdGenerator SessionAttachmentHandler SessionCookieConfig)
            (io.undertow.websockets WebSocketProtocolHandshakeHandler)))
 
 (set! *warn-on-reflection* true)
-
-;; TODO: Use io.undertow.Handlers to create handlers
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
