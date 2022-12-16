@@ -85,27 +85,55 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defn path-prefix
-  (^PathHandler
-   [opts] (path-prefix nil opts))
-  (^PathHandler
-   [default-handler {:keys [prefixes exacts cache-size]}]
+(defn path
+  "Creates a new path handler, with optional default handler. Handler that
+  dispatches to a given handler based of a prefix match of the path. This only
+  matches a single level of a request, e.g. if you have a request that takes the
+  form: `/foo/bar`.
+
+  Options:
+
+  **`prefix`** (map) The map of path prefixes and their handlers.
+
+  If the path does not start with a `/` then one will be prepended. The match is
+  done on a prefix bases, so registering `/foo` will also match `/foo/bar`.
+  Though exact path matches are taken into account before prefix path matches.
+  So if an exact path match exists its handler will be triggered. If `/` is
+  specified as the path then it will replace the default handler.
+
+  **`exact`** (map) The map of exact paths and their handlers.
+
+  If the request path is exactly equal to the given path, run the handler. Exact
+  paths are prioritized higher than prefix paths.
+
+  **`cache-size`** (int) The cache size, unlimited by default.
+
+  Example:
+
+      (handler/path {:prefix {\"static\" (handler/resource {...})}
+                     :exact {\"ws\" (handler/websocket {...})}})
+  "
+  (^HttpHandler
+   [opts] (path nil opts))
+  (^HttpHandler
+   [default-handler {:keys [prefix exact cache-size]}]
    (letfn [(add-prefix-path [this [path handler]]
              (.addPrefixPath ^PathHandler this path (types/as-handler handler)))
            (add-exact-path [this [path handler]]
              (.addExactPath ^PathHandler this path (types/as-handler handler)))]
      (as->
-       (cond (and default-handler cache-size) (PathHandler. (types/as-handler default-handler) cache-size)
-             default-handler,,,,,,,,,,,,,,,,, (PathHandler. (types/as-handler default-handler))
-             cache-size,,,,,,,,,,,,,,,,,,,,,, (PathHandler. (int cache-size))
-             :else,,,,,,,,,,,,,,,,,,,,,,,,,,, (PathHandler.))
+       (cond (and default-handler
+                  cache-size) (PathHandler. (types/as-handler default-handler) (int cache-size))
+             default-handler, (PathHandler. (types/as-handler default-handler))
+             cache-size,,,,,, (PathHandler. (int cache-size))
+             :else,,,,,,,,,,, (PathHandler.))
        handler
-       (reduce add-prefix-path handler prefixes)
-       (reduce add-exact-path handler exacts)))))
+       (reduce add-prefix-path handler prefix)
+       (reduce add-exact-path handler exact)))))
 
-(declare-type path-prefix {:type-alias ::path-prefix
-                           :as-handler path-prefix
-                           :as-wrapper (as-wrapper-2-arity path-prefix)})
+(declare-type path {:type-alias ::path
+                    :as-handler path
+                    :as-wrapper (as-wrapper-2-arity path)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
