@@ -93,18 +93,19 @@
 
   Configuration options:
 
-  **`:prefix`** (map) The map of path prefixes and their handlers.
+  **`:prefix`** The map of path prefixes and their handlers.
 
-  If the path does not start with a `/` then one will be prepended. The match is
-  done on a prefix bases, so registering `/foo` will also match `/foo/bar`.
-  Though exact path matches are taken into account before prefix path matches.
-  So if an exact path match exists its handler will be triggered. If `/` is
-  specified as the path then it will replace the default handler.
+  - If the path does not start with a `/` then one will be prepended.
+  - The match is done on a prefix bases, so registering `/foo` will also match
+    `/foo/bar`. Though exact path matches are taken into account before prefix
+    path matches. So if an exact path match exists its handler will be
+    triggered.
+  - If `/` is specified as the path then it will replace the default handler.
 
-  **`:exact`** (map) The map of exact paths and their handlers.
+  **`:exact`** The map of exact paths and their handlers.
 
-  If the request path is exactly equal to the given path, run the handler. Exact
-  paths are prioritized higher than prefix paths.
+  - If the request path is exactly equal to the given path, run the handler.
+  - Exact paths are prioritized higher than prefix paths.
 
   **`:cache-size`** (int) The cache size, unlimited by default.
 
@@ -144,7 +145,7 @@
 
   Configuration options:
 
-  **`:host`** (map) The map of hostnames and their handlers.
+  **`:host`** The map of hostnames and their handlers.
 
   Example:
 
@@ -178,9 +179,8 @@
   if the web socket connection fails. A `HttpHandler` which will process the
   `HttpServerExchange` and do the actual handshake/upgrade to WebSocket.
 
-  **`callback`** WebSocketConnectionCallback
-
-  - The instance of the connection callback or callback configuration map.
+  **`callback`** The instance of the `WebSocketConnectionCallback` or callback
+                 configuration map.
 
   Callback configuration options:
 
