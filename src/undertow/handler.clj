@@ -113,9 +113,9 @@
       (handler/path {:prefix {\"static\" (handler/resource {...})}
                      :exact {\"ws\" (handler/websocket {...})}})
   "
-  (^HttpHandler
+  (^PathHandler
    [opts] (path nil opts))
-  (^HttpHandler
+  (^PathHandler
    [default-handler {:keys [prefix exact cache-size]}]
    (letfn [(add-prefix-path [this [path handler]]
              (.addPrefixPath ^PathHandler this path (types/as-handler handler)))
@@ -138,6 +138,18 @@
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn virtual-host
+  "Creates a new virtual host handler, with optional default handler. A handler
+  that implements virtual hosts based on the `Host:` http header.
+
+  Options:
+
+  **`hosts`** (map) The map of hostnames and their handlers.
+
+  Example:
+
+      (handler/virtual-host {:hosts {\"static.localhost\" (handler/resource {...})
+                                     \"ws.localhost\" (handler/websocket {...})})
+  "
   (^NameVirtualHostHandler
    [{:keys [hosts]}]
    (reduce (fn [this [host handler]]
@@ -145,7 +157,7 @@
            (NameVirtualHostHandler.)
            hosts))
   (^NameVirtualHostHandler
-   [default-handler opts]
+   [default-handler, opts]
    (-> (virtual-host opts)
        (.setDefaultHandler (types/as-handler default-handler)))))
 
