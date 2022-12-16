@@ -304,8 +304,8 @@
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn proxy-peer-address
-  "Handler that sets the peer address to the value of the X-Forwarded-For
-  header.
+  "Returns a new handler that sets the peer address based on the
+  `X-Forwarded-For` and `X-Forwarded-Proto` headers.
 
   This should only be used behind a proxy that always sets this header,
   otherwise it is possible for an attacker to forge their peer address."
@@ -319,7 +319,7 @@
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn simple-error-page
-  "Handler that generates an extremely simple no frills error page."
+  "Returns a handler that generates an extremely simple no frills error page."
   ^SimpleErrorPageHandler
   [next-handler]
   (SimpleErrorPageHandler. (types/as-handler next-handler)))
@@ -337,7 +337,9 @@
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn graceful-shutdown
-  ^HttpHandler
+  "Returns a new handler that can be used to wait for all requests to finish
+  before shutting down the server gracefully."
+  ^GracefulShutdownHandler
   [next-handler]
   (GracefulShutdownHandler. (types/as-handler next-handler)))
 
@@ -347,11 +349,10 @@
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn request-dump
-  ^HttpHandler
+  "Returns a handler that dumps requests to the log for debugging purposes."
+  ^RequestDumpingHandler
   [next-handler]
   (RequestDumpingHandler. (types/as-handler next-handler)))
-
-(fn [next-handler _] (request-dump next-handler))
 
 (declare-type request-dump {:type-alias ::request-dump
                             :as-wrapper (as-wrapper-1-arity request-dump)})
