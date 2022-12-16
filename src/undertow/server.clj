@@ -36,10 +36,11 @@
   CanBeStarted
   #_{:arglists '([{:keys [ports, handler,
                           buffer-size, io-threads, worker-threads, direct-buffers,
-                          server-options, socket-options, worker-options,
-                          fn-as-handler, wrap-builder-fn, instance-data]}])}
+                          server-options, socket-options, worker-options]
+                   ::keys
+                   [fn-as-handler, wrap-builder-fn, instance-data]}])}
   (start
-    [{:keys [fn-as-handler, wrap-builder-fn, instance-data] :as config}]
+    [{::keys [fn-as-handler, wrap-builder-fn, instance-data] :as config}]
     (binding [adapter/*fn-as-handler* (or fn-as-handler adapter/*fn-as-handler*)]
       (let [builder-fn (cond-> builder/configure wrap-builder-fn (wrap-builder-fn))
             server (-> (Undertow/builder)
@@ -56,7 +57,7 @@
 (extend-type Undertow$Builder
   CanBeStarted (start
                  [builder]
-                 (start {:wrap-builder-fn (constantly builder)})))
+                 (start {::wrap-builder-fn (constantly builder)})))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 

@@ -51,7 +51,7 @@
 
 (defn start-test-server
   []
-  (-> {#_#_:fn-as-handler adapter/fn-as-handler
+  (-> {#_#_::server/fn-as-handler adapter/fn-as-handler
        :ports {8080 {#_#_:socket-options {:xnio/worker-io-threads 2}}}
        #_#_:handler (handler/websocket {:on-connect (fn [{:keys [channel context]}]
                                                       #p [:on-connect context]
@@ -99,7 +99,7 @@
                         (handler/simple-error-page)
                         (handler/proxy-peer-address)
                         (handler/graceful-shutdown))
-       :instance-data {:source `start-test-server}}
+       ::server/instance-data {:source `start-test-server}}
       (server/start))
   #_(server/start {:ports {8080 {:host "localhost"}}
                    :handler (-> (test-ring-handler-fn "2")
@@ -111,10 +111,10 @@
                                  :next-handler {:type :undertow/name-virtual-host-handler
                                                 :hosts {"localhost" (test-ring-handler-fn "1")
                                                         "127.0.0.1" (test-ring-handler-fn "2")}}}
-                   :wrap-builder-fn (fn [builder-fn]
-                                      (fn [builder options]
-                                        (-> ^Undertow$Builder (builder-fn builder options)
-                                            (.setIoThreads 4))))
+                   ::server/wrap-builder-fn (fn [builder-fn]
+                                              (fn [builder options]
+                                                (-> ^Undertow$Builder (builder-fn builder options)
+                                                    (.setIoThreads 4))))
                    :server-options {:undertow/enable-http2 true}
                    #_#_:worker-options {:xnio/worker-io-threads 2}})
   #_(doto (-> (Undertow/builder)
