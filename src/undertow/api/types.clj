@@ -2,6 +2,7 @@
   (:import (clojure.lang Fn IPersistentMap MultiFn)
            (io.undertow Undertow$ListenerBuilder)
            (io.undertow.server HttpHandler)
+           (io.undertow.server.handlers.resource ResourceManager)
            (io.undertow.server.session SessionConfig SessionManager)
            (io.undertow.websockets WebSocketConnectionCallback)
            (io.undertow.websockets.core WebSocketCallback)
@@ -71,6 +72,18 @@
         (.add (->> m (into {} (map (fn [[k v]] (as-option k v))))))
         (.getMap))
     OptionMap/EMPTY))
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defprotocol AsResourceManager
+  (as-resource-manager
+    ^ResourceManager [obj]
+    "Coerces `obj` to the instance of
+    `io.undertow.server.handlers.resource.ResourceManager`"))
+
+(extend-protocol AsResourceManager ResourceManager
+  (as-resource-manager
+    [rm] rm))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 

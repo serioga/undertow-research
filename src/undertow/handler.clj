@@ -86,7 +86,7 @@
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn path
-  "Creates a new path handler, with optional default handler. A `HttpHandler`
+  "Returns a new path handler, with optional default handler. A `HttpHandler`
   that dispatches to a given handler based of a prefix match of the path. This
   only matches a single level of a request, e.g. if you have a request that
   takes the form: `/foo/bar`.
@@ -139,7 +139,7 @@
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn virtual-host
-  "Creates a new virtual host handler, with optional default handler.
+  "Returns a new virtual host handler, with optional default handler.
   A `HttpHandler` that implements virtual hosts based on the `Host:` http
   header.
 
@@ -175,7 +175,7 @@
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn websocket
-  "Creates a new web socket session handler with optional next handler to invoke
+  "Returns a new web socket session handler with optional next handler to invoke
   if the web socket connection fails. A `HttpHandler` which will process the
   `HttpServerExchange` and do the actual handshake/upgrade to WebSocket.
 
@@ -222,23 +222,40 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defn- resource-manager
-  ^ResourceManager
-  [{:keys [prefix] :or {prefix "public"}}]
-  (ClassPathResourceManager. (ClassLoader/getSystemClassLoader)
-                             ^String prefix))
+;; TODO: Support non-classpath resource manager
 
-(defn resource-files
-  (^ResourceHandler
-   [opts]
-   (ResourceHandler. (resource-manager opts)))
-  (^ResourceHandler
-   [next-handler opts]
-   (ResourceHandler. (resource-manager opts) (types/as-handler next-handler))))
+(extend-protocol types/AsResourceManager IPersistentMap
+  (as-resource-manager
+    [{:keys [prefix]}]
+    (let [prefix (or prefix "public")]
+      (ClassPathResourceManager. (ClassLoader/getSystemClassLoader) ^String prefix))))
 
-(declare-type resource-files {:type-alias ::resource-files
-                              :as-handler resource-files
-                              :as-wrapper (as-wrapper-2-arity resource-files)})
+(defn resource
+  "Returns a new resource handler with optional next handler that is called if
+  no resource is found.
+
+  **`resource-manager`**
+
+  - The instance of `io.undertow.server.handlers.resource.ResourceManager`
+  - or configuration map for `ClassPathResourceManager`.
+
+  Resource manager configuration options:
+
+  **`:prefix`** (string)
+
+  - The prefix that is appended to resources that are to be loaded.
+  - Default prefix is \"public\".
+  "
+  (^ResourceHandler
+   [resource-manager]
+   (ResourceHandler. (types/as-resource-manager resource-manager)))
+  (^ResourceHandler
+   [next-handler, resource-manager]
+   (ResourceHandler. (types/as-resource-manager resource-manager) (types/as-handler next-handler))))
+
+(declare-type resource {:type-alias ::resource
+                        :as-handler resource
+                        :as-wrapper (as-wrapper-2-arity resource)})
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 

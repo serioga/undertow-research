@@ -62,7 +62,7 @@
                                         :on-close (fn [params] #p [:on-close params])
                                         :on-error (fn [params] #p [:on-error params])})
        #_#_:handler [{:type handler/force-dispatch}
-                     {:type handler/path :prefix {"static" {:type handler/resource-files :prefix "public/static"}}}]
+                     {:type handler/path :prefix {"static" {:type handler/resource :prefix "public/static"}}}]
        #_#_:handler (-> -test-handler #_(BlockingHandler.))
        :handler [{:type handler/graceful-shutdown}
                  {:type handler/proxy-peer-address}
@@ -71,7 +71,7 @@
                                                                            (main/ring-handler-fn "webapi")]}}
                  {:type handler/path
                   :prefix {"static" [{:type handler/request-dump}
-                                     {:type handler/resource-files :prefix "public/static"}]}
+                                     {:type handler/resource :prefix "public/static"}]}
                   :exact {"ws" {:type handler/websocket
                                 :on-connect (fn [{:keys [channel] :as event}]
                                               (prn event)
@@ -94,7 +94,7 @@
                                                                       (handler/request-dump))
                                                       "127.0.0.1" (test-ring-handler-fn "127.0.0.1")}})
                         (handler/session-attachment {})
-                        (handler/path {:prefix {"static" (handler/resource-files {:prefix "public/static"})}})
+                        (handler/path {:prefix {"static" (handler/resource {:prefix "public/static"})}})
                         (handler/virtual-host {:host {"webapi.localtest.me" (test-ring-handler-fn "webapi")}})
                         (handler/simple-error-page)
                         (handler/proxy-peer-address)
@@ -104,7 +104,7 @@
   #_(server/start {:ports {8080 {:host "localhost"}}
                    :handler (-> (test-ring-handler-fn "2")
                                 (handler/session-attachment {})
-                                #_(handler/resource-files {})
+                                #_(handler/resource {})
                                 (RequestDumpingHandler.))
                    :io-threads 6
                    #_#_:handler {:type :undertow/resource-handler
