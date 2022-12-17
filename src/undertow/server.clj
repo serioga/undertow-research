@@ -35,7 +35,6 @@
                      (builder-fn config)
                      (builder/build))]
       (.start server)
-      ;; TODO: Decide about instance as map.
       {::undertow server :type ::instance})))
 
 (defmethod types/start-server ::instance
