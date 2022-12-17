@@ -45,8 +45,7 @@
 (def ^:dynamic *fn-as-handler*
   (fn [f]
     (throw (ex-info (str "Cannot use function as undertow handler: " f "\n"
-                         ;; TODO: Update reference to where define fn-as-handler
-                         "Define coercion using `server/set-fn-as-handler`.")
+                         "Define permanent coercion using `server/set-fn-as-handler`.")
                     {}))))
 
 (defn- validate-fn-as-handler
