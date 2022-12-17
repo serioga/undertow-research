@@ -98,8 +98,7 @@
                         (handler/virtual-host {:host {"webapi.localtest.me" (test-ring-handler-fn "webapi")}})
                         (handler/simple-error-page)
                         (handler/proxy-peer-address)
-                        (handler/graceful-shutdown))
-       ::server/instance-data {:source `start-test-server}}
+                        (handler/graceful-shutdown))}
       (server/start))
   #_(server/start {:ports {8080 {:host "localhost"}}
                    :handler (-> (test-ring-handler-fn "2")

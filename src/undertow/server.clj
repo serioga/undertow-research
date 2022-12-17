@@ -17,7 +17,7 @@
                         buffer-size, io-threads, worker-threads, direct-buffers,
                         server-options, socket-options, worker-options]
                  ::keys
-                 [fn-as-handler, wrap-builder-fn, instance-data]}])}
+                 [fn-as-handler, wrap-builder-fn]}])}
   [config-or-server]
   (types/start-server config-or-server))
 
@@ -27,20 +27,16 @@
   [instance]
   (types/stop-server instance))
 
-(defn wrapped-instance
-  [server data]
-  (-> data (assoc ::undertow server :type ::instance)))
-
 (defmethod types/start-server :default
-  [{::keys [fn-as-handler, wrap-builder-fn, instance-data] :as config}]
+  [{::keys [fn-as-handler, wrap-builder-fn] :as config}]
   (binding [types/*fn-as-handler* (or fn-as-handler types/*fn-as-handler*)]
     (let [builder-fn (cond-> builder/configure wrap-builder-fn (wrap-builder-fn))
           server (-> (Undertow/builder)
                      (builder-fn config)
                      (builder/build))]
       (.start server)
-      ;; TODO: Decide about instance-data and instance as map.
-      (-> server (wrapped-instance instance-data)))))
+      ;; TODO: Decide about instance as map.
+      {::undertow server :type ::instance})))
 
 (defmethod types/start-server ::instance
   [{::keys [undertow]}]
