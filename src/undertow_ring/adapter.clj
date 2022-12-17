@@ -1,9 +1,9 @@
 (ns undertow-ring.adapter
   (:require [undertow-ring.impl.ring-request :as ring-request]
             [undertow-ring.impl.ring-response :as ring-response]
-            [undertow.adapter :as adapter]
             [undertow.api.exchange :as exchange]
-            [undertow.handler :as handler])
+            [undertow.handler :as handler]
+            [undertow.server :as server])
   (:import (io.undertow.server HttpHandler)))
 
 (set! *warn-on-reflection* true)
@@ -40,7 +40,7 @@
 
 (defn enable-ring-handler
   []
-  (adapter/set-fn-as-handler fn-as-handler))
+  (server/set-fn-as-handler fn-as-handler))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 

@@ -1,6 +1,5 @@
 (ns undertow.server
-  (:require [undertow.adapter :as adapter]
-            [undertow.api.builder :as builder]
+  (:require [undertow.api.builder :as builder]
             [undertow.api.types :as types])
   (:import (clojure.lang IPersistentMap)
            (io.undertow Undertow Undertow$Builder UndertowOptions)
@@ -41,7 +40,7 @@
                    [fn-as-handler, wrap-builder-fn, instance-data]}])}
   (start
     [{::keys [fn-as-handler, wrap-builder-fn, instance-data] :as config}]
-    (binding [adapter/*fn-as-handler* (or fn-as-handler adapter/*fn-as-handler*)]
+    (binding [types/*fn-as-handler* (or fn-as-handler types/*fn-as-handler*)]
       (let [builder-fn (cond-> builder/configure wrap-builder-fn (wrap-builder-fn))
             server (-> (Undertow/builder)
                        (builder-fn config)
@@ -58,6 +57,12 @@
   CanBeStarted (start
                  [builder]
                  (start {::wrap-builder-fn (constantly builder)})))
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defn set-fn-as-handler
+  [f]
+  (alter-var-root #'types/*fn-as-handler* (constantly f)))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 

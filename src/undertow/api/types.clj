@@ -27,6 +27,26 @@
 
 (.addMethod ^MultiFn as-handler HttpHandler identity)
 
+(def ^:dynamic *fn-as-handler*
+  (fn [f]
+    (throw (ex-info (str "Cannot use function as undertow handler: " f "\n"
+                         ;; TODO: Update reference to where define fn-as-handler
+                         "Define coercion using `server/set-fn-as-handler`.")
+                    {}))))
+
+(defn- validate-fn-as-handler
+  [f]
+  (or (instance? Fn f)
+      (instance? MultiFn f)
+      (throw (IllegalArgumentException. (str "Requires function for *fn-as-handler*: " f)))))
+
+(set-validator! #'*fn-as-handler* validate-fn-as-handler)
+
+(.addMethod ^MultiFn as-handler Fn,,,,, #'*fn-as-handler*)
+(.addMethod ^MultiFn as-handler MultiFn #'*fn-as-handler*)
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
 (defmulti as-wrapper
   "Coerces `obj` to the 1-arity function which wraps handler and returns new
   handler."
