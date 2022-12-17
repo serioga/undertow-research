@@ -29,7 +29,7 @@
 
 (defn wrapped-instance
   [server data]
-  (-> data (assoc ::undertow server)))
+  (-> data (assoc ::undertow server :type ::instance)))
 
 (defmethod types/start-server :default
   [{::keys [fn-as-handler, wrap-builder-fn, instance-data] :as config}]
@@ -42,7 +42,11 @@
       ;; TODO: Decide about instance-data and instance as map.
       (-> server (wrapped-instance instance-data)))))
 
-(defmethod types/stop-server :default
+(defmethod types/start-server ::instance
+  [{::keys [undertow]}]
+  (types/start-server undertow))
+
+(defmethod types/stop-server ::instance
   [{::keys [undertow]}]
   (types/stop-server undertow))
 
