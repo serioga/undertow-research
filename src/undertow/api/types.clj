@@ -49,11 +49,6 @@
 
 (defmulti as-option (fn [k _] k))
 
-(defn define-option
-  ([alias option] (define-option alias option identity))
-  ([alias option coerce-fn]
-   (defmethod as-option alias [_ v] [option (coerce-fn v)])))
-
 (defmethod as-option :default
   [option value]
   (if (instance? Option option)
