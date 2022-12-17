@@ -52,7 +52,8 @@
 (defn start-test-server
   []
   (-> {#_#_::server/fn-as-handler adapter/fn-as-handler
-       :ports {8080 {#_#_:socket-options {:xnio/worker-io-threads 2}}}
+       #_#_:port {8080 {#_#_:socket-options {:xnio/worker-io-threads 2}}}
+       :port 8080
        #_#_:handler (handler/websocket {:on-connect (fn [{:keys [channel context]}]
                                                       #p [:on-connect context]
                                                       (channel/send-text "What's up!" channel {}))
@@ -100,7 +101,7 @@
                         (handler/proxy-peer-address)
                         (handler/graceful-shutdown))}
       (server/start))
-  #_(server/start {:ports {8080 {:host "localhost"}}
+  #_(server/start {:port {8080 {:host "localhost"}}
                    :handler (-> (test-ring-handler-fn "2")
                                 (handler/session-attachment {})
                                 #_(handler/resource {})
@@ -161,7 +162,7 @@
   ; exchange -> request -> response -> exchange
   ; chain handlers
 
-  {:ports {8080 {:host "localhost"
+  {:port {8080 {:host "localhost"
                  :https {:key-managers [] :trust-managers []}
                  #_#_:https {:ssl-context nil}
                  :handler nil

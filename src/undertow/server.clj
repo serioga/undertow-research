@@ -12,8 +12,11 @@
   ;; TODO: Document configuration map
   "Starts Undertow server given instance, builder or configuration map.
 
+  Configuration map options:
+
+  **`port`**
   "
-  {:arglists '([{:keys [ports, handler,
+  {:arglists '([{:keys [port, handler,
                         buffer-size, io-threads, worker-threads, direct-buffers,
                         server-options, socket-options, worker-options]
                  ::keys

@@ -63,10 +63,10 @@
   (reduce set-fn builder entries))
 
 (defn configure
-  [builder {:keys [ports, handler, buffer-size, io-threads, worker-threads, direct-buffers
+  [builder {:keys [port, handler, buffer-size, io-threads, worker-threads, direct-buffers
                    server-options, socket-options, worker-options]}]
   (-> builder
-      (apply-map add-listener ports)
+      (apply-map add-listener (if (int? port) {port {}} port))
       (apply-map set-server-option server-options)
       (apply-map set-socket-option socket-options)
       (apply-map set-worker-option worker-options)
