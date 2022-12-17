@@ -1,6 +1,6 @@
 (ns undertow.api.types
   (:import (clojure.lang Fn MultiFn)
-           (io.undertow Undertow$ListenerBuilder)
+           (io.undertow Undertow Undertow$ListenerBuilder)
            (io.undertow.server HttpHandler)
            (io.undertow.server.handlers.resource ResourceManager)
            (io.undertow.server.session SessionConfig SessionManager)
@@ -17,6 +17,21 @@
   [obj]
   (if (map? obj) (:type obj :default)
                  (type obj)))
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defmulti start-server
+  "Starts Undertow server given `obj`, returns instance which can be stopped."
+  {:arglists '([obj])}
+  object-type)
+
+(defmulti stop-server
+  "Stops Undertow server, returns nil."
+  {:arglists '([obj])}
+  object-type)
+
+(defmethod start-server Undertow [^Undertow server] (doto server .start))
+(defmethod stop-server Undertow [^Undertow server] (.stop server))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
