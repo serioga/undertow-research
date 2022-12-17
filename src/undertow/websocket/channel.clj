@@ -1,6 +1,6 @@
 (ns undertow.websocket.channel
   (:require [undertow.api.types :as types])
-  (:import (clojure.lang IFn IPersistentMap)
+  (:import (clojure.lang IFn)
            (io.undertow.websockets.core CloseMessage WebSocketCallback WebSocketChannel WebSockets)
            (java.nio ByteBuffer)))
 
@@ -8,29 +8,27 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(extend-protocol types/AsWebSocketCallback IPersistentMap
-  (as-websocket-callback
-    [handlers]
-    (reify WebSocketCallback
-      (complete
-        [_ channel _]
-        (when-let [on-complete (:on-complete handlers)]
-          (on-complete {:callback :on-complete :channel channel})))
-      (onError
-        [_ channel _ throwable]
-        (when-let [on-error (:on-error handlers)]
-          (on-error {:callback :on-error :channel channel :error throwable}))))))
+(defmethod types/as-websocket-callback :default
+  [handlers]
+  (reify WebSocketCallback
+    (complete
+      [_ channel _]
+      (when-let [on-complete (:on-complete handlers)]
+        (on-complete {:callback :on-complete :channel channel})))
+    (onError
+      [_ channel _ throwable]
+      (when-let [on-error (:on-error handlers)]
+        (on-error {:callback :on-error :channel channel :error throwable})))))
 
-(extend-protocol types/AsWebSocketCallback IFn
-  (as-websocket-callback
-    [callback-fn]
-    (reify WebSocketCallback
-      (complete
-        [_ channel _]
-        (callback-fn {:callback :on-complete :channel channel}))
-      (onError
-        [_ channel _ throwable]
-        (callback-fn {:callback :on-error :channel channel :error throwable})))))
+(defmethod types/as-websocket-callback IFn
+  [callback-fn]
+  (reify WebSocketCallback
+    (complete
+      [_ channel _]
+      (callback-fn {:callback :on-complete :channel channel}))
+    (onError
+      [_ channel _ throwable]
+      (callback-fn {:callback :on-error :channel channel :error throwable}))))
 
 (defprotocol WebSocketSendText
   (send-text

@@ -1,27 +1,25 @@
 (ns undertow.api.builder
   (:require [undertow.api.types :as types])
-  (:import (clojure.lang IPersistentMap)
-           (io.undertow Undertow Undertow$Builder Undertow$ListenerBuilder Undertow$ListenerType)))
+  (:import (io.undertow Undertow Undertow$Builder Undertow$ListenerBuilder Undertow$ListenerType)))
 
 (set! *warn-on-reflection* true)
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(extend-protocol types/AsListenerBuilder IPersistentMap
-  ;; TODO: Document, that it covers only HTTP/HTTPS but not AJP
-  (as-listener-builder
-    [{:keys [port host https handler socket-options use-proxy-protocol]}]
-    (-> (Undertow$ListenerBuilder.)
-        (.setType (if https Undertow$ListenerType/HTTPS
-                            Undertow$ListenerType/HTTP))
-        (cond-> port (.setPort port))
-        (.setHost (or host "localhost"))
-        (.setRootHandler handler)
-        (.setKeyManagers,, (:key-managers https))
-        (.setTrustManagers (:trust-managers https))
-        (.setSslContext,,, (:ssl-context https))
-        (.setOverrideSocketOptions (types/as-option-map socket-options))
-        (.setUseProxyProtocol (boolean use-proxy-protocol)))))
+;; TODO: Document, that it covers only HTTP/HTTPS but not AJP
+(defmethod types/as-listener-builder :default
+  [{:keys [port host https handler socket-options use-proxy-protocol]}]
+  (-> (Undertow$ListenerBuilder.)
+      (.setType (if https Undertow$ListenerType/HTTPS
+                          Undertow$ListenerType/HTTP))
+      (cond-> port (.setPort port))
+      (.setHost (or host "localhost"))
+      (.setRootHandler handler)
+      (.setKeyManagers,, (:key-managers https))
+      (.setTrustManagers (:trust-managers https))
+      (.setSslContext,,, (:ssl-context https))
+      (.setOverrideSocketOptions (types/as-option-map socket-options))
+      (.setUseProxyProtocol (boolean use-proxy-protocol))))
 
 (defn add-listener
   (^Undertow$Builder

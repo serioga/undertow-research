@@ -1,5 +1,5 @@
 (ns undertow.api.types
-  (:import (clojure.lang Fn IPersistentMap MultiFn)
+  (:import (clojure.lang Fn MultiFn)
            (io.undertow Undertow$ListenerBuilder)
            (io.undertow.server HttpHandler)
            (io.undertow.server.handlers.resource ResourceManager)
@@ -13,40 +13,37 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defprotocol AsHandler
-  (as-handler
-    ^io.undertow.server.HttpHandler [obj]
-    "Coerces `obj` to the instance of `io.undertow.server.HttpHandler`."))
-
-(extend-protocol AsHandler HttpHandler
-  (as-handler
-    [handler] handler))
-
-(defprotocol AsHandlerWrapper
-  (as-wrapper
-    [obj]
-    "Coerces `obj` to the 1-arity function which wraps handler and returns new
-    handler."))
-
-(extend-protocol AsHandlerWrapper
-  Fn
-  (as-wrapper
-    [wrapper-fn] wrapper-fn)
-  MultiFn
-  (as-wrapper
-    [wrapper-fn] wrapper-fn))
+(defn object-type
+  [obj]
+  (if (map? obj) (:type obj :default)
+                 (type obj)))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defprotocol AsListenerBuilder
-  (as-listener-builder
-    ^io.undertow.Undertow$ListenerBuilder [obj]
-    "Coerces `obj` to the instance of `io.undertow.Undertow$ListenerBuilder`."))
+(defmulti as-handler
+  "Coerces `obj` to the instance of `HttpHandler`."
+  {:arglists '([obj]) :tag HttpHandler}
+  object-type)
 
-(extend-protocol AsListenerBuilder
-  Undertow$ListenerBuilder
-  (as-listener-builder
-    [builder] builder))
+(.addMethod ^MultiFn as-handler HttpHandler identity)
+
+(defmulti as-wrapper
+  "Coerces `obj` to the 1-arity function which wraps handler and returns new
+  handler."
+  {:arglists '([obj])}
+  object-type)
+
+(.addMethod ^MultiFn as-wrapper Fn identity)
+(.addMethod ^MultiFn as-wrapper MultiFn identity)
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defmulti as-listener-builder
+  "Coerces `obj` to the instance of `io.undertow.Undertow$ListenerBuilder`."
+  {:arglists '([obj]) :tag Undertow$ListenerBuilder}
+  object-type)
+
+(.addMethod ^MultiFn as-listener-builder Undertow$ListenerBuilder identity)
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -75,71 +72,65 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defprotocol AsResourceManager
-  (as-resource-manager
-    ^ResourceManager [obj]
-    "Coerces `obj` to the instance of
-    `io.undertow.server.handlers.resource.ResourceManager`"))
+(defmulti as-resource-manager
+  "Coerces `obj` to the instance of
+  `io.undertow.server.handlers.resource.ResourceManager`"
+  {:arglists '([obj]) :tag ResourceManager}
+  object-type)
 
-(extend-protocol AsResourceManager ResourceManager
-  (as-resource-manager
-    [rm] rm))
+(.addMethod ^MultiFn as-resource-manager ResourceManager identity)
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defmulti as-session-manager (some-fn :type type))
+(defmulti as-session-manager
+  "Coerces `obj` to the instance of `SessionManager`."
+  {:arglists '([obj]) :tag SessionManager}
+  object-type)
+
 (.addMethod ^MultiFn as-session-manager SessionManager identity)
 
-(defmulti as-session-config (some-fn :type type))
+(defmulti as-session-config
+  "Coerces `obj` to the instance of `SessionConfig`."
+  {:arglists '([obj]) :tag SessionConfig}
+  object-type)
+
 (.addMethod ^MultiFn as-session-config SessionConfig identity)
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defprotocol AsWebSocketListener
-  (as-websocket-listener
-    ^org.xnio.ChannelListener [obj]
-    "Coerces `obj` to the instance of `org.xnio.ChannelListener`."))
+(defmulti as-websocket-listener
+  "Coerces `obj` to the instance of `ChannelListener`."
+  {:arglists '([obj]) :tag ChannelListener}
+  object-type)
 
-(extend-protocol AsWebSocketListener
-  ChannelListener
-  (as-websocket-listener
-    [listener] listener)
-  nil
-  (as-websocket-listener
-    [_] nil)
-  IPersistentMap
-  (as-websocket-listener
-    [config]
-    (WebSocketChannelListener. config)))
+(.addMethod ^MultiFn as-websocket-listener ChannelListener identity)
 
-(defprotocol AsWebSocketConnectionCallback
-  (as-websocket-connection-callback
-    ^WebSocketConnectionCallback [obj]
-    "Coerces `obj` to the instance of
-    `io.undertow.websockets.WebSocketConnectionCallback`."))
+(defmethod as-websocket-listener :default
+  [config]
+  (WebSocketChannelListener. config))
 
-(extend-protocol AsWebSocketConnectionCallback
-  WebSocketConnectionCallback
-  (as-websocket-connection-callback
-    [callback] callback)
-  nil
-  (as-websocket-connection-callback
-    [_] nil)
-  Object
-  (as-websocket-connection-callback
-    [obj]
-    (as-websocket-connection-callback (as-websocket-listener obj))))
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defprotocol AsWebSocketCallback
-  (as-websocket-callback
-    ^WebSocketCallback [obj]
-    "Coerces `obj` to the instance of
-    `io.undertow.websockets.core.WebSocketConnectionCallback`."))
+(defmulti as-websocket-connection-callback
+  "Coerces `obj` to the instance of `WebSocketConnectionCallback`."
+  {:arglists '([obj]) :tag WebSocketConnectionCallback}
+  object-type)
 
-(extend-protocol AsWebSocketCallback
-  WebSocketCallback
-  (as-websocket-callback [listener] listener)
-  nil
-  (as-websocket-callback [_] nil))
+(.addMethod ^MultiFn as-websocket-connection-callback WebSocketConnectionCallback identity)
+
+(defmethod as-websocket-connection-callback :default
+  [obj]
+  (as-websocket-connection-callback (as-websocket-listener obj)))
+
+
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defmulti as-websocket-callback
+  "Coerces `obj` to the instance of `WebSocketCallback`."
+  {:arglists '([obj]) :tag WebSocketCallback}
+  object-type)
+
+(.addMethod ^MultiFn as-websocket-callback WebSocketCallback identity)
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

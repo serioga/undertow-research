@@ -1,7 +1,7 @@
 (ns undertow.handler
   (:require [undertow.api.types :as types]
             [undertow.websocket.handler :as websocket])
-  (:import (clojure.lang IPersistentMap MultiFn Sequential)
+  (:import (clojure.lang MultiFn Sequential)
            (io.undertow.server HttpHandler)
            (io.undertow.server.handlers GracefulShutdownHandler NameVirtualHostHandler PathHandler ProxyPeerAddressHandler RequestDumpingHandler)
            (io.undertow.server.handlers.error SimpleErrorPageHandler)
@@ -13,50 +13,29 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(def handler-type (some-fn :type type))
-
-(defmulti handler-impl handler-type)
-
-(defmulti wrapper-impl handler-type)
-
 (defn wrap-handler
   [handler with]
-  (reduce (fn [next-handler wrapper]
+  (reduce (fn [next-handler, wrapper]
             ((types/as-wrapper wrapper) (types/as-handler next-handler)))
           (types/as-handler handler)
           (reverse with)))
 
-(extend-protocol types/AsHandler IPersistentMap
-  (as-handler
-    [m]
-    (types/as-handler (handler-impl m))))
-
-(extend-protocol types/AsHandler Sequential
-  (as-handler
-    [xs]
-    (when-let [xs (seq xs)]
-      (wrap-handler (last xs) (butlast xs)))))
-
-(extend-protocol types/AsHandlerWrapper IPersistentMap
-  (as-wrapper
-    [m]
-    (types/as-wrapper (wrapper-impl m))))
+(defmethod types/as-handler Sequential
+  [xs]
+  (when-let [xs (seq xs)]
+    (wrap-handler (last xs) (butlast xs))))
 
 (defn declare-type
-  [t {as-handler-fn :as-handler, as-wrapper-fn :as-wrapper, alias :type-alias}]
-  (assert (or (fn? as-handler-fn) (fn? as-wrapper-fn)))
-  (letfn [(handler-impl-method [obj] (reify types/AsHandler
-                                       (as-handler [_] (as-handler-fn obj))))
-          (wrapper-impl-method [obj] (reify types/AsHandlerWrapper
-                                       (as-wrapper [_] (as-wrapper-fn obj))))]
-    (when as-handler-fn
-      (.addMethod ^MultiFn handler-impl t handler-impl-method)
-      (when alias
-        (.addMethod ^MultiFn handler-impl alias handler-impl-method)))
-    (when as-wrapper-fn
-      (.addMethod ^MultiFn wrapper-impl t wrapper-impl-method)
-      (when alias
-        (.addMethod ^MultiFn wrapper-impl alias wrapper-impl-method)))))
+  [-type {:keys [as-handler, as-wrapper, type-alias]}]
+  (assert (or (fn? as-handler) (fn? as-wrapper)))
+  (when as-handler
+    (.addMethod ^MultiFn types/as-handler -type as-handler)
+    (when type-alias
+      (.addMethod ^MultiFn types/as-handler type-alias as-handler)))
+  (when as-wrapper
+    (.addMethod ^MultiFn types/as-wrapper -type as-wrapper)
+    (when type-alias
+      (.addMethod ^MultiFn types/as-wrapper type-alias as-wrapper))))
 
 (defn as-arity-2-wrapper
   [f]
@@ -220,29 +199,36 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-;; TODO: Support non-classpath resource manager
-
-(extend-protocol types/AsResourceManager IPersistentMap
-  (as-resource-manager
-    [{:keys [prefix]}]
-    (let [prefix (or prefix "public")]
-      (ClassPathResourceManager. (ClassLoader/getSystemClassLoader) ^String prefix))))
+(defmethod types/as-resource-manager :class-path
+  [{:keys [prefix]}]
+  (let [prefix (or prefix "public")]
+    (ClassPathResourceManager. (ClassLoader/getSystemClassLoader) ^String prefix)))
 
 (defn resource
   "Returns a new resource handler with optional next handler that is called if
   no resource is found.
 
-  **`resource-manager`**
-
-  - The instance of `io.undertow.server.handlers.resource.ResourceManager`
-  - or configuration map for `ClassPathResourceManager`.
+  **`resource-manager`** The instance of `ResourceManager` or resource manager
+                         configuration map.
 
   Resource manager configuration options:
+
+  **`:resource-manager`** (keyword)
+
+  - The type of configuration manager.
+  - Used as `:type` in configuration passed to `as-resource-manager`.
+
+  Configuration options of `:class-path` resource manager:
 
   **`:prefix`** (string)
 
   - The prefix that is appended to resources that are to be loaded.
   - Default prefix is \"public\".
+
+  Example:
+
+      (handler/resource {:resource-manager :class-path
+                         :prefix \"public/static\"})
   "
   (^ResourceHandler
    [resource-manager]
@@ -250,6 +236,10 @@
   (^ResourceHandler
    [next-handler, resource-manager]
    (ResourceHandler. (types/as-resource-manager resource-manager) (types/as-handler next-handler))))
+
+(defmethod types/as-resource-manager resource
+  [{:keys [resource-manager] :as config}]
+  (types/as-resource-manager (assoc config :type resource-manager)))
 
 (declare-type resource {:type-alias ::resource
                         :as-handler resource
@@ -270,7 +260,7 @@
                            expire-oldest-unused-session-on-max
                            (boolean statistics-enabled)))
 
-(.addMethod ^MultiFn types/as-session-manager IPersistentMap
+(.addMethod ^MultiFn types/as-session-manager :default
             in-memory-session-manager)
 
 (defn session-cookie-config
@@ -285,7 +275,7 @@
     max-age (.setMaxAge max-age)
     comment (.setComment comment)))
 
-(.addMethod ^MultiFn types/as-session-config IPersistentMap
+(.addMethod ^MultiFn types/as-session-config :default
             session-cookie-config)
 
 (defn session-attachment

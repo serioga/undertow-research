@@ -21,11 +21,12 @@
 
 (set-validator! #'*fn-as-handler* validate-fn-as-handler)
 
-(extend-protocol types/AsHandler
-  Fn
-  (as-handler [handler-fn] (*fn-as-handler* handler-fn))
-  MultiFn
-  (as-handler [handler-fn] (*fn-as-handler* handler-fn)))
+(defn- as-handler
+  [handler-fn]
+  (*fn-as-handler* handler-fn))
+
+(.addMethod ^MultiFn types/as-handler Fn as-handler)
+(.addMethod ^MultiFn types/as-handler MultiFn as-handler)
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 

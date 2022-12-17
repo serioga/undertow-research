@@ -1,7 +1,6 @@
 (ns undertow.websocket.handler
   (:require [undertow.api.types :as types])
-  (:import (clojure.lang IPersistentMap)
-           (io.undertow.websockets WebSocketConnectionCallback WebSocketProtocolHandshakeHandler)
+  (:import (io.undertow.websockets WebSocketConnectionCallback WebSocketProtocolHandshakeHandler)
            (io.undertow.websockets.core WebSocketChannel)
            (io.undertow.websockets.spi WebSocketHttpExchange)
            (org.xnio ChannelListener)
@@ -11,21 +10,22 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(extend-protocol types/AsWebSocketListener IPersistentMap
-  (as-websocket-listener
-    [config]
-    (WebSocketChannelListener. config)))
+(defmethod types/as-websocket-listener :default
+  [config]
+  (WebSocketChannelListener. config))
 
-(extend-protocol types/AsWebSocketConnectionCallback ChannelListener
-  (as-websocket-connection-callback
-    [listener]
-    (reify WebSocketConnectionCallback
-      (^void onConnect
-        [_, ^WebSocketHttpExchange exchange, ^WebSocketChannel chan]
-        (when (instance? WebSocketConnectionCallback listener)
-          (.onConnect ^WebSocketConnectionCallback listener exchange chan))
-        (.set (.getReceiveSetter chan) listener)
-        (.resumeReceives chan)))))
+(defmethod types/as-websocket-connection-callback ChannelListener
+  [listener]
+  (reify WebSocketConnectionCallback
+    (^void onConnect
+      [_, ^WebSocketHttpExchange exchange, ^WebSocketChannel chan]
+      (when (instance? WebSocketConnectionCallback listener)
+        (.onConnect ^WebSocketConnectionCallback listener exchange chan))
+      (.set (.getReceiveSetter chan) listener)
+      (.resumeReceives chan))))
+
+(prefer-method types/as-websocket-connection-callback
+               ChannelListener WebSocketConnectionCallback)
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
