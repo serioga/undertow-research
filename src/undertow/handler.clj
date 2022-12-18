@@ -180,7 +180,7 @@
       - `:on-message` The function `(fn [{:keys [callback channel text data]}])`.
           + Is called when listener receives a message.
           + The text message is provided in `:text` and binary message is
-          provided in `:data`.
+            provided in `:data`.
 
       - `:on-close` The function `(fn [{:keys [callback channel code reason]}])`.
           + Is called once the WebSocket connection is closed.
