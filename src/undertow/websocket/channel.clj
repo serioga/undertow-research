@@ -177,10 +177,13 @@
     [message chan opts]
     "Sends a complete close message, invoking the callback when complete.
 
-    1) `message` The close message as instance of `CloseMessage`. See helper
-                 functions to create messages above.
-    2) `chan`    The web socket channel of type `WebSocketChannel`.
-    3) `opts`    The map with options:
+    1) `message` The close message as instance of `CloseMessage`.
+        + See helper functions to create messages above.
+        + If `nil` then [[normal-closure]] is sent.
+
+    2) `chan` The web socket channel of type `WebSocketChannel`.
+
+    3) `opts` The map with options:
         - `:callback` The `WebSocketCallback` to invoke on completion.
             + The callback can be declared as map with keys:
                 - `:on-complete` The function `(fn [{:keys [callback, channel]}] ...)`.
@@ -192,9 +195,11 @@
     [message chan]
     "Sends a complete close message using blocking IO.
 
-    1) `message` The close message as instance of `CloseMessage`. See helper
-                 functions to create messages above.
-    2) `chan`    The web socket channel of type `WebSocketChannel`.
+    1) `message` The close message as instance of `CloseMessage`.
+        + See helper functions to create messages above.
+        + If `nil` then [[normal-closure]] is sent.
+
+    2) `chan` The web socket channel of type `WebSocketChannel`.
     "))
 
 (extend-protocol WebSocketSendClose CloseMessage
