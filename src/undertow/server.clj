@@ -33,7 +33,8 @@
     declare handlers.
 
   - **`:socket-options`** The map of socket options for the listener.
-      - `:undertow/enable-http2` (boolean) Enables HTTP2 protocol
+      - **`:undertow/enable-http2`** (boolean) Enables HTTP2 protocol.
+      - Other option keywords can be seen below in this namespace.
 
   - **`:use-proxy-protocol`** (boolean)
 
