@@ -9,12 +9,134 @@
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn start
-  ;; TODO: Document configuration map
   "Starts Undertow server given instance, builder or configuration map.
 
   Configuration map options:
 
-  **`port`**
+  **`:port`** (map, int) The map of ports and their listeners. Or just a port
+              number for HTTP listener with default configuration.
+
+  The port listener is an instance of `Undertow$ListenerBuilder` or
+  listener configuration map.
+
+  Listener configuration options:
+
+  - **`:host`** (string) The host name, default \"localhost\".
+
+  - **`:https`** (map) Enables HTTPS protocol for the listener with
+    configuration options:
+      - **`:key-managers`**   (KeyManager[])
+      - **`:trust-managers`** (TrustManager[])
+      - **`:ssl-context`**    (SSLContext)
+
+  - **`:handler`** The HttpHandler to be used on the port. See below how declare
+    handlers.
+
+  - **`:socket-options`** The map of socket options for the listenter.
+      - `:undertow/enable-http2` (boolean) Enables HTTP2 protocol
+
+  - **`:use-proxy-protocol`** (boolean)
+
+  **`:handler`** The HttpHandler handler to be used for all listeners without
+                 handler specified. See below how declare handlers.
+
+  **`:buffer-size`** (int)
+
+  **`:io-threads`** (int) The number of IO threads to create.
+
+  **`:worker-threads`** (int) The number of worker threads.
+
+  **`:direct-buffers`** (boolean) If direct buffers enabled.
+
+  **`:server-options`** The map of server options.
+
+  **`:socket-options`** The map of socket options.
+
+  **`:worker-options`** The map of worker options.
+
+  **`::fn-as-handler`** `(fn [f] handler)`
+
+  - The function which defines coercion of clojure functions to HttpHandler
+    during invocation of `start`, like i.e. ring handler.
+  - By default the coercion is not defined and functions cannot be used as
+    handler.
+  - The coercion can be assigned permanently using `server/set-fn-as-handler`.
+
+  **`::wrap-builder-fn`** `(fn [f] (fn [builder config] (f builder config)))`
+
+  - The function which wraps standard builder configuration function `f`
+    returning new function on builder and configuration.
+  - Allows to customize builder configuration in any way by modifying builder,
+    config and even ignoring function `f`.
+
+  Server configuration example:
+
+      {:port {;; HTTP port listener
+              8080 {:host \"localhost\"
+                    :handler (comment \"Listener handler declaration.\")}
+              ;; HTTPS port listener
+              4040 {:https {:ssl-context '_}}}
+       ;; Server handler for all listeners without handlers.
+       :handler (comment \"Server handler declaration.\")
+       :server-options {:undertow/enable-http2 true}}
+
+  **Handler declaration**
+
+  Handlers can be declared and chained using function invocations:
+
+      ;; The chain of HTTP handler in reverse order.
+      (-> default-handler-fn
+          ;; The handlers for app hostnames.
+          (handler/virtual-host {:host {\"app1\" app1-handler-fn
+                                        \"app2\" app2-handler-fn}})
+          ;; Enable sessions for handlers above.
+          (handler/session-attachment {})
+          ;; The handler for specific path
+          (handler/path {:prefix {\"static\" (handler/resource {:resource-manager :class-path
+                                                                :prefix \"public/static\"})}
+                         :exact {\"websocket\" (handler/websocket {:on-connect (fn [{:keys [channel] :as event}])
+                                                                   :on-message (fn [{:keys [channel text] :as event}])
+                                                                   :on-close (fn [event])
+                                                                   :on-error (fn [event])})}})
+          ;; The handler for webapi hostname.
+          (handler/virtual-host {:host {\"webapi.localtest.me\" webapi-handler-fn}})
+          (handler/simple-error-page)
+          (handler/proxy-peer-address)
+          (handler/graceful-shutdown))
+
+  Or same handler written declarative:
+
+      [;; The chain of HTTP handlers in direct order.
+       {:type handler/graceful-shutdown}
+       {:type handler/proxy-peer-address}
+       {:type handler/simple-error-page}
+       ;; The handler for webapi hostname.
+       {:type handler/virtual-host
+        :host {\"webapi.localtest.me\" webapi-handler-fn}}
+       ;; The handler for specific path
+       {:type handler/path
+        :prefix {\"static\" {:type handler/resource
+                           :resource-manager :class-path
+                           :prefix \"public/static\"}}
+        :exact {\"websocket\" {:type handler/websocket
+                             :on-connect (fn [{:keys [channel] :as event}])
+                             :on-message (fn [{:keys [channel text] :as event}])
+                             :on-close (fn [event])
+                             :on-error (fn [event])}}}
+       ;; Enable sessions for next handlers.
+       {:type handler/session-attachment}
+       ;; The handlers for app hostnames.
+       {:type handler/virtual-host :host {\"app1\" app1-handler-fn
+                                          \"app2\" app2-handler-fn}}
+       default-handler-fn]
+
+  Keywords can be used instead of symbols as handler `:type` values:
+
+      {:type ::handler/proxy-peer-address}
+
+  There are some Undertow handlers available in the `handler` namespace. Others
+  can be used via Java interop or adapted for declarative description using
+  `handler/declare-type` function.
   "
   {:arglists '([{:keys [port, handler,
                         buffer-size, io-threads, worker-threads, direct-buffers,
@@ -71,7 +193,7 @@
 
 ;;; XNIO workers
 
-;; The number of IO threads to create. IO threads perform non blocking tasks,
+;; The number of IO threads to create. IO threads perform non-blocking tasks,
 ;; and should never perform blocking operations because they are responsible for
 ;; multiple connections, so while the operation is blocking other connections
 ;; will essentially hang. Two IO threads per CPU core is a reasonable default.
@@ -80,7 +202,7 @@
 
 ;; The number of threads in the workers blocking task thread pool. When
 ;; performing blocking operations such as Servlet requests threads from this
-;; pool will be used. In general it is hard to give a reasonable default for
+;; pool will be used. In general, it is hard to give a reasonable default for
 ;; this, as it depends on the server workload. Generally this should be
 ;; reasonably high, around 10 per CPU core.
 (define-option :xnio/worker-task-core-threads

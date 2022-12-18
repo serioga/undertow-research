@@ -8,16 +8,17 @@
 
 ;; TODO: Document, that it covers only HTTP/HTTPS but not AJP
 (defmethod types/as-listener-builder :default
-  [{:keys [port host https handler socket-options use-proxy-protocol]}]
+  [{:keys [port, host, https, handler, socket-options, use-proxy-protocol]
+    {:keys [key-managers, trust-managers, ssl-context]} :https}]
   (-> (Undertow$ListenerBuilder.)
       (.setType (if https Undertow$ListenerType/HTTPS
                           Undertow$ListenerType/HTTP))
       (cond-> port (.setPort port))
       (.setHost (or host "localhost"))
       (.setRootHandler handler)
-      (.setKeyManagers,, (:key-managers https))
-      (.setTrustManagers (:trust-managers https))
-      (.setSslContext,,, (:ssl-context https))
+      (cond-> https (-> (.setKeyManagers key-managers)
+                        (.setTrustManagers trust-managers)
+                        (.setSslContext ssl-context)))
       (.setOverrideSocketOptions (types/as-option-map socket-options))
       (.setUseProxyProtocol (boolean use-proxy-protocol))))
 
@@ -71,11 +72,11 @@
       (apply-map set-socket-option socket-options)
       (apply-map set-worker-option worker-options)
       (cond->
-        handler,,,,,,, (.setHandler (types/as-handler handler))
-        buffer-size,,, (.setBufferSize buffer-size)
-        io-threads,,,, (.setIoThreads io-threads)
-        worker-threads (.setWorkerThreads worker-threads)
-        direct-buffers (.setDirectBuffers direct-buffers))))
+        handler,,,,,,,,,,,,,,, (.setHandler (types/as-handler handler))
+        buffer-size,,,,,,,,,,, (.setBufferSize buffer-size)
+        io-threads,,,,,,,,,,,, (.setIoThreads io-threads)
+        worker-threads,,,,,,,, (.setWorkerThreads worker-threads)
+        (some? direct-buffers) (.setDirectBuffers (boolean direct-buffers)))))
 
 (defn build
   ^Undertow
