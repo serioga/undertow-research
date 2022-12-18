@@ -17,9 +17,9 @@
               number for HTTP listener with default configuration.
 
   The port listener is an instance of `Undertow$ListenerBuilder` or
-  listener configuration map.
+  listener builder configuration map.
 
-  Listener configuration options:
+  Listener builder configuration options:
 
   - **`:host`** (string) The host name, default \"localhost\".
 
@@ -29,13 +29,15 @@
       - **`:trust-managers`** (TrustManager[])
       - **`:ssl-context`**    (SSLContext)
 
-  - **`:handler`** The HttpHandler to be used on the port. See below how declare
-    handlers.
+  - **`:handler`** The HttpHandler to be used on the port. See below how to
+    declare handlers.
 
-  - **`:socket-options`** The map of socket options for the listenter.
+  - **`:socket-options`** The map of socket options for the listener.
       - `:undertow/enable-http2` (boolean) Enables HTTP2 protocol
 
   - **`:use-proxy-protocol`** (boolean)
+
+  NOTE: Declaration of AJP protocol is not supported.
 
   **`:handler`** The HttpHandler handler to be used for all listeners without
                  handler specified. See below how declare handlers.
@@ -68,6 +70,8 @@
     returning new function on builder and configuration.
   - Allows to customize builder configuration in any way by modifying builder,
     config and even ignoring function `f`.
+  - Allows to make settings which are not available in declarative configuration
+    like `setWorker`, `setByteBufferPool` etc.
 
   Server configuration example:
 
@@ -116,13 +120,13 @@
        ;; The handler for specific path
        {:type handler/path
         :prefix {\"static\" {:type handler/resource
-                           :resource-manager :class-path
-                           :prefix \"public/static\"}}
+                             :resource-manager :class-path
+                             :prefix \"public/static\"}}
         :exact {\"websocket\" {:type handler/websocket
-                             :on-connect (fn [{:keys [channel] :as event}])
-                             :on-message (fn [{:keys [channel text] :as event}])
-                             :on-close (fn [event])
-                             :on-error (fn [event])}}}
+                               :on-connect (fn [{:keys [channel] :as event}])
+                               :on-message (fn [{:keys [channel text] :as event}])
+                               :on-close (fn [event])
+                               :on-error (fn [event])}}}
        ;; Enable sessions for next handlers.
        {:type handler/session-attachment}
        ;; The handlers for app hostnames.

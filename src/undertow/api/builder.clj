@@ -6,7 +6,6 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-;; TODO: Document, that it covers only HTTP/HTTPS but not AJP
 (defmethod types/as-listener-builder :default
   [{:keys [port, host, https, handler, socket-options, use-proxy-protocol]
     {:keys [key-managers, trust-managers, ssl-context]} :https}]
@@ -23,11 +22,32 @@
       (.setUseProxyProtocol (boolean use-proxy-protocol))))
 
 (defn add-listener
+  "Adds listener builder instance or configuration.
+
+  Listener builder configuration options:
+
+  - **`:host`** (string) The host name, default \"localhost\".
+
+  - **`:https`** (map) Enables HTTPS protocol for the listener with
+    configuration options:
+      - **`:key-managers`**   (KeyManager[])
+      - **`:trust-managers`** (TrustManager[])
+      - **`:ssl-context`**    (SSLContext)
+
+  - **`:handler`** The HttpHandler to be used on the port. See [[server/start]]
+    for more details.
+
+  - **`:socket-options`** The map of socket options for the listener.
+
+  - **`:use-proxy-protocol`** (boolean)
+
+  NOTE: AJP protocol is not supported in declarative configuration.
+  "
   (^Undertow$Builder
-   [builder [port opts]] (add-listener builder port opts))
+   [builder [port config]] (add-listener builder port config))
   (^Undertow$Builder
-   [builder port opts]
-   (.addListener ^Undertow$Builder builder (-> (types/as-listener-builder opts)
+   [builder port config]
+   (.addListener ^Undertow$Builder builder (-> (types/as-listener-builder config)
                                                (.setPort (int port))))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
