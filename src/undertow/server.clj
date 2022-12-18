@@ -11,68 +11,53 @@
 (defn start
   "Starts Undertow server given instance, builder or configuration map.
 
-  Configuration map options:
+  Server configuration map options:
 
-  **`:port`** (map, int) The map of ports and their listeners. Or just a port
-              number for HTTP listener with default configuration.
+  - `:port` The map of ports and their listeners.
+      + Can be just a port number for HTTP listener with default configuration.
+      + The port listener is an instance of `Undertow$ListenerBuilder` or
+        listener builder configuration map.
+      + Port listener configuration options:
+          - `:host`  The host name string, default \"localhost\".
+          - `:https` HTTPS configuration map with options:
+              - `:key-managers`   The instance of `javax.net.ssl.KeyManager[]`.
+              - `:trust-managers` The instance of `javax.net.ssl.TrustManager[]`.
+              - `:ssl-context`    The instance of `javax.net.ssl.SSLContext`.
+          - `:handler` The listener HttpHandler to be used on the port.
+                       See below how to declare handlers.
+          - `:socket-options` The map of socket options for the listener.
+              - `:undertow/enable-http2`. If HTTP2 protocol enabled, boolean.
+              + Other option keywords can be found below in this namespace.
+          - `:use-proxy-protocol` boolean.
+      + The `:https` enables HTTPS protocol for the listener.
+      + Declaration of AJP protocol is not supported.
 
-  The port listener is an instance of `Undertow$ListenerBuilder` or
-  listener builder configuration map.
+  - `:handler` The server HttpHandler to be used for all listeners without
+               handler specified. See below how declare handlers.
 
-  Listener builder configuration options:
+  - `:buffer-size`    integer.
+  - `:io-threads`     The number of IO threads to create.
+  - `:worker-threads` The number of worker threads, integer.
+  - `:direct-buffers` If direct buffers enabled, boolean.
+  - `:server-options` The map of server options.
+  - `:socket-options` The map of socket options.
+  - `:worker-options` The map of worker options.
 
-  - **`:host`** (string) The host name, default \"localhost\".
+  - `::fn-as-handler` The function `(fn [f] handler)`
+      + Defines coercion of clojure functions to HttpHandler during invocation
+        of `start`, like i.e. ring handler.
+      + By default, the coercion is not defined and functions cannot be used as
+        handler.
+      + The coercion can be assigned permanently using [[set-fn-as-handler]].
 
-  - **`:https`** (map) Enables HTTPS protocol for the listener with
-    configuration options:
-      - **`:key-managers`**   (KeyManager[])
-      - **`:trust-managers`** (TrustManager[])
-      - **`:ssl-context`**    (SSLContext)
-
-  - **`:handler`** The HttpHandler to be used on the port. See below how to
-    declare handlers.
-
-  - **`:socket-options`** The map of socket options for the listener.
-      - **`:undertow/enable-http2`** (boolean) Enables HTTP2 protocol.
-      - Other option keywords can be seen below in this namespace.
-
-  - **`:use-proxy-protocol`** (boolean)
-
-  NOTE: Declaration of AJP protocol is not supported.
-
-  **`:handler`** The HttpHandler handler to be used for all listeners without
-                 handler specified. See below how declare handlers.
-
-  **`:buffer-size`** (int)
-
-  **`:io-threads`** (int) The number of IO threads to create.
-
-  **`:worker-threads`** (int) The number of worker threads.
-
-  **`:direct-buffers`** (boolean) If direct buffers enabled.
-
-  **`:server-options`** The map of server options.
-
-  **`:socket-options`** The map of socket options.
-
-  **`:worker-options`** The map of worker options.
-
-  **`::fn-as-handler`** `(fn [f] handler)`
-
-  - The function which defines coercion of clojure functions to HttpHandler
-    during invocation of `start`, like i.e. ring handler.
-  - By default the coercion is not defined and functions cannot be used as
-    handler.
-  - The coercion can be assigned permanently using `server/set-fn-as-handler`.
-
-  **`::wrap-builder-fn`** `(fn [f] (fn [builder config] (f builder config)))`
-
-  - The function which wraps standard builder configuration function `f`
-    returning new function on builder and configuration.
-  - Allows to customize builder configuration in any way by modifying builder,
-    config and even ignoring function `f`.
-  - Allows to make settings which are not available in declarative configuration
-    like `setWorker`, `setByteBufferPool` etc.
+  - `::wrap-builder-fn`
+      + The function `(fn [f] (fn [builder config] (f builder config)))` which
+        wraps standard builder configuration function `f` returning new function
+        on builder and configuration.
+      + Allows to customize builder configuration in any way by modifying
+        builder, config and even ignoring function `f`.
+      + Allows to make settings which are not available in declarative
+        configuration like `setWorker`, `setByteBufferPool` etc.
 
   Server configuration example:
 
@@ -141,7 +126,7 @@
 
   There are some Undertow handlers available in the `handler` namespace. Others
   can be used via Java interop or adapted for declarative description using
-  `handler/declare-type` function.
+  [[handler/declare-type]] function.
   "
   {:arglists '([{:keys [port, handler,
                         buffer-size, io-threads, worker-threads, direct-buffers,

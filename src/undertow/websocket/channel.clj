@@ -37,31 +37,24 @@
                    [text chan {{:keys [on-complete on-error]} :callback, timeout :timeout}])}
     "Sends a complete text message, invoking the callback when complete.
 
-    **`text`** (string) The text to send.
-
-    **`chan`** (WebSocketChannel) The web socket channel.
-
-    `opts` (map) The options:
-
-    **`:callback`** (WebSocketCallback) The callback to invoke on completion.
-
-    The callback can be a map with keys:
-
-    - `:on-complete` The callback function `(fn [{:keys [callback, channel]}] ...)`.
-    - `:on-error` The callback function `(fn [{:keys [callback, channel, error]}] ...)`
-
-    The callback can be also just a function which receives a map with keys
-    described above.
-
-    **`:timeout`** (long) The timeout in milliseconds. No timeout by default.
+    1) `text` The text string to send.
+    2) `chan` The web socket channel of type `WebSocketChannel`.
+    3) `opts` The map with options:
+        - `:callback` The `WebSocketCallback` to invoke on completion.
+            + The callback can be declared as map with keys:
+                - `:on-complete` The function `(fn [{:keys [callback, channel]}] ...)`.
+                - `:on-error`    The function `(fn [{:keys [callback, channel, error]}] ...)`
+            + The callback can be also just a function which receives a map with
+              keys described above.
+        - `:timeout` The timeout in milliseconds, long. No timeout by default.
     ")
   (send-text!!
     [text chan]
     "Sends a complete text message using blocking IO.
 
-    **`text`** (string) The text to send.
-
-    **`chan`** (WebSocketChannel) The web socket channel."))
+    1) `text` The text string to send.
+    2) `chan` The web socket channel of type `WebSocketChannel`.
+    "))
 
 (defprotocol WebSocketSendBinary
   (send-binary
@@ -70,31 +63,24 @@
                    [data chan {{:keys [on-complete on-error]} :callback, timeout :timeout}])}
     "Sends a complete binary message, invoking the callback when complete.
 
-    **`data`** (string) The data to send.
-
-    **`chan`** (WebSocketChannel) The web socket channel.
-
-    `opts` (map) The options:
-
-    **`:callback`** (WebSocketCallback) The callback to invoke on completion.
-
-    The callback can be a map with keys:
-
-    - `:on-complete` The callback function `(fn [{:keys [callback, channel]}] ...)`.
-    - `:on-error` The callback function `(fn [{:keys [callback, channel, error]}] ...)`
-
-    The callback can be also just a function which receives a map with keys
-    described above.
-
-    **`:timeout`** (long) The timeout in milliseconds. No timeout by default.
+    1) `data` The binary data to send.
+    2) `chan` The web socket channel of type `WebSocketChannel`.
+    3) `opts` The map with options:
+        - `:callback` The `WebSocketCallback` to invoke on completion.
+            + The callback can be declared as map with keys:
+                - `:on-complete` The function `(fn [{:keys [callback, channel]}] ...)`.
+                - `:on-error`    The function `(fn [{:keys [callback, channel, error]}] ...)`
+            + The callback can be also just a function which receives a map with
+              keys described above.
+        - `:timeout` The timeout in milliseconds, long. No timeout by default.
     ")
   (send-binary!!
     [data chan]
     "Sends a complete binary message using blocking IO.
 
-    **`data`** (string) The data to send.
-
-    **`chan`** (WebSocketChannel) The web socket channel."))
+    1) `data` The binary data to send.
+    2) `chan` The web socket channel of type `WebSocketChannel`.
+    "))
 
 (extend-protocol WebSocketSendText String
   (send-text
@@ -191,29 +177,25 @@
     [message chan opts]
     "Sends a complete close message, invoking the callback when complete.
 
-    **`message`** (CloseMessage) The close message. See helper functions above.
-
-    **`chan`** (WebSocketChannel) The web socket channel.
-
-    `opts` (map) The options:
-
-    **`:callback`** (WebSocketCallback) The callback to invoke on completion.
-
-    The callback can be a map with keys:
-
-    - `:on-complete` The callback function `(fn [{:keys [callback, channel]}] ...)`.
-    - `:on-error` The callback function `(fn [{:keys [callback, channel, error]}] ...)`
-
-    The callback can be also just a function which receives a map with keys
-    described above.
+    1) `message` The close message as instance of `CloseMessage`. See helper
+                 functions to create messages above.
+    2) `chan`    The web socket channel of type `WebSocketChannel`.
+    3) `opts`    The map with options:
+        - `:callback` The `WebSocketCallback` to invoke on completion.
+            + The callback can be declared as map with keys:
+                - `:on-complete` The function `(fn [{:keys [callback, channel]}] ...)`.
+                - `:on-error`    The function `(fn [{:keys [callback, channel, error]}] ...)`
+            + The callback can be also just a function which receives a map with
+              keys described above.
     ")
   (send-close!!
     [message chan]
     "Sends a complete close message using blocking IO.
 
-    **`message`** (CloseMessage) The close message. See helper functions above.
-
-    **`chan`** (WebSocketChannel) The web socket channel."))
+    1) `message` The close message as instance of `CloseMessage`. See helper
+                 functions to create messages above.
+    2) `chan`    The web socket channel of type `WebSocketChannel`.
+    "))
 
 (extend-protocol WebSocketSendClose CloseMessage
   (send-close

@@ -22,26 +22,29 @@
       (.setUseProxyProtocol (boolean use-proxy-protocol))))
 
 (defn add-listener
-  "Adds listener builder instance or configuration.
+  "Adds listener given builder instance or configuration map.
 
-  Listener builder configuration options:
+  Configuration options:
 
-  - **`:host`** (string) The host name, default \"localhost\".
+  - `:host`  The host name string, default \"localhost\".
 
-  - **`:https`** (map) Enables HTTPS protocol for the listener with
-    configuration options:
-      - **`:key-managers`**   (KeyManager[])
-      - **`:trust-managers`** (TrustManager[])
-      - **`:ssl-context`**    (SSLContext)
+  - `:https` HTTPS configuration map with options:
+      - `:key-managers`   The instance of `javax.net.ssl.KeyManager[]`.
+      - `:trust-managers` The instance of `javax.net.ssl.TrustManager[]`.
+      - `:ssl-context`    The instance of `javax.net.ssl.SSLContext`.
 
-  - **`:handler`** The HttpHandler to be used on the port. See [[server/start]]
-    for more details.
+  - `:handler` The listener HttpHandler to be used on the port.
+               See [[server/start]] for details.
 
-  - **`:socket-options`** The map of socket options for the listener.
+  - `:socket-options` The map of socket options for the listener.
+      - `:undertow/enable-http2`. If HTTP2 protocol enabled, boolean.
+      + Other option keywords can be found in `server` namespace.
+      + Undertow option constants.
 
-  - **`:use-proxy-protocol`** (boolean)
+  - `:use-proxy-protocol` boolean.
 
-  NOTE: AJP protocol is not supported in declarative configuration.
+  + The `:https` enables HTTPS protocol for the listener.
+  + Declaration of AJP protocol is not supported.
   "
   (^Undertow$Builder
    [builder [port config]] (add-listener builder port config))

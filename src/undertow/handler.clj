@@ -68,23 +68,25 @@
   only matches a single level of a request, e.g. if you have a request that
   takes the form: `/foo/bar`.
 
-  Configuration options:
+  Arguments:
 
-  **`:prefix`** The map of path prefixes and their handlers.
+  - `default-handler` The handler that is invoked if there are no paths matched.
 
-  - If the path does not start with a `/` then one will be prepended.
-  - The match is done on a prefix bases, so registering `/foo` will also match
-    `/foo/bar`. Though exact path matches are taken into account before prefix
-    path matches. So if an exact path match exists its handler will be
-    triggered.
-  - If `/` is specified as the path then it will replace the default handler.
+  - `config` The configuration map with options:
 
-  **`:exact`** The map of exact paths and their handlers.
+      - `:prefix` The map of path prefixes and their handlers.
+          + If the path does not start with a `/` then one will be prepended.
+          + The match is done on a prefix bases, so registering `/foo` will also
+            match `/foo/bar`. Though exact path matches are taken into account
+            before prefix path matches. So if an exact path match exists its handler
+            will be triggered.
+          + If `/` is specified as the path then it will replace the default handler.
 
-  - If the request path is exactly equal to the given path, run the handler.
-  - Exact paths are prioritized higher than prefix paths.
+      - `:exact` The map of exact paths and their handlers.
+          + If the request path is exactly equal to the given path, run the handler.
+          + Exact paths are prioritized higher than prefix paths.
 
-  **`:cache-size`** (int) The cache size, unlimited by default.
+      - `:cache-size` The cache size, unlimited by default, integer.
 
   Example:
 
@@ -120,9 +122,14 @@
   A `HttpHandler` that implements virtual hosts based on the `Host:` http
   header.
 
-  Configuration options:
+  Arguments:
 
-  **`:host`** The map of hostnames and their handlers.
+  - `default-handler` The handler that is invoked if there are no hostnames
+                      matched.
+
+  - `config` The configuration map with options:
+
+      - `:host` The map of hostnames and their handlers.
 
   Example:
 
@@ -156,31 +163,33 @@
   if the web socket connection fails. A `HttpHandler` which will process the
   `HttpServerExchange` and do the actual handshake/upgrade to WebSocket.
 
-  **`callback`** The instance of the `WebSocketConnectionCallback` or callback
-                 configuration map.
+  Function arguments:
 
-  Callback configuration options:
+  - `next-handler` The handler that is invoked if there are no web socket
+                   headers.
 
-  **`:on-connect`** `(fn [{:keys [callback exchange channel]}])`
+  - `callback` The instance of the `WebSocketConnectionCallback` or callback
+               configuration map.
 
-  - Is called once the WebSocket connection is established, which means the
-    handshake was successful.
+    Callback configuration options:
 
-  **`:on-message`** `(fn [{:keys [callback channel text data]}])`
+      - `:on-connect` The function `(fn [{:keys [callback exchange channel]}])`.
+          + Is called once the WebSocket connection is established, which means
+            the handshake was successful.
 
-  - Is called when listener receives a message.
-  - The text message is provided in `:text` and binary message is provided in
-    `:data`.
+      - `:on-message` The function `(fn [{:keys [callback channel text data]}])`.
+          + Is called when listener receives a message.
+          + The text message is provided in `:text` and binary message is
+          provided in `:data`.
 
-  **`:on-close`** `(fn [{:keys [callback channel code reason]}])`
+      - `:on-close` The function `(fn [{:keys [callback channel code reason]}])`.
+          + Is called once the WebSocket connection is closed.
+          + The `:code` is status code to close messages:
+            http://tools.ietf.org/html/rfc6455#section-7.4
 
-  - Is called once the WebSocket connection is closed.
-  - The `:code` is status code to close messages: http://tools.ietf.org/html/rfc6455#section-7.4
-
-  **`:on-error`** `(fn [{:keys [callback channel error]}])`
-
-  - Is called on WebSocket connection error.
-  - Default implementation just closes WebSocket connection.
+      - `:on-error` The function `(fn [{:keys [callback channel error]}])`.
+          + Is called on WebSocket connection error.
+          + Default implementation just closes WebSocket connection.
   "
   {:arglists '([{:as callback :keys [on-connect, on-message, on-close, on-error]}]
                [next-handler, {:as callback :keys [on-connect, on-message, on-close, on-error]}]
@@ -208,22 +217,23 @@
   "Returns a new resource handler with optional next handler that is called if
   no resource is found.
 
-  **`resource-manager`** The instance of `ResourceManager` or resource manager
-                         configuration map.
+  Function arguments:
 
-  Resource manager configuration options:
+  - `next-handler` The handler that is called if no resource is found.
 
-  **`:resource-manager`** (keyword)
+  - `resource-manager` The instance of `ResourceManager` or resource manager
+                       configuration map.
 
-  - The type of configuration manager.
-  - Used as `:type` in configuration passed to `as-resource-manager`.
+    Resource manager configuration options:
 
-  Configuration options of `:class-path` resource manager:
+      - `:resource-manager` The type of configuration manager, keyword.
+          + Used as `:type` in configuration passed to [[api.types/as-resource-manager]].
 
-  **`:prefix`** (string)
+    Configuration options of `:class-path` resource manager:
 
-  - The prefix that is appended to resources that are to be loaded.
-  - Default prefix is \"public\".
+      - `:prefix` The prefix that is appended to resources that are to be
+                  loaded, string.
+          + Default prefix is \"public\".
 
   Example:
 
