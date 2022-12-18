@@ -151,8 +151,6 @@
   [obj]
   (as-websocket-connection-callback (as-websocket-listener obj)))
 
-
-
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defmulti as-websocket-callback
