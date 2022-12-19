@@ -3,7 +3,7 @@
             [ring.adapter.undertow.headers :as adapter.headers]
             [ring.adapter.undertow.request :as adapter.request]
             [ring.util.response :as ring.response]
-            [strojure.zizzmap.core :as zizz]
+            [strojure.zmap.core :as zmap]
             [undertow-ring.impl.request-headers :as headers]
             [undertow-ring.impl.session :as session]
             [undertow.api.exchange :as exchange])
@@ -110,7 +110,7 @@
           body,,,,,,,,,,, (.assoc :body body))
         (.persistent))))
 
-(defn build-request-zizz
+(defn build-request-zmap
   [^HttpServerExchange e]
   (let [query-string (.getQueryString e)
         query-string (when-not (.isEmpty query-string) query-string)
@@ -120,9 +120,9 @@
         body (exchange/get-input-stream e)]
     (-> (.asTransient PersistentHashMap/EMPTY)
         (.assoc :undertow/exchange e)
-        (.assoc :server-port,,, (zizz/delay* (.getPort (.getDestinationAddress e))))
-        (.assoc :server-name,,, (zizz/delay* (.getHostName e)))
-        (.assoc :remote-addr,,, (zizz/delay* (.getHostAddress (.getAddress (.getSourceAddress e)))))
+        (.assoc :server-port,,, (zmap/delay (.getPort (.getDestinationAddress e))))
+        (.assoc :server-name,,, (zmap/delay (.getHostName e)))
+        (.assoc :remote-addr,,, (zmap/delay (.getHostAddress (.getAddress (.getSourceAddress e)))))
         (.assoc :uri,,,,,,,,,,, (.getRequestURI e))
         (.assoc :scheme,,,,,,,, (scheme-keyword (.getRequestScheme e)))
         (.assoc :request-method (method-keyword (.toString (.getRequestMethod e))))
@@ -133,12 +133,12 @@
           session,,,,,,,, (.assoc :session session)
           body,,,,,,,,,,, (.assoc :body body))
         (.persistent)
-        (zizz/convert-map))))
+        (zmap/wrap))))
 
 (comment
   -exchange
   (build-request -exchange)
-  (build-request-zizz -exchange)
+  (build-request-zmap -exchange)
   ;;; immutant
   (require 'immutant.web.internal.undertow)
   (immutant.ring/ring-request-map -exchange)
@@ -157,9 +157,9 @@
   (.getHostPort -exchange)
   (-> -exchange .getDestinationAddress .getPort)
   (-> -exchange .getDestinationAddress)
-  (zizz/delay* (.getPort (.getDestinationAddress -exchange)))
+  (zmap/delay (.getPort (.getDestinationAddress -exchange)))
   (.getHostName -exchange)
-  (zizz/delay* (.getHostName -exchange))
+  (zmap/delay (.getHostName -exchange))
   (.getHostAddress (.getAddress (.getSourceAddress -exchange))) ; Execution time mean : 126,172175 ns
   (-> -exchange .getSourceAddress .getAddress .getHostAddress)
   (.getRequestScheme -exchange)
