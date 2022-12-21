@@ -42,22 +42,22 @@
 
 (.addMethod ^MultiFn as-handler HttpHandler identity)
 
-(def ^:dynamic *fn-as-handler*
+(def ^:dynamic *handler-fn-adapter*
   (fn [f]
     (throw (ex-info (str "Cannot use function as undertow handler: " f "\n"
-                         "Define permanent coercion using `server/set-fn-as-handler`.")
+                         "Define permanent coercion using `server/set-handler-fn-adapter`.")
                     {}))))
 
-(defn- validate-fn-as-handler
+(defn- validate-handler-fn-adapter
   [f]
   (or (instance? Fn f)
       (instance? MultiFn f)
-      (throw (IllegalArgumentException. (str "Requires function for *fn-as-handler*: " f)))))
+      (throw (IllegalArgumentException. (str "Requires function for *handler-fn-adapter*: " f)))))
 
-(set-validator! #'*fn-as-handler* validate-fn-as-handler)
+(set-validator! #'*handler-fn-adapter* validate-handler-fn-adapter)
 
-(.addMethod ^MultiFn as-handler Fn,,,,, #'*fn-as-handler*)
-(.addMethod ^MultiFn as-handler MultiFn #'*fn-as-handler*)
+(.addMethod ^MultiFn as-handler Fn,,,,, #'*handler-fn-adapter*)
+(.addMethod ^MultiFn as-handler MultiFn #'*handler-fn-adapter*)
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 

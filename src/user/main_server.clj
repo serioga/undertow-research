@@ -16,7 +16,7 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(server/set-fn-as-handler ring-handler/sync-ring-handler)
+(server/set-handler-fn-adapter ring-handler/sync-ring-handler)
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -52,7 +52,7 @@
 
 (defn start-test-server
   []
-  (-> {#_#_::server/fn-as-handler ring-handler/sync-ring-handler
+  (-> {#_#_::server/handler-fn-adapter ring-handler/sync-ring-handler
        #_#_:port {8080 {#_#_:socket-options {:xnio/worker-io-threads 2}}}
        :port 8080
        #_#_:handler (handler/websocket {:on-connect (fn [{:keys [channel context]}]
