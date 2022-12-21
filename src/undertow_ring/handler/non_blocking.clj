@@ -1,6 +1,5 @@
-(ns undertow-ring.adapter.non-blocking
-  (:require [undertow-ring.adapter :as adapter]
-            [undertow-ring.impl.ring-request :as ring-request]
+(ns undertow-ring.handler.non-blocking
+  (:require [undertow-ring.impl.ring-request :as ring-request]
             [undertow-ring.impl.ring-response :as ring-response])
   (:import (io.undertow.server HttpHandler)))
 
@@ -8,12 +7,8 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defn as-non-blocking-sync-handler
-  [handler]
-  (vary-meta handler assoc ::adapter/handler-type ::sync-non-blocking-handler))
-
-(defmethod adapter/fn-as-handler ::sync-non-blocking-handler
-  [handler]
+(defn sync-ring-handler
+  [handler-fn]
   (reify HttpHandler
     (handleRequest [this e]
       (if (and (.isInIoThread e)
@@ -22,7 +17,7 @@
         (.dispatch e this)
         ;; Execute handler on IO thread
         (-> (ring-request/build-request e)
-            (handler)
+            (handler-fn)
             (ring-response/handle-response e))))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

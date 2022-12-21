@@ -1,10 +1,11 @@
 (ns user.main_server
-  (:require [undertow-ring.adapter :as adapter]
-            [undertow-ring.adapter.non-blocking :as adapter*]
+  (:require [undertow-ring.handler :as ring-handler]
+            [undertow-ring.handler.non-blocking :as non-blocking]
             [undertow.handler :as handler]
             [undertow.server :as server]
             [undertow.websocket.channel :as channel]
-            [user.main-handler :as main])
+            [user.main-handler :as main]
+            )
   (:import (io.undertow Undertow Undertow$Builder)
            (io.undertow.server Connectors HttpHandler)
            (io.undertow.server.handlers BlockingHandler NameVirtualHostHandler RequestDumpingHandler)
@@ -15,7 +16,7 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(adapter/enable-ring-handler)
+(server/set-fn-as-handler ring-handler/sync-ring-handler)
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -51,7 +52,7 @@
 
 (defn start-test-server
   []
-  (-> {#_#_::server/fn-as-handler adapter/fn-as-handler
+  (-> {#_#_::server/fn-as-handler ring-handler/sync-ring-handler
        #_#_:port {8080 {#_#_:socket-options {:xnio/worker-io-threads 2}}}
        :port 8080
        #_#_:handler (handler/websocket {:on-connect (fn [{:keys [channel context]}]
@@ -86,8 +87,8 @@
                  {:type handler/virtual-host :host {"localhost" [{:type handler/simple-error-page}
                                                                  {:type handler/request-dump}
                                                                  (-> (main/ring-handler-fn "localhost привет")
-                                                                     #_(adapter*/as-non-blocking-sync-handler)
-                                                                     #_(adapter/as-async-handler))]
+                                                                     #_(non-blocking/sync-ring-handler)
+                                                                     (ring-handler/async-ring-handler))]
                                                     "127.0.0.1" (main/ring-handler-fn "127.0.0.1")}}
                  (main/ring-handler-fn "localhost")]
        #_#_:handler (-> (test-ring-handler-fn "default")
