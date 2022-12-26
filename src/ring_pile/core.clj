@@ -80,10 +80,11 @@
       (when-not (->> (config-key config-types)
                      (take-while (complement (partial = (middleware-type middleware))))
                      (some (partial = req-type)))
-        (throw (ex-info (str "Required middleware missing: " {:middleware middleware
+        (throw (ex-info (str "Required middleware missing: " {:middleware (middleware-type middleware)
                                                               :requires req-type})
-                        {:middleware middleware
+                        {:middleware-type (middleware-type middleware)
                          :requires (requires middleware)
+                         :middleware middleware
                          :missing req-type}))))))
 
 (defn compile
@@ -163,6 +164,10 @@
 (.addMethod ^MultiFn requires ::keyword-params/request (constantly {:enter [::params/request]}))
 (.addMethod ^MultiFn as-leave ::content-type/response (constantly content-type/content-type-response))
 
+(def params-request (-> params/params-request (with-meta {:type ::params/request})))
+(def keyword-params-request (-> keyword-params/keyword-params-request
+                                (with-meta {:type ::keyword-params/request})))
+
 (comment
   (def keyword-params {:enter [params/params-request
                                keyword-params/keyword-params-request]})
@@ -178,6 +183,10 @@
                                            (fn [req] req)]}))
   (def -handler (compile identity {:enter [::params/request
                                            {:type ::keyword-params/request :parse-namespaces? true}]
+                                   :leave [::content-type/response]
+                                   #_#_:ignore-requires #{::params/request}}))
+  (def -handler (compile identity {:enter [params-request
+                                           keyword-params-request]
                                    :leave [::content-type/response]
                                    #_#_:ignore-requires #{::params/request}}))
   (-handler {:uri "/" :query-string "a=1"})
