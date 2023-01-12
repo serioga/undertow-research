@@ -1,4 +1,4 @@
-(ns ring-lib.codec
+(ns ring-lib.util.codec
   (:require [ring.util.codec :as codec])
   (:import (clojure.lang Associative IReduceInit MapEntry)
            (java.net URLDecoder)
