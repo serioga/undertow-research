@@ -8,7 +8,7 @@
                  [ring/ring-defaults "0.3.4"]
 
                  ;;; Utils
-                 [com.github.strojure/zmap "1.0.2"]
+                 [com.github.strojure/zmap "1.1.5"]
 
                  ;;; Logging
                  [ch.qos.logback/logback-classic "1.2.11" :upgrade false]
