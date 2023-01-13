@@ -8,6 +8,7 @@
                  [ring/ring-defaults "0.3.4"]
 
                  ;;; Utils
+                 [org.apache.httpcomponents/httpcore "4.4.16"]
                  [com.github.strojure/zmap "1.1.5"]
 
                  ;;; Logging
