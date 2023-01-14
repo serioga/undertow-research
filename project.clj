@@ -9,7 +9,7 @@
 
                  ;;; Utils
                  [org.apache.httpcomponents/httpcore "4.4.16"]
-                 [com.github.strojure/zmap "1.1.5"]
+                 [com.github.strojure/zmap "1.2.8"]
 
                  ;;; Logging
                  [ch.qos.logback/logback-classic "1.2.11" :upgrade false]
