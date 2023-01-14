@@ -2,12 +2,11 @@
   (:require [ring-lib.util.codec :as codec]
             [ring.middleware.params :as params]
             [ring.util.parsing :as parsing]
-            [ring.util.request :as req-util]
+            [ring.util.request :as request]
             [strojure.zmap.core :as zmap])
-  (:import (clojure.lang Associative)
+  (:import (clojure.lang Associative IDeref)
            (java.io ByteArrayInputStream InputStream)
            (java.nio.charset Charset StandardCharsets)
-           (org.apache.commons.io IOUtils)
            (org.apache.http.entity ContentType)))
 
 (set! *warn-on-reflection* true)
@@ -15,92 +14,152 @@
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (defn merge*
-  [m1 m2]
-  (if (and m1 m2)
-    (merge m1 m2)
-    (or m1 m2)))
+  ([m] m)
+  ([m1 m2]
+   (if (and m1 m2)
+     (reduce-kv (fn [m k v] (.assoc ^Associative m k v)) m1 m2)
+     (or m1 m2))))
+
+(comment
+  (merge* {"a" "", "b" "", "c" ""} {"f" "1"})
+  (merge* {"f" "1"} {"a" "", "b" "", "c" ""})
+  )
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defn query-params-request-fn
+  [{:keys [merge-into] :as opts}]
+  (let [form-decode (codec/form-decode-fn opts)]
+    (fn [request]
+      (when request
+        (if-let [query-string (request :query-string)]
+          (let [query-params-delay (zmap/delay (form-decode query-string))]
+            (-> request
+                (assoc :query-params query-params-delay)
+                (cond-> merge-into
+                        (assoc merge-into (zmap/delay
+                                            (merge* (request merge-into)
+                                                    (.deref ^IDeref query-params-delay)))))
+                (zmap/wrap)))
+          request)))))
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(defn post-request?
+  [request]
+  (when request
+    (let [method (request :request-method)]
+      (or (identical? method :post)
+          (identical? method :put)))))
+
+(defn form-urlencoded?
+  [request]
+  (and (post-request? request)
+       (= (request/content-type request)
+          "application/x-www-form-urlencoded")))
+
+(defn parse-charset
+  [^String s]
+  (when (pos? (.indexOf s #=(int \;)))
+    (some-> (parsing/find-content-type-charset s)
+            (Charset/forName))))
+
+(defn parse-charset
+  [^String s]
+  (when (pos? (.indexOf s (int \;)))
+    (.getCharset (ContentType/parse s))))
 
 (defn content-charset
   [request]
-  (when-let [ct (-> request :headers (get "content-type"))]
-    (.getCharset (ContentType/parse ct))))
+  (or (some-> request :headers (get "content-type")
+              (ContentType/parse)
+              (.getCharset))
+      StandardCharsets/UTF_8))
 
 (defn content-charset
   {:tag Charset}
   [request]
-  (or (some-> request :headers (get "content-type")
-              (parsing/find-content-type-charset)
-              (Charset/forName))
+  (or (some-> request :headers (get "content-type") (parse-charset))
       StandardCharsets/UTF_8))
 
-(defn assoc-params-fn
-  [{:keys [merge-params]}]
-  (if merge-params
-    (fn [request k v]
-      (let [request (assoc request k v)]
-        (assoc request :params (zmap/delay (merge* (:params request) (get request k))))))
-    assoc))
-
-(defn query-params-request-fn
-  [opts]
-  (let [form-decode (codec/form-decode-fn opts)
-        assoc-params (assoc-params-fn opts)]
-    (fn [request]
-      (if (.containsKey ^Associative request :query-params)
-        request
-        (assoc-params (zmap/wrap request) :query-params
-                      (zmap/delay (some-> (:query-string request) (form-decode))))))))
-
-(defn form?
-  [request]
-  (let [method (:request-method request)]
-    (and (or (identical? method :post)
-             (identical? method :put))
-         (req-util/urlencoded-form? request))))
+(comment
+  (def -q {:query-string "a=&b&c" :request-method :post
+           :headers {"content-type" "application/x-www-form-urlencoded"}
+           :body (ByteArrayInputStream. (.getBytes "f=1"))})
+  (def -q {:query-string "a=&b&c" :request-method :post
+           :headers {"content-type" "application/x-www-form-urlencoded; charset=Windows-1251"}
+           :body (ByteArrayInputStream. (.getBytes "f=1"))})
+  (content-charset -q)
+  (ContentType/parse "application/x-www-form-urlencoded")
+  (parse-charset "application/x-www-form-urlencoded")
+  (parse-charset "application/x-www-form-urlencoded; charset=Windows-1251")
+  (.indexOf "application/x-www-form-urlencoded" #=(int \;))
+  (.getCharset (ContentType/parse "application/x-www-form-urlencoded; charset=windows-1251"))
+  )
 
 (defn form-params-request-fn
-  [opts]
-  (let [form-decode (codec/form-decode-fn opts)
-        assoc-params (assoc-params-fn opts)]
+  [{:keys [merge-into] :as opts}]
+  (let [form-decode (codec/form-decode-fn opts)]
     (fn [request]
-      (cond (.containsKey ^Associative request :form-params)
-            request
-            (form? request)
-            (assoc-params (zmap/wrap request) :form-params
-                          (zmap/delay (some-> ^InputStream (:body request)
-                                              (IOUtils/toString (content-charset request))
-                                              (form-decode))))
-            :else request))))
+      (when request
+        (if (form-urlencoded? request)
+          (let [form-params-delay (zmap/delay
+                                    (some-> ^InputStream (request :body)
+                                            (form-decode (content-charset request))))]
+            (-> request
+                (assoc :form-params form-params-delay)
+                (cond-> merge-into
+                        (assoc merge-into (zmap/delay
+                                            (merge* (request merge-into)
+                                                    (.deref ^IDeref form-params-delay)))))
+                (zmap/wrap)))
+          request)))))
+
+;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+(do
+  (def -qp (query-params-request-fn {:merge-into :params}))
+  (def -fp (form-params-request-fn {:merge-into :params})))
 
 (comment
-  (do
-    (def -qp (query-params-request-fn {:merge-params true}))
-    (def -fp (form-params-request-fn {:merge-params true})))
-  (do
-    (def -qp (query-params-request-fn {:merge-params false}))
-    (def -fp (form-params-request-fn {:merge-params false})))
+
+  (def -q {:query-string "a=&b&c" :request-method :post
+           :headers {"content-type" "application/x-www-form-urlencoded"}
+           :body (ByteArrayInputStream. (.getBytes "f=1"))})
+  (form-urlencoded? -q)
+
+  (-qp nil)
+  (-qp {})
+  (-fp nil)
+  (-fp {})
+
+  (let [request {:query-params {"a" "", "b" "", "c" ""},
+                 :form-params {"f" "1"}}
+        request (assoc request :params (merge* (request :params) (request :query-params)))
+        request (assoc request :params (merge* (request :params) (request :form-params)))]
+    request)
 
   (-> {:query-string "a=&b&c" :request-method :post
        :headers {"content-type" "application/x-www-form-urlencoded"}
        :body (ByteArrayInputStream. (.getBytes "f=1"))}
       (-qp)
       (-fp)
+      #_:params
+      #_((fn [m] [(:form-params m) (:query-params m)]))
+      #_:form-params
       #_:query-params)
 
-  (ByteArrayInputStream. (.getBytes "f=1"))
-  (IOUtils/toString (ByteArrayInputStream. (.getBytes "f=1")) StandardCharsets/UTF_8)
-  (slurp (ByteArrayInputStream. (.getBytes "f=1")))
   (content-charset {:query-string "a=&b&c" :request-method :post
                     :headers {"content-type" "application/x-www-form-urlencoded"}
                     :body (ByteArrayInputStream. (.getBytes "f=1"))})
-  (req-util/urlencoded-form? {:query-string "a=&b&c" :request-method :post
-                              :headers {"content-type" "application/x-www-form-urlencoded"}
-                              :body (ByteArrayInputStream. (.getBytes "f=1"))})
-  (req-util/character-encoding {})
-  (req-util/character-encoding {:headers {"content-type" "text/plain"}})
-  (req-util/character-encoding {:headers {"content-type" "text/plain; charset=windows-1251"}})
+  (request/urlencoded-form? {:query-string "a=&b&c" :request-method :post
+                             :headers {"content-type" "application/x-www-form-urlencoded"}
+                             :body (ByteArrayInputStream. (.getBytes "f=1"))})
+  (request/character-encoding {})
+  (request/character-encoding {:headers {"content-type" "text/plain"}})
+  (request/character-encoding {:headers {"content-type" "text/plain; charset=windows-1251"}})
   (params/params-request {:query-string "a=&b&c"
-                          #_#_:headers {"content-type" "application/x-www-form-urlencoded"}
+                          :headers {"content-type" "application/x-www-form-urlencoded"}
                           :body (ByteArrayInputStream. (.getBytes "f=1"))})
   (params/params-request {:query-string "a=&b&c"})
   )

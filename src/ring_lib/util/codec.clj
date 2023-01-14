@@ -1,8 +1,9 @@
 (ns ring-lib.util.codec
   (:require [ring.util.codec :as codec])
   (:import (clojure.lang Associative IReduceInit MapEntry)
+           (java.io ByteArrayInputStream ByteArrayOutputStream InputStream InputStreamReader StreamTokenizer)
            (java.net URLDecoder)
-           (java.nio.charset Charset)
+           (java.nio.charset Charset StandardCharsets)
            (java.util StringTokenizer)
            (sun.nio.cs UTF_8)))
 
@@ -60,15 +61,51 @@
       :else
       (MapEntry. (url-decode s charset) ""))))
 
-(defn form-param-reducer
-  [s charset]
-  (reify IReduceInit
-    (reduce [_ f init]
-      (let [tok (StringTokenizer. s "&")]
-        (loop [result init]
-          (if (.hasMoreTokens tok)
-            (recur (f result (-> (.nextToken tok) (form-param-entry charset))))
-            result))))))
+(defn read-body-string
+  [^InputStream body, ^Charset charset]
+  ;; Works since Java 9!
+  (-> (.readAllBytes body)
+      (String. charset)))
+
+(defn read-input-stream
+  [^InputStream body, ^Charset charset]
+  (let [output (ByteArrayOutputStream.)]
+    (loop [x (.read body)]
+      (when-not (neg? x)
+        (.write output (unchecked-int x))
+        (recur (.read body))))
+    (String. (.toString output charset))))
+
+(comment
+  (String. (.readAllBytes ^InputStream (ByteArrayInputStream. (.getBytes "f=1")))
+           StandardCharsets/UTF_8)
+  (read-input-stream (ByteArrayInputStream. (.getBytes "f=1")) StandardCharsets/UTF_8)
+  )
+
+(defprotocol FormParamReducer
+  (form-param-reducer
+    [obj charset]))
+
+(extend-protocol FormParamReducer String
+  (form-param-reducer
+    [s charset]
+    (reify IReduceInit
+      (reduce [_ f init]
+        (let [tok (StringTokenizer. s "&")]
+          (loop [result init]
+            (if (.hasMoreTokens tok)
+              (recur (f result (-> (.nextToken tok)
+                                   ;; TODO: only UTF-8 charset in url encode?
+                                   (form-param-entry charset))))
+              result)))))))
+
+;; TODO: consider implementation without conversion to string
+(extend-protocol FormParamReducer InputStream
+  (form-param-reducer
+    [stream charset]
+    (form-param-reducer (read-input-stream stream charset)
+                        ;; TODO: default charset here?
+                        charset)))
 
 ;; TODO: ??? if-not (.contains encoded "=") (form-decode-str encoded encoding)
 
@@ -116,6 +153,23 @@
   (url-decode "abc" UTF_8/INSTANCE)
   (codec/form-decode-str "abc")
   (codec/form-decode-str "abc" "utf-8")
+
+  (form-decode* (ByteArrayInputStream. (.getBytes "a=1&b=2")))
+
+  (let [body (ByteArrayInputStream. (.getBytes "a=1&b=2"))
+        tokenizer (StreamTokenizer. (StringReader. (InputStreamReader. body StandardCharsets/UTF_8)))]
+    tokenizer)
+
+  (let [body (ByteArrayInputStream. (.getBytes "a=1&b=2"))
+        tokenizer (StreamTokenizer. (InputStreamReader. body StandardCharsets/UTF_8))]
+    (doto tokenizer
+      (.wordChars 0 256)
+      (.whitespaceChars #=(int \&) #=(int \&)))
+    (loop [t (.nextToken tokenizer)]
+      (when-not (= t StreamTokenizer/TT_EOF)
+        #_(println (.-sval tokenizer))
+        (recur (.nextToken tokenizer)))))
+
   )
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
