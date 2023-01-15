@@ -1,7 +1,6 @@
 (ns ring-lib.util.codec
-  (:require [clojure.string :as string]
-            [ring.util.codec :as codec])
-  (:import (clojure.lang Associative IReduceInit MapEntry)
+  (:require [ring.util.codec :as codec])
+  (:import (clojure.lang Associative)
            (java.io ByteArrayInputStream ByteArrayOutputStream InputStream InputStreamReader StreamTokenizer)
            (java.net URLDecoder)
            (java.nio.charset Charset StandardCharsets)
@@ -23,22 +22,17 @@
   (array-suffix-name "a[]")
   )
 
-(defn assoc-param-fn
+(defn assoc-param-rf
   [{:keys [array-name-fn param-key-fn]
     :or {array-name-fn array-suffix-name}}]
   (fn
     ([] {})
     ([m] m)
-    ([^Associative m, e]
-     (let [k (key e)]
-       (if-let [kk (when array-name-fn (array-name-fn k))]
-         (let [kk (cond-> kk param-key-fn (param-key-fn))
-               vv (-> (.valAt m kk [])
-                      (conj (val e)))]
-           (-> m (.assoc kk vv)))
-         (if param-key-fn
-           (-> m (.assoc (param-key-fn k) (val e)))
-           (-> m (.cons e))))))))
+    ([^Associative m k v]
+     (if-let [kk (when array-name-fn (array-name-fn k))]
+       (let [kk (cond-> kk param-key-fn (param-key-fn))]
+         (.assoc m kk (conj (.valAt m kk []) v)))
+       (.assoc m (cond-> k param-key-fn (param-key-fn)) v)))))
 
 (defn url-decode
   "Decodes the supplied www-form-urlencoded string using UTF-8 charset.
@@ -48,18 +42,6 @@
     (URLDecoder/decode s StandardCharsets/UTF_8)
     (catch IllegalArgumentException _
       s)))
-
-(defn form-param-entry
-  [^String s]
-  (let [i (.indexOf s #=(int \=))]
-    (cond
-      (pos? i)
-      (MapEntry. (url-decode (.substring s 0 i))
-                 (url-decode (.substring s (inc i))))
-      (zero? i)
-      (MapEntry. "" (url-decode (.substring s (inc i))))
-      :else
-      (MapEntry. (url-decode s) ""))))
 
 (defn read-input-stream
   [^InputStream body, ^Charset charset]
@@ -82,53 +64,37 @@
   (read-input-stream (ByteArrayInputStream. (.getBytes "f=1")) StandardCharsets/UTF_8)
   )
 
-(defn form-param-reducer
-  [s]
-  (reify IReduceInit
-    (reduce [_ f init]
-      (let [tok (StringTokenizer. s "&")]
-        (loop [result init]
-          (if (.hasMoreTokens tok)
-            (recur (f result (-> (.nextToken tok)
-                                 (form-param-entry))))
-            result))))))
-
 ;; TODO: ??? if-not (.contains encoded "=") (form-decode-str encoded encoding)
+
+(defn reduce-param-token
+  [rf result ^String s]
+  (let [i (.indexOf s #=(int \=))]
+    (cond
+      (pos? i)
+      (-> result (rf (url-decode (.substring s 0 i))
+                     (url-decode (.substring s (inc i)))))
+      (zero? i)
+      (-> result (rf "" (url-decode (.substring s (inc i)))))
+      :else
+      (-> result (rf (url-decode s) "")))))
 
 (defn form-decode-fn
   {:arglists '([{:keys [array-name-fn, param-key-fn]}]
                [rf])}
   [opts]
-  (let [rf (if (fn? opts) opts (assoc-param-fn opts))]
+  (let [rf (if (fn? opts) opts (assoc-param-rf opts))]
     (fn form-decode
       [s]
-      (->> (form-param-reducer s)
-           (reduce rf (rf))
-           (rf)))))
+      (let [tok (StringTokenizer. s "&")]
+        (loop [result (rf)]
+          (if (.hasMoreTokens tok)
+            (recur (reduce-param-token rf result (.nextToken tok)))
+            (rf result)))))))
 
 (def form-decode* (form-decode-fn {#_#_:array-name-fn array-suffix-name
                                    #_#_:param-key-fn keyword}))
 
 (comment
-
-  (reduce conj [] (form-param-reducer "a=1&b=2&c=3"))
-  (re-seq #"[^&]+" "a=1&b=2&c=3")
-  (transduce (map form-param-entry) conj [] (re-seq #"[^&]+" "a=1&b=2&c=3"))
-  (string/split "a=1&b=2&c=3" #"&")
-  (mapv form-param-entry (string/split "a=1&b=2&c=3" #"&"))
-  (transduce (map form-param-entry) conj [] (string/split "a=1&b=2&c=3" #"&"))
-  (reduce (fn [res x] (conj res (form-param-entry x)))
-          [] (string/split "a=1&b=2&c=3" #"&"))
-  (reduce (fn [res x] (conj res (form-param-entry x)))
-          [] (.split #"&+" "a=1&b=2&c=3"))
-
-  (reduce conj [] (reify IReduceInit
-                    (reduce [_ f init]
-                      (let [matcher (re-matcher #"[^&]+" "a=1&b=2&c=3")]
-                        (loop [result init]
-                          (if (.find matcher)
-                            (recur (f result (form-param-entry (.group matcher))))
-                            result))))))
 
   (form-decode* "a=1&b=2&c=3")
   (form-decode* "a[]=1&a[]=2&b=2")
