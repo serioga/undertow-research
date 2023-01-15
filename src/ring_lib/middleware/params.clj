@@ -105,7 +105,8 @@
         (if (form-urlencoded? request)
           (let [form-params-delay (zmap/delay
                                     (some-> ^InputStream (request :body)
-                                            (form-decode (content-charset request))))]
+                                            (codec/read-input-stream (content-charset request))
+                                            (form-decode)))]
             (-> request
                 (assoc :form-params form-params-delay)
                 (cond-> merge-into

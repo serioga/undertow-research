@@ -1,11 +1,11 @@
 (ns ring-lib.util.codec
-  (:require [ring.util.codec :as codec])
+  (:require [clojure.string :as string]
+            [ring.util.codec :as codec])
   (:import (clojure.lang Associative IReduceInit MapEntry)
            (java.io ByteArrayInputStream ByteArrayOutputStream InputStream InputStreamReader StreamTokenizer)
            (java.net URLDecoder)
            (java.nio.charset Charset StandardCharsets)
-           (java.util StringTokenizer)
-           (sun.nio.cs UTF_8)))
+           (java.util StringTokenizer)))
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
@@ -41,27 +41,27 @@
            (-> m (.cons e))))))))
 
 (defn url-decode
-  "Decodes the supplied www-form-urlencoded string using the specified charset.
+  "Decodes the supplied www-form-urlencoded string using UTF-8 charset.
   Returns `s` if decoding failed."
-  ([s, ^Charset charset]
-   (try
-     (URLDecoder/decode ^String s charset)
-     (catch IllegalArgumentException _
-       s))))
+  [^String s]
+  (try
+    (URLDecoder/decode s StandardCharsets/UTF_8)
+    (catch IllegalArgumentException _
+      s)))
 
 (defn form-param-entry
-  [^String s, charset]
+  [^String s]
   (let [i (.indexOf s #=(int \=))]
     (cond
       (pos? i)
-      (MapEntry. (url-decode (.substring s 0 i) charset)
-                 (url-decode (.substring s (inc i)) charset))
+      (MapEntry. (url-decode (.substring s 0 i))
+                 (url-decode (.substring s (inc i))))
       (zero? i)
-      (MapEntry. "" (url-decode (.substring s (inc i)) charset))
+      (MapEntry. "" (url-decode (.substring s (inc i))))
       :else
-      (MapEntry. (url-decode s charset) ""))))
+      (MapEntry. (url-decode s) ""))))
 
-(defn read-body-string
+(defn read-input-stream
   [^InputStream body, ^Charset charset]
   ;; Works since Java 9!
   (-> (.readAllBytes body)
@@ -82,30 +82,16 @@
   (read-input-stream (ByteArrayInputStream. (.getBytes "f=1")) StandardCharsets/UTF_8)
   )
 
-(defprotocol FormParamReducer
-  (form-param-reducer
-    [obj charset]))
-
-(extend-protocol FormParamReducer String
-  (form-param-reducer
-    [s charset]
-    (reify IReduceInit
-      (reduce [_ f init]
-        (let [tok (StringTokenizer. s "&")]
-          (loop [result init]
-            (if (.hasMoreTokens tok)
-              (recur (f result (-> (.nextToken tok)
-                                   ;; TODO: only UTF-8 charset in url encode?
-                                   (form-param-entry charset))))
-              result)))))))
-
-;; TODO: consider implementation without conversion to string
-(extend-protocol FormParamReducer InputStream
-  (form-param-reducer
-    [stream charset]
-    (form-param-reducer (read-input-stream stream charset)
-                        ;; TODO: default charset here?
-                        charset)))
+(defn form-param-reducer
+  [s]
+  (reify IReduceInit
+    (reduce [_ f init]
+      (let [tok (StringTokenizer. s "&")]
+        (loop [result init]
+          (if (.hasMoreTokens tok)
+            (recur (f result (-> (.nextToken tok)
+                                 (form-param-entry))))
+            result))))))
 
 ;; TODO: ??? if-not (.contains encoded "=") (form-decode-str encoded encoding)
 
@@ -115,16 +101,34 @@
   [opts]
   (let [rf (if (fn? opts) opts (assoc-param-fn opts))]
     (fn form-decode
-      ([s] (form-decode s UTF_8/INSTANCE))
-      ([s charset]
-       (->> (form-param-reducer s charset)
-            (reduce rf (rf))
-            (rf))))))
+      [s]
+      (->> (form-param-reducer s)
+           (reduce rf (rf))
+           (rf)))))
 
 (def form-decode* (form-decode-fn {#_#_:array-name-fn array-suffix-name
                                    #_#_:param-key-fn keyword}))
 
 (comment
+
+  (reduce conj [] (form-param-reducer "a=1&b=2&c=3"))
+  (re-seq #"[^&]+" "a=1&b=2&c=3")
+  (transduce (map form-param-entry) conj [] (re-seq #"[^&]+" "a=1&b=2&c=3"))
+  (string/split "a=1&b=2&c=3" #"&")
+  (mapv form-param-entry (string/split "a=1&b=2&c=3" #"&"))
+  (transduce (map form-param-entry) conj [] (string/split "a=1&b=2&c=3" #"&"))
+  (reduce (fn [res x] (conj res (form-param-entry x)))
+          [] (string/split "a=1&b=2&c=3" #"&"))
+  (reduce (fn [res x] (conj res (form-param-entry x)))
+          [] (.split #"&+" "a=1&b=2&c=3"))
+
+  (reduce conj [] (reify IReduceInit
+                    (reduce [_ f init]
+                      (let [matcher (re-matcher #"[^&]+" "a=1&b=2&c=3")]
+                        (loop [result init]
+                          (if (.find matcher)
+                            (recur (f result (form-param-entry (.group matcher))))
+                            result))))))
 
   (form-decode* "a=1&b=2&c=3")
   (form-decode* "a[]=1&a[]=2&b=2")
@@ -150,7 +154,6 @@
   (form-decode* "%2")
   (codec/form-decode "%2")
 
-  (url-decode "abc" UTF_8/INSTANCE)
   (codec/form-decode-str "abc")
   (codec/form-decode-str "abc" "utf-8")
 
