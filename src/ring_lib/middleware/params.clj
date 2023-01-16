@@ -4,7 +4,7 @@
             [ring.util.parsing :as parsing]
             [ring.util.request :as request]
             [strojure.zmap.core :as zmap])
-  (:import (clojure.lang Associative IDeref)
+  (:import (clojure.lang Associative IDeref MultiFn)
            (java.io ByteArrayInputStream InputStream)
            (java.nio.charset Charset StandardCharsets)
            (org.apache.http.entity ContentType)))
@@ -116,11 +116,30 @@
                 (zmap/wrap)))
           request)))))
 
+(defmulti ^MultiFn named-params-fn identity)
+
+(.addMethod named-params-fn :query-params (constantly query-params-request-fn))
+(.addMethod named-params-fn :form-params (constantly form-params-request-fn))
+
+(defn named-params-fn*
+  [k opts]
+  ((named-params-fn k) opts))
+
+(defn params-request-fn
+  [{:keys [merge-keys] :or {merge-keys [:form-params :query-params]} :as opts}]
+  (assert (not-empty merge-keys))
+  (let [opts (assoc opts :merge-into :params)]
+    (reduce (fn [f k] (let [ff (named-params-fn* k opts)]
+                        (fn [request] (ff (f request)))))
+            (named-params-fn* (first merge-keys) opts)
+            (rest merge-keys))))
+
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
 (do
   (def -qp (query-params-request-fn {:merge-into :params}))
-  (def -fp (form-params-request-fn {:merge-into :params})))
+  (def -fp (form-params-request-fn {:merge-into :params}))
+  (def -pp (params-request-fn {#_#_:merge-keys [:query-params :form-params]})))
 
 (comment
 
@@ -150,6 +169,15 @@
       #_:form-params
       #_:query-params)
 
+  (-> {:query-string "a=&b&c" :request-method :post
+       :headers {"content-type" "application/x-www-form-urlencoded"}
+       :body (ByteArrayInputStream. (.getBytes "f=1"))}
+      (-pp)
+      #_:params
+      #_((fn [m] [(:form-params m) (:query-params m)]))
+      #_:form-params
+      #_:query-params)
+
   (content-charset {:query-string "a=&b&c" :request-method :post
                     :headers {"content-type" "application/x-www-form-urlencoded"}
                     :body (ByteArrayInputStream. (.getBytes "f=1"))})
@@ -162,6 +190,11 @@
   (params/params-request {:query-string "a=&b&c"
                           :headers {"content-type" "application/x-www-form-urlencoded"}
                           :body (ByteArrayInputStream. (.getBytes "f=1"))})
+  (-> {:query-string "a=&b&c"
+       :headers {"content-type" "application/x-www-form-urlencoded"}
+       :body (ByteArrayInputStream. (.getBytes "f=1"))}
+      (params/params-request)
+      :params)
   (params/params-request {:query-string "a=&b&c"})
   )
 
