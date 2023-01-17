@@ -64,16 +64,18 @@
                                         :on-close (fn [params] #p [:on-close params])
                                         :on-error (fn [params] #p [:on-error params])})
        #_#_:handler [{:type handler/force-dispatch}
-                     {:type handler/path :prefix {"static" {:type handler/resource :resource-manager :class-path :prefix "public/static"}}}]
+                     {:type handler/path :prefix {"static" {:type handler/resource :resource-manager :classpath-files :prefix "public/static"}}}]
        #_#_:handler (-> -test-handler #_(BlockingHandler.))
        :handler [{:type handler/graceful-shutdown}
                  {:type handler/proxy-peer-address}
                  {:type handler/simple-error-page}
+                 {:type handler/request-dump}
+                 {:type handler/resource :resource-manager :classpath-files}
                  {:type handler/virtual-host :host {"webapi.localtest.me" [{:type handler/simple-error-page}
                                                                            (main/ring-handler-fn "webapi")]}}
                  {:type handler/path
-                  :prefix {"static" [{:type handler/request-dump}
-                                     {:type handler/resource :resource-manager :class-path :prefix "public/static"}]}
+                  #_#_:prefix {"static" [{:type handler/request-dump}
+                                     {:type handler/resource :resource-manager :classpath-files :prefix "public"}]}
                   :exact {"ws" {:type handler/websocket
                                 :on-connect (fn [{:keys [channel] :as event}]
                                               (prn event)
@@ -85,7 +87,7 @@
                                 :on-error (fn [event] (prn event))}}}
                  {:type handler/session-attachment}
                  {:type handler/virtual-host :host {"localhost" [{:type handler/simple-error-page}
-                                                                 {:type handler/request-dump}
+                                                                 #_{:type handler/request-dump}
                                                                  (-> (main/ring-handler-fn "localhost привет")
                                                                      #_(non-blocking/sync-ring-handler)
                                                                      (ring-handler/async-ring-handler))]
@@ -96,7 +98,7 @@
                                                                       (handler/request-dump))
                                                       "127.0.0.1" (test-ring-handler-fn "127.0.0.1")}})
                         (handler/session-attachment {})
-                        (handler/path {:prefix {"static" (handler/resource {:resource-manager :class-path :prefix "public/static"})}})
+                        (handler/path {:prefix {"static" (handler/resource {:resource-manager :classpath-files :prefix "public/static"})}})
                         (handler/virtual-host {:host {"webapi.localtest.me" (test-ring-handler-fn "webapi")}})
                         (handler/simple-error-page)
                         (handler/proxy-peer-address)

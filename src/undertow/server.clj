@@ -82,7 +82,7 @@
           ;; Enable sessions for handlers above.
           (handler/session-attachment {})
           ;; The handler for specific path
-          (handler/path {:prefix {\"static\" (handler/resource {:resource-manager :class-path
+          (handler/path {:prefix {\"static\" (handler/resource {:resource-manager :classpath-files
                                                                 :prefix \"public/static\"})}
                          :exact {\"websocket\" (handler/websocket {:on-connect (fn [{:keys [channel] :as event}])
                                                                    :on-message (fn [{:keys [channel text] :as event}])
@@ -106,7 +106,7 @@
        ;; The handler for specific path
        {:type handler/path
         :prefix {\"static\" {:type handler/resource
-                             :resource-manager :class-path
+                             :resource-manager :classpath-files
                              :prefix \"public/static\"}}
         :exact {\"websocket\" {:type handler/websocket
                                :on-connect (fn [{:keys [channel] :as event}])

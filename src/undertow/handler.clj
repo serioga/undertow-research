@@ -5,7 +5,7 @@
            (io.undertow.server HttpHandler)
            (io.undertow.server.handlers GracefulShutdownHandler NameVirtualHostHandler PathHandler ProxyPeerAddressHandler RequestDumpingHandler)
            (io.undertow.server.handlers.error SimpleErrorPageHandler)
-           (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler)
+           (io.undertow.server.handlers.resource ClassPathResourceManager ResourceHandler ResourceManager)
            (io.undertow.server.session InMemorySessionManager SecureRandomSessionIdGenerator SessionAttachmentHandler SessionCookieConfig)
            (io.undertow.websockets WebSocketProtocolHandshakeHandler)))
 
@@ -208,10 +208,16 @@
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defmethod types/as-resource-manager :class-path
+(defmethod types/as-resource-manager :classpath-files
   [{:keys [prefix]}]
-  (let [prefix (or prefix "public")]
-    (ClassPathResourceManager. (ClassLoader/getSystemClassLoader) ^String prefix)))
+  (let [prefix (or prefix "public")
+        res-man (ClassPathResourceManager. (ClassLoader/getSystemClassLoader) ^String prefix)]
+    (reify ResourceManager
+      (getResource [_ path]
+        (let [resource (.getResource res-man path)]
+          (when-not (some-> resource (.isDirectory))
+            resource)))
+      (isResourceChangeListenerSupported [_] false))))
 
 (defn resource
   "Returns a new resource handler with optional next handler that is called if
@@ -229,7 +235,7 @@
       - `:resource-manager` The type of configuration manager, keyword.
           + Used as `:type` in configuration passed to [[api.types/as-resource-manager]].
 
-    Configuration options of `:class-path` resource manager:
+    Configuration options of `:classpath-files` resource manager:
 
       - `:prefix` The prefix that is appended to resources that are to be
                   loaded, string.
@@ -237,7 +243,7 @@
 
   Example:
 
-      (handler/resource {:resource-manager :class-path
+      (handler/resource {:resource-manager :classpath-files
                          :prefix \"public/static\"})
   "
   (^ResourceHandler
