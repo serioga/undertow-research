@@ -89,8 +89,8 @@
                  {:type handler/virtual-host :host {"localhost" [{:type handler/simple-error-page}
                                                                  #_{:type handler/request-dump}
                                                                  (-> (main/ring-handler-fn "localhost привет")
-                                                                     #_(non-blocking/sync-ring-handler)
-                                                                     (ring-handler/async-ring-handler))]
+                                                                     (non-blocking/sync-ring-handler)
+                                                                     #_(ring-handler/async-ring-handler))]
                                                     "127.0.0.1" (main/ring-handler-fn "127.0.0.1")}}
                  (main/ring-handler-fn "localhost")]
        #_#_:handler (-> (test-ring-handler-fn "default")

@@ -68,6 +68,9 @@
         (println (str "\n" {:body/class (class body)} "\n"))
         (if (and websocket-response-fn (request/websocket? req))
           (websocket-response-fn req)
+          #_(future
+            (throw (ex-info "oops" {}))
+            (Thread/sleep 120000))
           (cond-> {:body body
                    :headers headers
                    :session {:test (or (some-> req :session :test inc) 0)

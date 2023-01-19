@@ -2,7 +2,7 @@
   (:require [clojure.java.io :as io]
             [undertow-ring.impl.session :as session]
             [undertow.api.exchange :as exchange])
-  (:import (clojure.lang IPersistentMap ISeq)
+  (:import (clojure.lang IBlockingDeref IPersistentMap ISeq)
            (io.undertow.io Sender)
            (io.undertow.server HttpHandler HttpServerExchange)
            (io.undertow.server.handlers ResponseCodeHandler)
@@ -10,7 +10,8 @@
            (java.io File InputStream OutputStream)
            (java.nio ByteBuffer)
            (java.nio.charset Charset)
-           (java.util Collection)))
+           (java.util Collection)
+           (java.util.concurrent TimeoutException)))
 
 (set! *warn-on-reflection* true)
 
@@ -109,6 +110,11 @@
     (when-some [body,,,,, (.valAt response :body)],,, (doto exchange ((send-response-fn body))))
     nil))
 
+;; Response HTTP 404 for `nil` response.
+(extend-protocol HandleResponse nil
+  (handle-response [_ exchange]
+    (-> ResponseCodeHandler/HANDLE_404 (.handleRequest exchange))))
+
 ;; Allow to use any Undertow handler as response.
 (extend-protocol HandleResponse HttpHandler
   (handle-response
@@ -116,9 +122,16 @@
     (.handleRequest handler exchange)
     nil))
 
-;; Response HTTP 404 for `nil` response.
-(extend-protocol HandleResponse nil
-  (handle-response [_ exchange]
-    (-> ResponseCodeHandler/HANDLE_404 (.handleRequest exchange))))
+;; Async execution of blocking references (futures and promises).
+(extend-protocol HandleResponse IBlockingDeref
+  (handle-response [ref exchange]
+    (exchange/async-dispatch exchange
+      (try
+        (let [response (.deref ref 120000 ::timeout)]
+          (if (identical? response ::timeout)
+            (exchange/throw* exchange (TimeoutException. "Pending response timed out"))
+            (handle-response response exchange)))
+        (catch Throwable throwable
+          (exchange/throw* exchange throwable))))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
