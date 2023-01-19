@@ -5,6 +5,7 @@
   (:import (clojure.lang IPersistentMap ISeq)
            (io.undertow.io Sender)
            (io.undertow.server HttpHandler HttpServerExchange)
+           (io.undertow.server.handlers ResponseCodeHandler)
            (io.undertow.util HeaderMap HttpString)
            (java.io File InputStream OutputStream)
            (java.nio ByteBuffer)
@@ -93,22 +94,31 @@
                           (with-open [input (io/input-stream file)]
                             (io/copy input output))))))
 
-;; Allow to use any Undertow handler as response body.
-(extend-protocol ResponseBody HttpHandler
-  (send-response-fn
-    [handler]
-    (fn [exchange]
-      (.handleRequest handler exchange))))
-
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
-(defn handle-response
-  [^IPersistentMap response, ^HttpServerExchange exchange]
-  (when response
+(defprotocol HandleResponse
+  (handle-response [response exchange]))
+
+;; Handle Ring response map.
+(extend-protocol HandleResponse IPersistentMap
+  (handle-response
+    [response ^HttpServerExchange exchange]
     (when-some [headers,, (.valAt response :headers)] (doto exchange (put-headers headers)))
     (when-some [status,,, (.valAt response :status)], (doto exchange (.setStatusCode status)))
     (when-some [session (.entryAt response :session)] (doto exchange (session/update-values (val session))))
-    (when-some [body,,,,, (.valAt response :body)],,, (doto exchange ((send-response-fn body)))))
-  nil)
+    (when-some [body,,,,, (.valAt response :body)],,, (doto exchange ((send-response-fn body))))
+    nil))
+
+;; Allow to use any Undertow handler as response.
+(extend-protocol HandleResponse HttpHandler
+  (handle-response
+    [handler exchange]
+    (.handleRequest handler exchange)
+    nil))
+
+;; Response HTTP 404 for `nil` response.
+(extend-protocol HandleResponse nil
+  (handle-response [_ exchange]
+    (-> ResponseCodeHandler/HANDLE_404 (.handleRequest exchange))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

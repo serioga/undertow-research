@@ -26,13 +26,13 @@
 (def ^String response-charset "Windows-1251")
 
 (defn websocket-response
-  [response request]
-  (assoc response :body (handler/websocket {:on-message (fn [{:keys [channel text]}]
-                                                          (if (= "bye" text)
-                                                            (do (channel/send-text "Bye-bye!" channel nil)
-                                                                (channel/send-close nil channel nil))
-                                                            (-> (str (:remote-addr request) ": " text)
-                                                                (channel/send-text channel nil))))})))
+  [request]
+  (handler/websocket {:on-message (fn [{:keys [channel text]}]
+                                    (if (= "bye" text)
+                                      (do (channel/send-text "Bye-bye!" channel nil)
+                                          (channel/send-close nil channel nil))
+                                      (-> (str (:remote-addr request) ": " text)
+                                          (channel/send-text channel nil))))}))
 
 (comment
   (request/websocket? -req)
@@ -67,7 +67,7 @@
             #_#_body (File. "./resources/public/static/test.txt")]
         (println (str "\n" {:body/class (class body)} "\n"))
         (if (and websocket-response-fn (request/websocket? req))
-          (websocket-response-fn {:headers headers} req)
+          (websocket-response-fn req)
           (cond-> {:body body
                    :headers headers
                    :session {:test (or (some-> req :session :test inc) 0)
