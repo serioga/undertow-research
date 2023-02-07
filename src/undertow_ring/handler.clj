@@ -3,7 +3,9 @@
             [undertow-ring.impl.ring-response :as ring-response]
             [undertow.api.exchange :as exchange]
             [undertow.handler :as handler])
-  (:import (io.undertow.server HttpHandler)))
+  (:import (io.undertow.server HttpHandler)
+           (io.undertow.util WorkerUtils)
+           (java.util.concurrent TimeUnit TimeoutException)))
 
 (set! *warn-on-reflection* true)
 
@@ -27,12 +29,23 @@
 
   The function `handler-fn` takes three arguments: the request map, a response
   callback and an exception callback."
-  [handler-fn]
+  [handler-fn timeout-ms]
   (reify HttpHandler
     (handleRequest [_ exchange]
-      (exchange/async-dispatch exchange
-        (handler-fn (ring-request/build-request exchange)
-                    (fn handle-async [response] (ring-response/handle-response response exchange))
-                    (partial exchange/throw* exchange))))))
+      (let [timeout-task (^:once fn* [] (->> (str "Async ring response timeout: " timeout-ms " ms")
+                                             (TimeoutException.)
+                                             (exchange/throw* exchange)))
+            timeout-key (-> (.getIoThread exchange)
+                            (WorkerUtils/executeAfter timeout-task timeout-ms
+                                                      TimeUnit/MILLISECONDS))]
+        (exchange/async-dispatch exchange
+          (handler-fn (ring-request/build-request exchange)
+                      (fn handle-async [response]
+                        ;; Handle response only before timeout
+                        (when (.remove timeout-key)
+                          (ring-response/handle-response response exchange)))
+                      (fn handle-error [throwable]
+                        (.remove timeout-key)
+                        (exchange/throw* exchange throwable))))))))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

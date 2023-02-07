@@ -81,7 +81,7 @@
             #_#_(:session req) (assoc-in [:session "test"] "Test session value")))))
      ([req respond raise]
       (future
-        #_(Thread/sleep 100)
+        (Thread/sleep 4000)
         (try (respond (handler (assoc req ::async? true)))
              (catch Throwable e (raise e))))))))
 
