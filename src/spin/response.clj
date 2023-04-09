@@ -64,15 +64,13 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; ## Async responses ##
+
 (defn async-exception
   "The exception in case of using of incomplete async response value."
   ([] (async-exception {}))
   ([data]
    (ex-info "Async response not available" data)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;; ## Async responses ##
 
 ;; ### CompletableFuture ###
 
