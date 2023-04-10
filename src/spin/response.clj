@@ -1,5 +1,5 @@
 (ns spin.response
-  (:refer-clojure :exclude [update])
+  (:refer-clojure :exclude [apply])
   (:require [clojure.core.async :as async])
   (:import (clojure.core.async.impl.channels ManyToManyChannel)
            (java.util LinkedList)
@@ -27,7 +27,7 @@
     `(fn [callback] ... (callback response))` which receives 1-arity callback to
     listen for future response (value or error) completion.")
 
-  (update [response, f]
+  (apply [response, f]
     "Returns response with function `f` applied to value."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -42,25 +42,25 @@
   (value [this] this)
   (error [_] nil)
   (async [_] nil)
-  (update [this f] (f this)))
+  (apply [this f] (f this)))
 
 (extend-protocol IResponse nil
   (value [_] nil)
   (error [_] nil)
   (async [_] nil)
-  (update [_ f] (f nil)))
+  (apply [_ f] (f nil)))
 
 ;; ### Exceptions ###
 ;;
 ;; Exceptions represents response error:
 ;; - throws on `value`.
-;; - does nothing on `update`.
+;; - does nothing on `apply`.
 
 (extend-protocol IResponse Throwable
   (value [t] (throw t))
   (error [t] t)
   (async [_] nil)
-  (update [t _] t))
+  (apply [t _] t))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -92,11 +92,11 @@
     (when-not (.isDone fut)
       (fn future-async [callback]
         (.whenComplete fut (reify BiConsumer (accept [_ v e] (callback (or e v))))))))
-  (update
+  (apply
     [fut f]
     (if (.isDone fut)
-      (update (.get fut) f)
-      (.thenApply fut (reify Function (apply [_ x] (update x f)))))))
+      (apply (.get fut) f)
+      (.thenApply fut (reify Function (apply [_ x] (apply x f)))))))
 
 ;; ### core.async channel ###
 
@@ -121,10 +121,10 @@
           (if-some [x (async/<! ch)]
             (callback x)
             (callback (ex-info "Channel closed without response" {})))))))
-  (update
+  (apply
     [ch f]
     (if (chan-value? ch)
-      (update (value ch) f)
-      (async/map #(update % f) [ch]))))
+      (apply (value ch) f)
+      (async/map #(apply % f) [ch]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
