@@ -80,8 +80,7 @@
       (fn delay-instant [] (.deref d))))
   (blocking
     [d]
-    (when-not (.isRealized d)
-      (fn delay-blocking [] (.deref d))))
+    (fn delay-blocking [] (.deref d)))
   (async
     [_] nil)
   (fmap
@@ -99,9 +98,8 @@
     [_] nil)
   (async
     [fut]
-    (when-not (.isDone fut)
-      (fn future-async [callback]
-        (.whenComplete fut (reify BiConsumer (accept [_ v e] (callback (or e v))))))))
+    (fn future-async [callback]
+      (.whenComplete fut (reify BiConsumer (accept [_ v e] (callback (or e v)))))))
   (fmap
     [fut f]
     (if (.isDone fut)
@@ -129,13 +127,11 @@
     [_] nil)
   (async
     [ch]
-    ;; TODO: remove when-not?
-    (when-not (chan-value? ch)
-      (fn chan-async [callback]
-        (async/go
-          (if-some [x (async/<! ch)]
-            (callback x)
-            (callback (ex-info "Channel closed without response" {})))))))
+    (fn chan-async [callback]
+      (async/go
+        (if-some [x (async/<! ch)]
+          (callback x)
+          (callback (ex-info "Channel closed without response" {}))))))
   (fmap
     [ch f]
     (if (chan-value? ch)
