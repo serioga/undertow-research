@@ -65,7 +65,7 @@
   (instant [t] (fn throwable-instant [] (throw t)))
   (blocking [_] nil)
   (async [_] nil)
-  (fmap [t _] t))
+  (fmap [t _] (throw t)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -85,7 +85,9 @@
     [_] nil)
   (fmap
     [d f]
-    (delay (f (.deref d)))))
+    (if (.isRealized d)
+      (fmap (.deref d) f)
+      (delay (fmap (.deref d) f)))))
 
 ;; ### CompletableFuture ###
 

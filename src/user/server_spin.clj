@@ -20,13 +20,13 @@
 (defn -test-handler
   [context]
   #_context
-  (assoc context :response {:body "instant" :headers {"x-test" "handler"}
+  #_(assoc context :response {:body "instant" :headers {"x-test" "handler"}
                             #_#_:status 226}
                  :response/status 404)
   #_(delay context)
   #_(delay (assoc context :response {:body "delay"}))
   #_(doto (CompletableFuture.) (as-> ft (future (.complete ft context))))
-  #_(doto (CompletableFuture.) (as-> ft (future
+  (doto (CompletableFuture.) (as-> ft (future
                                         #_(Thread/sleep 100)
                                         (.complete ft (assoc context :response {:body "async"}))))))
 

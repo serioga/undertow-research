@@ -103,17 +103,21 @@
     (handle-context (instant) exchange)
     'handle-instant))
 
+(declare handle-result)
+
 (defn handle-blocking
   [result, ^HttpServerExchange exchange]
   (when-let [blocking (resp/blocking result)]
     (if (.isInIoThread exchange)
       (->> ^Runnable
-           (^:once fn* [] (handle-context (blocking) exchange))
+           (^:once fn* [] (handle-result (blocking) exchange))
            (.dispatch exchange))
-      (handle-context (blocking) exchange))
+      (handle-result (blocking) exchange))
     'handle-blocking))
 
-(defn async-callback [exchange] #(handle-context % exchange))
+(defn async-callback
+  [exchange] (fn [context]
+               (handle-result context exchange)))
 
 (defn handle-async
   [result, ^HttpServerExchange exchange]
