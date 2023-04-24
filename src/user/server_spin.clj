@@ -1,7 +1,6 @@
 (ns user.server-spin
   (:require [undertow-spin.handler :as spin-handler]
-            [undertow.server :as server]
-            [spin.response :as resp])
+            [undertow.server :as server])
   (:import (java.util.concurrent CompletableFuture)))
 
 (set! *warn-on-reflection* true)

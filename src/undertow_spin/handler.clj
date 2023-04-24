@@ -79,31 +79,33 @@
     (-> (.getResponseSender exchange)
         (.send string (Charset/forName (.getResponseCharset exchange))))))
 
-(declare handle-context)
+(defn handle-context
+  [^IPersistentMap context, ^HttpServerExchange exchange]
+  ;; TODO: apply prepending context transformations
+  (when context
+    ;; Add prepending response headers from context.
+    (some->> (.valAt context :response/headers)
+             ;; TODO: not-empty here?
+             (put-headers! exchange))
+    (when-some [status (.valAt context :response/status)] (.setStatusCode exchange status))
+    (some-> (.valAt context :response) (handle-response exchange))
+
+    #_(let [end-time (System/nanoTime)]
+      #p (- end-time (:start-time context))))
+
+  (.endExchange exchange))
 
 (defn handle-instant
-  [context, ^HttpServerExchange exchange]
-  (when-let [instant (resp/instant context)]
+  [result, ^HttpServerExchange exchange]
+  (when-let [instant (resp/instant result)]
     #_#p (.getName (Thread/currentThread))
     #_#p (instant)
-    ;; TODO: apply prepending context transformations
-    (when-let [^IPersistentMap context (instant)]
-      ;; Add prepending response headers from context.
-      (some->> (.valAt context :response/headers)
-               ;; TODO: not-empty here?
-               (put-headers! exchange))
-      (when-some [status (.valAt context :response/status)] (.setStatusCode exchange status))
-      (some-> (.valAt context :response) (handle-response exchange))
-
-      #_(let [end-time (System/nanoTime)]
-          #p (- end-time (:start-time context)))
-
-      (.endExchange exchange))
+    (handle-context (instant) exchange)
     'handle-instant))
 
 (defn handle-blocking
-  [context, ^HttpServerExchange exchange]
-  (when-let [blocking (resp/blocking context)]
+  [result, ^HttpServerExchange exchange]
+  (when-let [blocking (resp/blocking result)]
     (if (.isInIoThread exchange)
       (->> ^Runnable
            (^:once fn* [] (handle-context (blocking) exchange))
@@ -111,14 +113,11 @@
       (handle-context (blocking) exchange))
     'handle-blocking))
 
-(defn async-callback
-  [exchange]
-  (fn [context]
-    (handle-context context exchange)))
+(defn async-callback [exchange] #(handle-context % exchange))
 
 (defn handle-async
-  [context, ^HttpServerExchange exchange]
-  (when-let [async (resp/async context)]
+  [result, ^HttpServerExchange exchange]
+  (when-let [async (resp/async result)]
     (if (.isDispatched exchange)
       (async (async-callback exchange))
       (->> ^Runnable
@@ -126,12 +125,12 @@
            (.dispatch exchange SameThreadExecutor/INSTANCE)))
     'handle-async))
 
-(defn handle-context
-  [context, exchange]
-  (or (handle-instant context exchange)
-      (handle-blocking context exchange)
-      (handle-async context exchange)
-      (throw (ex-info (str "Missing handler for context: " (pr-str context)) {}))))
+(defn handle-result
+  [result, exchange]
+  (or (handle-instant result exchange)
+      (handle-blocking result exchange)
+      (handle-async result exchange)
+      (throw (ex-info (str "Missing handler for " (pr-str result)) {}))))
 
 (defn http-handler
   ""
@@ -140,6 +139,6 @@
     (handleRequest [_ exchange]
       (-> {:request exchange :start-time (System/nanoTime)}
           (handler-fn)
-          (handle-context exchange)))))
+          (handle-result exchange)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
