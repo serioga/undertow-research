@@ -4,8 +4,9 @@
             [undertow.api.exchange :as exchange])
   (:import (clojure.lang IPersistentMap)
            (io.undertow.server HttpHandler HttpServerExchange)
-           (io.undertow.util SameThreadExecutor)
-           (java.nio.charset Charset)))
+           (io.undertow.util HeaderMap HttpString SameThreadExecutor)
+           (java.nio.charset Charset)
+           (java.util Collection)))
 
 (set! *warn-on-reflection* true)
 
@@ -44,10 +45,35 @@
   (header-seq
     [e h] (.get (.getRequestHeaders e) ^String h)))
 
-(defprotocol ResponseBody
+(defn- put-headers!
+  [exchange headers]
+  (reduce (fn [^HeaderMap hm [k v]]
+            (cond (sequential? v)
+                  (-> hm (.putAll (HttpString. (str k))
+                                  ^Collection (map str v)))
+                  (some? v)
+                  (-> hm (.put (HttpString. (str k)) (str v)))
+                  :else
+                  (-> hm (.remove (HttpString. (str k))))))
+          (.getResponseHeaders ^HttpServerExchange exchange)
+          headers))
+
+(defprotocol SpinResponse
+  (handle-response [response exchange]))
+
+(defprotocol SpinResponseBody
   (handle-response-body [body exchange]))
 
-(extend-protocol ResponseBody String
+(extend-protocol SpinResponse IPersistentMap
+  (handle-response
+    [response ^HttpServerExchange exchange]
+    (when-some [headers,, (.valAt response :headers)] (doto exchange (put-headers! headers)))
+    (when-some [status,,, (.valAt response :status)], (.setStatusCode exchange status))
+    ;(when-some [session (.entryAt response :session)] (doto exchange (session/update-values (val session))))
+    (when-some [body,,,,, (.valAt response :body)],,, (handle-response-body body exchange))
+    nil))
+
+(extend-protocol SpinResponseBody String
   (handle-response-body
     [string, ^HttpServerExchange exchange]
     (-> (.getResponseSender exchange)
@@ -61,16 +87,16 @@
     #_#p (.getName (Thread/currentThread))
     #_#p (instant)
     ;; TODO: apply prepending context transformations
-    ;; TODO: add prepending response headers
-    (let [^IPersistentMap context (instant)]
-      (when-some [status (.valAt context :response/status)]
-        (doto exchange (.setStatusCode status)))
-      ;; TODO: put headers
-      (when-some [body (.valAt context :response/body)]
-        (handle-response-body body exchange))
+    (when-let [^IPersistentMap context (instant)]
+      ;; Add prepending response headers from context.
+      (some->> (.valAt context :response/headers)
+               ;; TODO: not-empty here?
+               (put-headers! exchange))
+      (when-some [status (.valAt context :response/status)] (.setStatusCode exchange status))
+      (some-> (.valAt context :response) (handle-response exchange))
 
       #_(let [end-time (System/nanoTime)]
-        #p (- end-time (:start-time context)))
+          #p (- end-time (:start-time context)))
 
       (.endExchange exchange))
     'handle-instant))

@@ -15,19 +15,21 @@
 (defn -test-middleware
   [handler]
   (fn [context]
-    (-> (handler context)
-        (resp/fmap #(assoc % ::-test-middleware true)))))
+    (handler (update context :response/headers
+                     conj ["X-Test-Middleware" "was here"] ["X-Test" "middleware"]))))
 
 (defn -test-handler
   [context]
-  context
-  #_(assoc context :response/body "instant")
+  #_context
+  (assoc context :response {:body "instant" :headers {"x-test" "handler"}
+                            #_#_:status 226}
+                 :response/status 404)
   #_(delay context)
-  #_(delay (assoc context :response/body "delay"))
+  #_(delay (assoc context :response {:body "delay"}))
   #_(doto (CompletableFuture.) (as-> ft (future (.complete ft context))))
   #_(doto (CompletableFuture.) (as-> ft (future
                                         #_(Thread/sleep 100)
-                                        (.complete ft (assoc context :response/body "async"))))))
+                                        (.complete ft (assoc context :response {:body "async"}))))))
 
 (defn start-test-server
   []
