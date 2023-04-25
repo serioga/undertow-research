@@ -100,7 +100,9 @@
   (when-let [instant (resp/instant result)]
     #_#p (.getName (Thread/currentThread))
     #_#p (instant)
-    (handle-context (instant) exchange)
+    (try
+      (handle-context (instant) exchange)
+      (catch Throwable t (exchange/throw* exchange t)))
     'handle-instant))
 
 (declare handle-result)
@@ -110,14 +112,15 @@
   (when-let [blocking (resp/blocking result)]
     (if (.isInIoThread exchange)
       (->> ^Runnable
-           (^:once fn* [] (handle-result (blocking) exchange))
+           (^:once fn* [] (try (handle-result (blocking) exchange)
+                               (catch Throwable t (exchange/throw* exchange t))))
            (.dispatch exchange))
       (handle-result (blocking) exchange))
     'handle-blocking))
 
 (defn async-callback
-  [exchange] (fn [context]
-               (handle-result context exchange)))
+  [exchange] (fn [result]
+               (handle-result result exchange)))
 
 (defn handle-async
   [result, ^HttpServerExchange exchange]
@@ -125,7 +128,9 @@
     (if (.isDispatched exchange)
       (async (async-callback exchange))
       (->> ^Runnable
-           (^:once fn* [] (async (async-callback exchange)))
+           (^:once fn* []
+             (try (async (async-callback exchange))
+                  (catch Throwable t (exchange/throw* exchange t))))
            (.dispatch exchange SameThreadExecutor/INSTANCE)))
     'handle-async))
 

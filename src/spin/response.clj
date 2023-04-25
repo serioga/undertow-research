@@ -18,19 +18,19 @@
   "The abstraction for 1) non-blocking 2) blocking 3) async result of http handler."
 
   (instant [result]
-    "When response is available without blocking returns function
-    `(fn [] response)` which returns response or throws exception.")
+    "When response is available returns function `(fn [] response)` which
+    returns the response or throws exception.")
 
   (blocking [result]
     "When response is available only with blocking call returns function
-    `(fn [] response)` which returns response or throws exception. Returned
-    function should not be called on IO thread.")
+    `(fn [] response)` which returns new computed result or throws exception.
+    Returned function should not be called on IO thread.")
 
   (async [result]
     ;; TODO: review docstring.
-    "Returns `nil` for sync response. For async response returns function
+    "Returns `nil` for instant result. For async result returns function
     `(fn [callback] ... (callback response))` which receives 1-arity callback to
-    listen for future response (value or error) completion.")
+    listen for future result completion.")
 
   (fmap [result, f]
     "Returns new result with function `f` applied to response."))
@@ -77,7 +77,7 @@
   (instant
     [d]
     (when (.isRealized d)
-      (fn delay-instant [] (.deref d))))
+      (instant (.deref d))))
   (blocking
     [d]
     (fn delay-blocking [] (.deref d)))
@@ -95,7 +95,7 @@
   (instant
     [fut]
     (when (.isDone fut)
-      (fn future-instant [] (.get fut))))
+      (instant (.get fut))))
   (blocking
     [_] nil)
   (async
@@ -124,7 +124,7 @@
   (instant
     [ch]
     (when (chan-value? ch)
-      (fn chan-instant [] (chan-get ch))))
+      (instant (chan-get ch))))
   (blocking
     [_] nil)
   (async
