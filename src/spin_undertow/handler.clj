@@ -1,4 +1,4 @@
-(ns undertow-spin.handler
+(ns spin-undertow.handler
   (:require [spin.request :as req]
             [spin.response :as resp]
             [undertow.api.exchange :as exchange])

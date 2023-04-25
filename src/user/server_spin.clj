@@ -1,5 +1,5 @@
 (ns user.server-spin
-  (:require [undertow-spin.handler :as spin-handler]
+  (:require [spin-undertow.handler :as spin-handler]
             [undertow.server :as server])
   (:import (java.util.concurrent CompletableFuture)))
 
