@@ -21,7 +21,8 @@
 (defn -test-handler
   [context]
   #_(throw (ex-info "oops" {}))
-  context
+  #_context
+  (assoc context :response {:body "OK"})
   #_(assoc context :response {:body "instant" :headers {"x-test" "handler"}
                             #_#_:status 226}
                  :response/status 404)
@@ -39,7 +40,7 @@
 
 (defn start-test-server
   []
-  (-> {:port 8080 :handler (-> -test-handler #_-test-middleware)}
+  (-> {:port 8086 :handler (-> -test-handler #_-test-middleware)}
       (server/start)))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

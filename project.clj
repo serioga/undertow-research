@@ -22,4 +22,5 @@
 
   :profiles {:dev {:dependencies [[luminus/ring-undertow-adapter "1.2.9"]
                                   [org.immutant/web "2.1.10"]
+                                  [ring/ring-jetty-adapter "1.8.2"]
                                   [org.clojure/core.async "1.6.673"]]}})
