@@ -1,6 +1,6 @@
 (ns spin-undertow.handler
   (:require [spin.request :as req]
-            [spin.response :as resp]
+            [spin.handler :as handler]
             [undertow.api.exchange :as exchange])
   (:import (clojure.lang IPersistentMap)
            (io.undertow.server HttpHandler HttpServerExchange)
@@ -79,7 +79,9 @@
     (-> (.getResponseSender exchange)
         (.send string (Charset/forName (.getResponseCharset exchange))))))
 
-(defn handle-context
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn- handle-result-context
   [^IPersistentMap context, ^HttpServerExchange exchange]
   ;; TODO: apply prepending context transformations
   (when context
@@ -95,58 +97,53 @@
 
   (.endExchange exchange))
 
-(defn handle-instant
-  [result, ^HttpServerExchange exchange]
-  (when-let [instant (resp/instant result)]
-    #_#p (.getName (Thread/currentThread))
-    #_#p (instant)
-    (try
-      (handle-context (instant) exchange)
-      (catch Throwable t (exchange/throw* exchange t)))
-    'handle-instant))
+(defn- handle-instant-result
+  [instant-result-fn, ^HttpServerExchange exchange]
+  (try
+    (handle-result-context (instant-result-fn) exchange)
+    (catch Throwable t (exchange/throw* exchange t)))
+  'handle-instant-result)
 
 (declare handle-result)
 
-(defn handle-blocking
-  [result, ^HttpServerExchange exchange]
-  (when-let [blocking (resp/blocking result)]
-    (if (.isInIoThread exchange)
-      (->> ^Runnable
-           (^:once fn* [] (try (handle-result (blocking) exchange)
-                               (catch Throwable t (exchange/throw* exchange t))))
-           (.dispatch exchange))
-      (handle-result (blocking) exchange))
-    'handle-blocking))
+(defn- handle-blocking-result
+  [blocking-result-fn, ^HttpServerExchange exchange]
+  (if (.isInIoThread exchange)
+    (->> ^Runnable
+         (^:once fn* [] (try (handle-result (blocking-result-fn) exchange)
+                             (catch Throwable t (exchange/throw* exchange t))))
+         (.dispatch exchange))
+    (handle-result (blocking-result-fn) exchange))
+  'handle-blocking-result)
 
-(defn async-callback
-  [exchange] (fn [result]
-               (handle-result result exchange)))
-
-(defn handle-async
-  [result, ^HttpServerExchange exchange]
-  (when-let [async (resp/async result)]
+(defn- handle-async-result
+  [async-result-fn, ^HttpServerExchange exchange]
+  (letfn [(async-callback [result]
+            (handle-result result exchange))]
     (if (.isDispatched exchange)
-      (async (async-callback exchange))
+      (async-result-fn (async-callback exchange))
       (->> ^Runnable
            (^:once fn* []
-             (try (async (async-callback exchange))
+             (try (async-result-fn (async-callback exchange))
                   (catch Throwable t (exchange/throw* exchange t))))
            (.dispatch exchange SameThreadExecutor/INSTANCE)))
-    'handle-async))
+    'handle-async-result))
 
-(defn handle-result
+(defn- handle-result
   [result, exchange]
-  (or (handle-instant result exchange)
-      (handle-blocking result exchange)
-      (handle-async result exchange)
+  (or (some-> (handler/instant-result-fn result), (handle-instant-result exchange))
+      (some-> (handler/blocking-result-fn result) (handle-blocking-result exchange))
+      (some-> (handler/async-result-fn result),,, (handle-async-result exchange))
       (throw (ex-info (str "Missing handler for " (pr-str result)) {}))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn http-handler
   ""
   [handler-fn]
   (reify HttpHandler
     (handleRequest [_ exchange]
-      (-> {:request exchange :start-time (System/nanoTime)}
+      (-> {:request exchange #_#_:start-time (System/nanoTime)}
           (handler-fn)
           (handle-result exchange)))))
 

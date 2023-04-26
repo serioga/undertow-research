@@ -1,6 +1,6 @@
 (ns spin.response-test
   (:require [clojure.core.async :as async]
-            [spin.response :as resp])
+            [spin.handler :as handler])
   (:import (java.util.concurrent CompletableFuture)))
 
 (set! *warn-on-reflection* true)
@@ -8,13 +8,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn test-response
-  [response]
+  [result]
   #_(Thread/sleep 100)
-  (if-let [instant (resp/instant response)]
-    (instant)
-    (if-let [blocking (resp/blocking response)]
-      (blocking)
-      (do ((resp/async response) identity)
+  (if-let [instant-result (handler/instant-result-fn result)]
+    (instant-result)
+    (if-let [blocking-result (handler/blocking-result-fn result)]
+      (blocking-result)
+      (do ((handler/async-result-fn result) identity)
           :async))))
 
 (comment
@@ -22,36 +22,36 @@
   (def -resp {:status 200})
 
   ;; instant values
-  ((resp/instant -nil))
-  ((resp/instant -resp))
+  ((handler/instant-result-fn -nil))
+  ((handler/instant-result-fn -resp))
 
   (test-response -resp)
-  (test-response (resp/fmap -resp identity))
+  (test-response (handler/update-result -resp identity))
 
   ;; completable future
   (CompletableFuture.)
-  (resp/async (CompletableFuture.))
-  ((resp/async (CompletableFuture.)) identity)
+  (handler/async-result-fn (CompletableFuture.))
+  ((handler/async-result-fn (CompletableFuture.)) identity)
   (test-response (-> (CompletableFuture.)
                      (doto (.completeExceptionally (ex-info "Oops" {})))))
   (test-response (-> (CompletableFuture.)
                      (doto (.complete {:status 200}))
-                     (resp/fmap (fn [_] (throw (ex-info "oops" {}))))))
+                     (handler/update-result (fn [_] (throw (ex-info "oops" {}))))))
   (test-response (-> (CompletableFuture.)
                      (doto (.complete {:status 200}))))
   (test-response (-> (CompletableFuture.)
                      (doto (.complete {:status 200}))
-                     (resp/fmap identity)))
+                     (handler/update-result identity)))
 
   ;; delay
   (test-response (delay {:status 200}))
   (test-response (-> (delay {:status 200})
-                     (resp/fmap identity)))
+                     (handler/update-result identity)))
   (test-response (-> (delay {})
-                     (resp/fmap #(assoc % :status 200))))
+                     (handler/update-result #(assoc % :status 200))))
   (test-response (delay (throw (ex-info "oops" {}))))
   (test-response (-> (delay (throw (ex-info "oops" {})))
-                     (resp/fmap #(assoc % :status 200))))
+                     (handler/update-result #(assoc % :status 200))))
 
   ;; core.async
   (test-response (async/go {:status 200}))
@@ -60,25 +60,25 @@
   (def -ch (async/to-chan! [{:status 200}]))
   (def -ch (async/go {:status 200}))
   (def -ch (-> (async/to-chan! [{:status 200}])
-               (resp/fmap identity)))
+               (handler/update-result identity)))
   (count (.-puts -ch))
   (count (.-buf -ch))
   (count (.-puts (async/go {:status 200})))
   (test-response -ch)
   (test-response (-> (async/go {:status 200})
-                     (resp/fmap #(assoc % :headers {}))
-                     (resp/fmap #(assoc % :body ""))))
+                     (handler/update-result #(assoc % :headers {}))
+                     (handler/update-result #(assoc % :body ""))))
   (test-response (-> (async/go (ex-info "oops" {}))
-                     (resp/fmap #(assoc % :headers {}))
-                     (resp/fmap #(assoc % :body ""))))
+                     (handler/update-result #(assoc % :headers {}))
+                     (handler/update-result #(assoc % :body ""))))
   (let [ch (async/chan)]
     (test-response (-> ch
-                       (resp/fmap #(assoc % :headers {}))
-                       (resp/fmap #(assoc % :body ""))))
+                       (handler/update-result #(assoc % :headers {}))
+                       (handler/update-result #(assoc % :body ""))))
     (async/>!! ch {:status 200}))
   (test-response (ex-info "oops" {}))
   (test-response (-> (ex-info "oops" {})
-                     (resp/fmap #(assoc % :body ""))))
+                     (handler/update-result #(assoc % :body ""))))
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
