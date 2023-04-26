@@ -28,9 +28,9 @@
                               #_#_:status 226}
                    :response/status 404)
   (if (req/method-post? request)
-    (delay (assoc context :response {:body (str "blocking - " (t-name) "\n\n"
-                                                (String. (.readAllBytes (req/body request))))}))
-    (assoc context :response {:body (str "non-blocking - " (t-name))}))
+    (delay (assoc context :response (str "blocking - " (t-name) "\n\n"
+                                         (String. (.readAllBytes (req/body request))))))
+    (assoc context :response (str "non-blocking - " (t-name))))
   #_(throw (ex-info "oops" {}))
   #_context
   #_(assoc context :response {:body (str "non-blocking - " (t-name))})

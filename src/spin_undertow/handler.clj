@@ -73,6 +73,12 @@
     (when-some [body,,,,, (.valAt response :body)],,, (handle-response-body body exchange))
     nil))
 
+;; Allow just a body in response
+(extend-protocol SpinResponse Object
+  (handle-response
+    [object, exchange]
+    (handle-response-body object exchange)))
+
 (extend-protocol SpinResponseBody String
   (handle-response-body
     [string, ^HttpServerExchange exchange]
