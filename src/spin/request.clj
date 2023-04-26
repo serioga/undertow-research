@@ -16,11 +16,21 @@
   (query-string [_])
   (scheme [_])
   (method [_])
-  (body [_])
+  (body ^java.io.InputStream [_])
   (path-info [_])
   (protocol [_])
   (header [_ name])
   (header-seq [_ name]))
+
+(defn method-get? [req]
+  ;; TODO: inline function
+  (.equals :get (method req)))
+
+(defn method-post? [req]
+  ;; TODO: inline function
+  (.equals :post (method req)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (extend-protocol ISpinRequest ILookup
   (internal [m] m)
