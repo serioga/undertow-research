@@ -1,5 +1,5 @@
 ###
-GET http://localhost:{{port}}/?a=1
+GET http://localhost:{{port}}/?a=1&a=2
 
 ###
 GET http://localhost:{{port}}/test.txt

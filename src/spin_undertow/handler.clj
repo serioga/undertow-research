@@ -6,7 +6,7 @@
            (io.undertow.server HttpHandler HttpServerExchange)
            (io.undertow.util HeaderMap HttpString SameThreadExecutor)
            (java.nio.charset Charset)
-           (java.util Collection)))
+           (java.util ArrayDeque Collection)))
 
 (set! *warn-on-reflection* true)
 
@@ -44,6 +44,11 @@
     [e n] (.getFirst (.getRequestHeaders e) ^String n))
   (header*
     [e n] (.get (.getRequestHeaders e) ^String n))
+  (query-param
+    [e n] (some-> ^ArrayDeque (.get (.getQueryParameters e) n)
+                  (.peekFirst)))
+  (query-param*
+    [e n] (seq (.get (.getQueryParameters e) n)))
   (cookie
     [e n] (some-> (.getRequestCookie e n) (.getValue)))
   (cookie*

@@ -24,13 +24,12 @@
 
 (defn -test-handler
   [{:keys [request] :as context}]
-  #_(assoc context :response {:body "instant" :headers {"x-test" "handler"}
-                              #_#_:status 226}
-                   :response/status 404)
-  (if (req/method-post? request)
-    (delay (assoc context :response (str "blocking - " (t-name) "\n\n"
-                                         (String. (.readAllBytes (req/body request))))))
-    (assoc context :response (str "non-blocking - " (t-name))))
+  (assoc context :response {:status 226 :body "instant" :headers {"x-test" "handler"}}
+                 :response/status 404)
+  #_(if (req/method-post? request)
+      (delay (assoc context :response (str "blocking - " (t-name) "\n\n"
+                                           (String. (.readAllBytes (req/body request))))))
+      (assoc context :response (str "non-blocking - " (t-name))))
   #_(throw (ex-info "oops" {}))
   #_context
   #_(assoc context :response {:body (str "non-blocking - " (t-name))})
@@ -43,22 +42,29 @@
 (declare ^HttpServerExchange -e)
 
 (def http-handler (reify HttpHandler (handleRequest [_ e]
-                                       #_(def -e e)
+                                       (def ^HttpServerExchange -e e)
                                        (-> (.getResponseSender e)
                                            (.send "OK")))))
 
 (comment
-  (req/header -e "x-test")
+  (req/header -e "Accept-Encoding")
   (req/header* -e "x-test")
   (.getRequestCookies -e)
   (some-> (.getRequestCookie -e "JSESSIONID") (.getValue))
   (req/cookie -e "JSESSIONID")
   (req/cookie* -e "JSESSIONID")
+  (first (.get (.getQueryParameters -e) "a"))
+  (.getQueryString -e)
+  (.peekFirst ^java.util.ArrayDeque (.get (.getQueryParameters -e) "a"))
+  (req/query-param -e "a")
+  (req/query-param* -e "a")
   )
 
 (defn start-test-server
   []
-  (-> {:port 8086 :handler http-handler}
+  (-> {:port 8086
+       #_#_:handler (-> -test-handler -test-middleware)
+       :handler http-handler}
       (server/start)))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

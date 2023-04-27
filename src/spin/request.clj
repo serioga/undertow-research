@@ -12,7 +12,9 @@
   (server-name [_])
   (remote-addr [_])
   (uri [_])
-  (query [_])
+  (query-string [_])
+  (query-param [_ name])
+  (query-param* [_ name])
   (scheme [_])
   (method [_])
   (body ^java.io.InputStream [_])
@@ -35,21 +37,22 @@
 
 (extend-protocol ISpinRequest ILookup
   (internal [m] m)
-  (server-port [m] (.valAt m :server-port))
-  (server-name [m] (.valAt m :server-name))
-  (remote-addr [m] (.valAt m :remote-addr))
-  (uri [m],,,,,,,, (.valAt m :uri))
-  (query [m],,,,,, (.valAt m :query-string))
-  (scheme [m],,,,, (.valAt m :scheme))
-  (method [m],,,,, (.valAt m :request-method))
-  (body [m],,,,,,, (.valAt m :body))
-  (path-info [m],, (.valAt m :path-info))
-  (protocol [m],,, (.valAt m :protocol))
+  (server-port [m], (.valAt m :server-port))
+  (server-name [m], (.valAt m :server-name))
+  (remote-addr [m], (.valAt m :remote-addr))
+  (uri [m],,,,,,,,, (.valAt m :uri))
+  (query-string [m] (.valAt m :query-string))
+  (scheme [m],,,,,, (.valAt m :scheme))
+  (method [m],,,,,, (.valAt m :request-method))
+  (body [m],,,,,,,, (.valAt m :body))
+  (path-info [m],,, (.valAt m :path-info))
+  (protocol [m],,,, (.valAt m :protocol))
   (header
     [m h] (get (.valAt m :headers) (string/lower-case h)))
   (header*
     [m h] (some-> (header m h) (string/split #",\s*")))
   ;; TODO: cookie/cookie*
+  ;; TODO: query-param
   )
 
 (comment
