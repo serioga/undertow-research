@@ -2,7 +2,7 @@
   (:require [spin-undertow.handler :as spin-handler]
             [spin.request :as req]
             [undertow.server :as server])
-  (:import (io.undertow.server HttpHandler)
+  (:import (io.undertow.server HttpHandler HttpServerExchange)
            (java.util.concurrent CompletableFuture)
            (java.util.function Supplier)))
 
@@ -40,13 +40,25 @@
   #_(CompletableFuture/supplyAsync
       (reify Supplier (get [_] (assoc context :response {:body (str "async - " (t-name))})))))
 
-#_(def http-handler (reify HttpHandler (handleRequest [_ e]
+(declare ^HttpServerExchange -e)
+
+(def http-handler (reify HttpHandler (handleRequest [_ e]
+                                       #_(def -e e)
                                        (-> (.getResponseSender e)
                                            (.send "OK")))))
 
+(comment
+  (req/header -e "x-test")
+  (req/header* -e "x-test")
+  (.getRequestCookies -e)
+  (some-> (.getRequestCookie -e "JSESSIONID") (.getValue))
+  (req/cookie -e "JSESSIONID")
+  (req/cookie* -e "JSESSIONID")
+  )
+
 (defn start-test-server
   []
-  (-> {:port 8086 :handler (-> -test-handler -test-middleware)}
+  (-> {:port 8086 :handler http-handler}
       (server/start)))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

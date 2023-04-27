@@ -27,8 +27,8 @@ Sec-Fetch-Mode: navigate
 Sec-Fetch-Site: none
 Sec-Fetch-User: ?1
 Sec-GPC: 1
-x-a: a1
-x-a: a2
+x-test: a, b
+x-test: c
 
 ### Simple WebSocket Request
 // It is possible to send messages to server right from the Services tool window

@@ -19,7 +19,9 @@
   (path-info [_])
   (protocol [_])
   (header [_ name] "Returns first value of the header `name`.")
-  (header* [_ name] "Returns seq of all values of the header `name`."))
+  (header* [_ name] "Returns seq of all values of the header `name`.")
+  (cookie [_ name])
+  (cookie* [_ name]))
 
 (defn method-get? [req]
   ;; TODO: inline function
@@ -46,7 +48,9 @@
   (header
     [m h] (get (.valAt m :headers) (string/lower-case h)))
   (header*
-    [m h] (some-> (header m h) (string/split #",\s*"))))
+    [m h] (some-> (header m h) (string/split #",\s*")))
+  ;; TODO: cookie/cookie*
+  )
 
 (comment
   (def -h {"content-length" "100"

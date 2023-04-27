@@ -41,9 +41,18 @@
   ;; TODO: protocol
   (protocol [e],,,,)
   (header
-    [e h] (.getFirst (.getRequestHeaders e) ^String h))
-  (header-seq
-    [e h] (.get (.getRequestHeaders e) ^String h)))
+    [e n] (.getFirst (.getRequestHeaders e) ^String n))
+  (header*
+    [e n] (.get (.getRequestHeaders e) ^String n))
+  (cookie
+    [e n] (some-> (.getRequestCookie e n) (.getValue)))
+  (cookie*
+    [e n] (when-let [c (.getRequestCookie e n)]
+            ;; TODO: cookie map fields
+            ;; TODO: skip empty fields?
+            {:name (.getName c)
+             :value (.getValue c)
+             :path (.getPath c)})))
 
 (defn- put-headers!
   [exchange headers]
