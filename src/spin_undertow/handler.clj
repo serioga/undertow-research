@@ -106,13 +106,11 @@
 
 (extend-protocol req/IRequestView HttpServerExchange
   (get-fn
-    [e k]
-    (req/get-fn-impl e k (or (get-method exchange-get k)
-                             req/abstract-get)))
-  (get-methods
+    [_ k]
+    (get-method exchange-get k))
+  (get-methods*
     [_]
-    (merge (req/abstract-get-methods)
-           (methods exchange-get))))
+    (methods exchange-get)))
 
 (defn- put-headers!
   [exchange headers]

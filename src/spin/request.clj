@@ -10,25 +10,9 @@
 (defprotocol IRequestView
   (get-fn [_ key]
     "")
-  (get-methods [_]))
+  (get-methods* [_]))
 
-(defn get
-  ""
-  ([request k] ((get-fn request k)))
-  ([request k x] ((get-fn request k) x))
-  ([request k x y] ((get-fn request k) x y)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defn get-fn-impl
-  [request k get*]
-  (fn
-    ([] (get* request k))
-    ([x] (get* request k x))
-    ([x y] (get* request k x y))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
+;; TODO: better name for dispatch fn?
 (defn get-dispatch-key
   ""
   {:arglists '([request, key]
@@ -45,13 +29,16 @@
                [request, key, x, y])}
   get-dispatch-key)
 
-(defn abstract-get-methods
-  []
-  (methods abstract-get))
+(defn get
+  ""
+  ([request k] ((or (get-fn request k) abstract-get)))
+  ([request k x] ((or (get-fn request k) abstract-get) x))
+  ([request k x y] ((or (get-fn request k) abstract-get) x y)))
 
-(comment
-  (abstract-get-methods)
-  )
+(defn get-methods
+  [request]
+  (merge (methods abstract-get)
+         (get-methods* request)))
 
 (defmethod abstract-get :method-get?
   [request _]
@@ -85,12 +72,11 @@
 ;; TODO: query-param
 (extend-protocol IRequestView ILookup
   (get-fn
-    [e k]
-    (get-fn-impl e k (or (get-method map-get k) abstract-get)))
-  (get-methods
+    [_ k]
+    (get-method map-get k))
+  (get-methods*
     [_]
-    (merge (abstract-get-methods)
-           (methods map-get))))
+    (methods map-get)))
 
 (comment
   (get-methods {})
