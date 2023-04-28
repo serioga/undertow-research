@@ -3,6 +3,7 @@
             [spin.request :as req]
             [undertow.server :as server])
   (:import (io.undertow.server HttpHandler HttpServerExchange)
+           (io.undertow.util Methods)
            (java.util.concurrent CompletableFuture)
            (java.util.function Supplier)))
 
@@ -26,9 +27,9 @@
   [{:keys [request] :as context}]
   (assoc context :response {:status 226 :body "instant" :headers {"x-test" "handler"}}
                  :response/status 404)
-  #_(if (req/method-post? request)
+  #_(if (req/get request :method-post?)
       (delay (assoc context :response (str "blocking - " (t-name) "\n\n"
-                                           (String. (.readAllBytes (req/body request))))))
+                                           (String. (.readAllBytes (req/get request :body))))))
       (assoc context :response (str "non-blocking - " (t-name))))
   #_(throw (ex-info "oops" {}))
   #_context
@@ -45,19 +46,25 @@
                                        (def ^HttpServerExchange -e e)
                                        (-> (.getResponseSender e)
                                            (.send "OK")))))
-
 (comment
-  (req/header -e "Accept-Encoding")
-  (req/header* -e "x-test")
+  (req/get -e :header "Accept-Encoding")
+  (req/get -e :header* "x-test")
   (.getRequestCookies -e)
   (some-> (.getRequestCookie -e "JSESSIONID") (.getValue))
-  (req/cookie -e "JSESSIONID")
-  (req/cookie* -e "JSESSIONID")
+  (req/get -e :cookie "JSESSIONID")
+  (req/get -e :cookie-info "JSESSIONID")
   (first (.get (.getQueryParameters -e) "a"))
   (.getQueryString -e)
   (.peekFirst ^java.util.ArrayDeque (.get (.getQueryParameters -e) "a"))
-  (req/query-param -e "a")
-  (req/query-param* -e "a")
+  (req/get -e :query-param "a")
+  (req/get -e :query-param* "a")
+  (req/get -e :uri)
+  (req/get -e :query-string)
+  (req/get -e :method)
+  (req/get -e :request-method)
+  (.getRequestMethod -e)
+  (.equals Methods/GET (.getRequestMethod -e))
+  (req/get -e :method-get?)
   )
 
 (defn start-test-server
