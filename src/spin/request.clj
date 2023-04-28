@@ -1,7 +1,7 @@
 (ns spin.request
   (:refer-clojure :exclude [get])
   (:require [clojure.string :as string])
-  (:import (clojure.lang ILookup)))
+  (:import (clojure.lang ILookup MultiFn)))
 
 (set! *warn-on-reflection* true)
 
@@ -9,7 +9,8 @@
 
 (defprotocol IRequestView
   (get-fn [_ key]
-    ""))
+    "")
+  (get-methods [_]))
 
 (defn get
   ""
@@ -44,6 +45,14 @@
                [request, key, x, y])}
   get-dispatch-key)
 
+(defn abstract-get-methods
+  []
+  (methods abstract-get))
+
+(comment
+  (abstract-get-methods)
+  )
+
 (defmethod abstract-get :method-get?
   [request _]
   ;; TODO: return true if method is nil
@@ -54,20 +63,37 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defmulti map-get
+  ""
+  get-dispatch-key)
+
+(defn extend-map
+  ""
+  [f & ks]
+  (doseq [k ks]
+    (.addMethod ^MultiFn map-get k f)))
+
+(defn map-value [^ILookup m k] (.valAt m k))
+(defn map-header [^ILookup m _ x] (some-> ^ILookup (.valAt m :headers) (.valAt (string/lower-case x))))
+(defn map-header* [^ILookup m _ x] (some-> (get m :header x) (string/split #",\s*")))
+
+(extend-map map-value :server-port :server-name :remote-addr :uri :query-string :scheme :request-method :body)
+(extend-map map-header :header)
+(extend-map map-header* :header*)
+
 ;; TODO: cookie/cookie*
 ;; TODO: query-param
 (extend-protocol IRequestView ILookup
   (get-fn
-    [m k]
-    (fn
-      ([]
-       ;; TODO: use abstract-get fallback
-       (.valAt m k))
-      ([x]
-       (case k :header (get (.valAt m :headers) (string/lower-case x))
-               :header* (some-> (get m :header x) (string/split #",\s*")))))))
+    [e k]
+    (get-fn-impl e k (or (get-method map-get k) abstract-get)))
+  (get-methods
+    [_]
+    (merge (abstract-get-methods)
+           (methods map-get))))
 
 (comment
+  (get-methods {})
   (def -h {"content-length" "100"
            "content-type" "plain/text"
            "x-test-seq" "1, 2, 3"})

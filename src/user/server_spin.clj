@@ -47,6 +47,7 @@
                                        (-> (.getResponseSender e)
                                            (.send "OK")))))
 (comment
+  (req/get-methods -e)
   (req/get -e :header "Accept-Encoding")
   (req/get -e :header* "x-test")
   (.getRequestCookies -e)

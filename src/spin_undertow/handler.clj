@@ -108,7 +108,11 @@
   (get-fn
     [e k]
     (req/get-fn-impl e k (or (get-method exchange-get k)
-                             req/abstract-get))))
+                             req/abstract-get)))
+  (get-methods
+    [_]
+    (merge (req/abstract-get-methods)
+           (methods exchange-get))))
 
 (defn- put-headers!
   [exchange headers]
