@@ -20,6 +20,7 @@
   ""
   [impl api]
   (fn
+    ([] (methods api))
     ([method] (api impl method))
     ([method x] (api impl method x))
     ([method x y] (api impl method x y))))
@@ -29,11 +30,6 @@
   [multi-fn, method, method-name & more-names]
   (doseq [n (cons method-name more-names)]
     (.addMethod ^MultiFn multi-fn n method)))
-
-(defn get-methods
-  [request]
-  ;; TODO: impl get methods
-  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -77,6 +73,7 @@
                                 :headers {"content-length" "100"
                                           "content-type" "plain/text"
                                           "x-test-seq" "1, 2, 3"}}))
+  (-req)
   (-req :header "content-type")
   (-req :header* "content-type")
   (-req :header "x-test-seq")

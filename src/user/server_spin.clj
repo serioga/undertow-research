@@ -50,7 +50,7 @@
                                        (-> (.getResponseSender e)
                                            (.send "OK")))))
 (comment
-  #_(request/get-methods -e)
+  (-request)
   (-request :header "Accept-Encoding")
   (-request :header* "x-test")
   (.getFirst (.getRequestHeaders -e) "Accept-Encoding")
