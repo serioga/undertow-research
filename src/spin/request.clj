@@ -59,7 +59,7 @@
 
 ;; TODO: return nil for "" query string
 
-(lookup-api-add lookup-key :server-port :server-name :remote-addr :uri :query-string :scheme :body)
+(lookup-api-add lookup-key :server-exchange :server-port :server-name :remote-addr :uri :query-string :scheme :body)
 (lookup-api-add lookup-method :method :request-method)
 (lookup-api-add lookup-header :header)
 (lookup-api-add lookup-header* :header*)

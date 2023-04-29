@@ -1,6 +1,5 @@
 (ns user.server-spin
   (:require [spin-undertow.handler :as spin-handler]
-            [spin.request :as request]
             [undertow.server :as server])
   (:import (io.undertow.server HttpHandler HttpServerExchange)
            (io.undertow.util Methods)
@@ -51,6 +50,8 @@
                                            (.send "OK")))))
 (comment
   (-request)
+  (-request :server-exchange)
+  (def ^HttpServerExchange -e (-request :server-exchange))
   (-request :header "Accept-Encoding")
   (-request :header* "x-test")
   (.getFirst (.getRequestHeaders -e) "Accept-Encoding")

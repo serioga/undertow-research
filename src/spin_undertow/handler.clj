@@ -19,6 +19,9 @@
 
 (def request-api-add (partial request/add-api-method exchange-request-api))
 
+(defn- get-request-server-exchange
+  [^HttpServerExchange e _] e)
+
 (defn- get-request-server-port
   [^HttpServerExchange e _] (.getPort (.getDestinationAddress e)))
 
@@ -75,20 +78,21 @@
                                  :value (.getValue c)
                                  :path (.getPath c)}))
 
-(request-api-add get-request-server-port, :server-port)
-(request-api-add get-request-server-name, :server-name :server-host)
-(request-api-add get-request-remote-addr, :remote-addr)
-(request-api-add get-request-uri,,,,,,,,, :uri)
-(request-api-add get-request-query-string :query-string)
-(request-api-add get-request-scheme,,,,,, :scheme)
-(request-api-add get-request-method,,,,,, :method :request-method)
-(request-api-add get-request-body,,,,,,,, :body :input-stream)
-(request-api-add get-request-header,,,,,, :header)
-(request-api-add get-request-header*,,,,, :header*)
-(request-api-add get-request-query-param, :query-param)
-(request-api-add get-request-query-param* :query-param*)
-(request-api-add get-request-cookie,,,,,, :cookie)
-(request-api-add get-request-cookie-info, :cookie-info)
+(request-api-add get-request-server-exchange :server-exchange)
+(request-api-add get-request-server-port,,,, :server-port)
+(request-api-add get-request-server-name,,,, :server-name :server-host)
+(request-api-add get-request-remote-addr,,,, :remote-addr)
+(request-api-add get-request-uri,,,,,,,,,,,, :uri)
+(request-api-add get-request-query-string,,, :query-string)
+(request-api-add get-request-scheme,,,,,,,,, :scheme)
+(request-api-add get-request-method,,,,,,,,, :method :request-method)
+(request-api-add get-request-body,,,,,,,,,,, :body :input-stream)
+(request-api-add get-request-header,,,,,,,,, :header)
+(request-api-add get-request-header*,,,,,,,, :header*)
+(request-api-add get-request-query-param,,,, :query-param)
+(request-api-add get-request-query-param*,,, :query-param*)
+(request-api-add get-request-cookie,,,,,,,,, :cookie)
+(request-api-add get-request-cookie-info,,,, :cookie-info)
 
 ;; TODO: protocol, path-info
 
