@@ -7,92 +7,83 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defprotocol IRequestView
-  (get-fn [_ key]
-    "")
-  (get-methods* [_]))
-
-;; TODO: better name for dispatch fn?
-(defn get-dispatch-key
+(defn api-dispatch-fn
   ""
-  {:arglists '([request, key]
-               [request, key, x]
-               [request, key, x, y])}
+  {:arglists '([request, method]
+               [request, method, x]
+               [request, method, x, y])}
   ([_ k] k)
   ([_ k _] k)
   ([_ k _ _] k))
 
-(defmulti abstract-get
-  "Returns value of `key` for arbitrary request implementation."
-  {:arglists '([request, key]
-               [request, key, x]
-               [request, key, x, y])}
-  get-dispatch-key)
-
-(defn get
+(defn request-fn
   ""
-  ([request k] ((or (get-fn request k) abstract-get)))
-  ([request k x] ((or (get-fn request k) abstract-get) x))
-  ([request k x y] ((or (get-fn request k) abstract-get) x y)))
+  [impl api]
+  (fn
+    ([method] (api impl method))
+    ([method x] (api impl method x))
+    ([method x y] (api impl method x y))))
+
+(defn add-api-method
+  ""
+  [multi-fn, method, method-name & more-names]
+  (doseq [n (cons method-name more-names)]
+    (.addMethod ^MultiFn multi-fn n method)))
 
 (defn get-methods
   [request]
-  (merge (methods abstract-get)
-         (get-methods* request)))
-
-(defmethod abstract-get :method-get?
-  [request _]
-  ;; TODO: return true if method is nil
-  (= :get (get request :request-method)))
-
-(defmethod abstract-get :method-post?
-  [request _] (= :post (get request :request-method)))
+  ;; TODO: impl get methods
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmulti map-get
+(defmulti lookup-request-api
   ""
-  get-dispatch-key)
+  api-dispatch-fn)
 
-(defn extend-map
-  ""
-  [f & ks]
-  (doseq [k ks]
-    (.addMethod ^MultiFn map-get k f)))
+(def lookup-api-add (partial add-api-method lookup-request-api))
 
-(defn map-value [^ILookup m k] (.valAt m k))
-(defn map-header [^ILookup m _ x] (some-> ^ILookup (.valAt m :headers) (.valAt (string/lower-case x))))
-(defn map-header* [^ILookup m _ x] (some-> (get m :header x) (string/split #",\s*")))
+(defn lookup-request-fn
+  [m]
+  (request-fn m lookup-request-api))
 
-(extend-map map-value :server-port :server-name :remote-addr :uri :query-string :scheme :request-method :body)
-(extend-map map-header :header)
-(extend-map map-header* :header*)
+(defn lookup-key
+  [^ILookup m k] (.valAt m k))
+
+(defn lookup-method
+  ([^ILookup m _] (.valAt m :request-method))
+  ([^ILookup m _ x] (= x (.valAt m :request-method))))
+
+(defn lookup-header
+  [^ILookup m _ x] (some-> ^ILookup (.valAt m :headers)
+                           (.valAt (string/lower-case x))))
+
+(defn lookup-header*
+  [^ILookup m _ x] (list (lookup-header m :header x)))
+
+;; TODO: return nil for "" query string
+
+(lookup-api-add lookup-key :server-port :server-name :remote-addr :uri :query-string :scheme :body)
+(lookup-api-add lookup-method :method :request-method)
+(lookup-api-add lookup-header :header)
+(lookup-api-add lookup-header* :header*)
 
 ;; TODO: cookie/cookie*
 ;; TODO: query-param
-(extend-protocol IRequestView ILookup
-  (get-fn
-    [_ k]
-    (get-method map-get k))
-  (get-methods*
-    [_]
-    (methods map-get)))
 
 (comment
-  (get-methods {})
-  (def -h {"content-length" "100"
-           "content-type" "plain/text"
-           "x-test-seq" "1, 2, 3"})
-  (string/lower-case "Content-Type")
-  (-h (string/lower-case "Content-Type"))
-  (-h (string/lower-case "content-type"))
-  (get {:headers -h} :header "content-type")
-  (get {:headers -h} :header* "content-type")
-  (get {:headers -h} :header* "x-test-seq")
-  (:headers {:headers {}})
-
-  (get {:uri "/uri"} :uri)
-  (get {:request-method :get} :method-get?)
+  (methods lookup-request-api)
+  (def -req (lookup-request-fn {:uri "/uri" :request-method :get
+                                :headers {"content-length" "100"
+                                          "content-type" "plain/text"
+                                          "x-test-seq" "1, 2, 3"}}))
+  (-req :header "content-type")
+  (-req :header* "content-type")
+  (-req :header "x-test-seq")
+  (-req :header* "x-test-seq")
+  (-req :uri)
+  (-req :method)
+  (-req :method :get)
 
   )
 

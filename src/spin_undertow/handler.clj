@@ -1,11 +1,11 @@
 (ns spin-undertow.handler
   (:refer-clojure :exclude [get])
-  (:require [spin.request :as req]
-            [spin.handler :as handler]
+  (:require [spin.handler :as handler]
+            [spin.request :as request]
             [undertow.api.exchange :as exchange])
-  (:import (clojure.lang IPersistentMap MultiFn)
+  (:import (clojure.lang IPersistentMap)
            (io.undertow.server HttpHandler HttpServerExchange)
-           (io.undertow.util HeaderMap HttpString Methods SameThreadExecutor)
+           (io.undertow.util HeaderMap HttpString SameThreadExecutor)
            (java.nio.charset Charset)
            (java.util ArrayDeque Collection)))
 
@@ -13,15 +13,11 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmulti exchange-get
+(defmulti exchange-request-api
   ""
-  req/get-dispatch-key)
+  request/api-dispatch-fn)
 
-(defn extend-request
-  ""
-  [f & ks]
-  (doseq [k ks]
-    (.addMethod ^MultiFn exchange-get k f)))
+(def request-api-add (partial request/add-api-method exchange-request-api))
 
 (defn- get-request-server-port
   [^HttpServerExchange e _] (.getPort (.getDestinationAddress e)))
@@ -45,16 +41,11 @@
                                           (keyword (.toLowerCase ^String s)))))
 
 (defn- get-request-method
-  [^HttpServerExchange e _] (as-> (.toString (.getRequestMethod e)) s
-                                  (case s "GET" :get "POST" :post "PUT" :put
-                                          "DELETE" :delete "HEAD" :head "OPTIONS" :options
-                                          (keyword (.toLowerCase ^String s)))))
-
-(defn- get-request-method-get?
-  [^HttpServerExchange e _] (.equals Methods/GET (.getRequestMethod e)))
-
-(defn- get-request-method-post?
-  [^HttpServerExchange e _] (.equals Methods/POST (.getRequestMethod e)))
+  ([^HttpServerExchange e _] (as-> (.toString (.getRequestMethod e)) s
+                                   (case s "GET" :get "POST" :post "PUT" :put
+                                           "DELETE" :delete "HEAD" :head "OPTIONS" :options
+                                           (keyword (.toLowerCase ^String s)))))
+  ([e _ x] (.equals ^Object (get-request-method e _) x)))
 
 ;; TODO: dispatch blocking when work with input stream
 (defn- get-request-body
@@ -84,33 +75,28 @@
                                  :value (.getValue c)
                                  :path (.getPath c)}))
 
-(extend-request get-request-server-port, :server-port)
-(extend-request get-request-server-name, :server-name :server-host)
-(extend-request get-request-remote-addr, :remote-addr)
-(extend-request get-request-uri,,,,,,,,, :uri)
-(extend-request get-request-query-string :query-string)
-(extend-request get-request-scheme,,,,,, :scheme)
-(extend-request get-request-method,,,,,, :method :request-method)
-;; TODO: more predicates for request method
-(extend-request get-request-method-get?, :method-get?)
-(extend-request get-request-method-post? :method-post?)
-(extend-request get-request-body,,,,,,,, :body :input-stream)
-(extend-request get-request-header,,,,,, :header)
-(extend-request get-request-header*,,,,, :header*)
-(extend-request get-request-query-param, :query-param)
-(extend-request get-request-query-param* :query-param*)
-(extend-request get-request-cookie,,,,,, :cookie)
-(extend-request get-request-cookie-info, :cookie-info)
+(request-api-add get-request-server-port, :server-port)
+(request-api-add get-request-server-name, :server-name :server-host)
+(request-api-add get-request-remote-addr, :remote-addr)
+(request-api-add get-request-uri,,,,,,,,, :uri)
+(request-api-add get-request-query-string :query-string)
+(request-api-add get-request-scheme,,,,,, :scheme)
+(request-api-add get-request-method,,,,,, :method :request-method)
+(request-api-add get-request-body,,,,,,,, :body :input-stream)
+(request-api-add get-request-header,,,,,, :header)
+(request-api-add get-request-header*,,,,, :header*)
+(request-api-add get-request-query-param, :query-param)
+(request-api-add get-request-query-param* :query-param*)
+(request-api-add get-request-cookie,,,,,, :cookie)
+(request-api-add get-request-cookie-info, :cookie-info)
 
 ;; TODO: protocol, path-info
 
-(extend-protocol req/IRequestView HttpServerExchange
-  (get-fn
-    [_ k]
-    (get-method exchange-get k))
-  (get-methods*
-    [_]
-    (methods exchange-get)))
+(defn request-fn
+  [exchange]
+  (request/request-fn exchange exchange-request-api))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn- put-headers!
   [exchange headers]
@@ -216,7 +202,7 @@
   [handler-fn]
   (reify HttpHandler
     (handleRequest [_ exchange]
-      (-> {:request exchange #_#_:start-time (System/nanoTime)}
+      (-> {:request (request-fn exchange) #_#_:start-time (System/nanoTime)}
           (handler-fn)
           (handle-result exchange)))))
 

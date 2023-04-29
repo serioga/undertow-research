@@ -1,6 +1,6 @@
 (ns user.server-spin
   (:require [spin-undertow.handler :as spin-handler]
-            [spin.request :as req]
+            [spin.request :as request]
             [undertow.server :as server])
   (:import (io.undertow.server HttpHandler HttpServerExchange)
            (io.undertow.util Methods)
@@ -23,13 +23,16 @@
 
 (defn- t-name [] (.getName (Thread/currentThread)))
 
+(declare -request)
+
 (defn -test-handler
   [{:keys [request] :as context}]
+  (def -request request)
   (assoc context :response {:status 226 :body "instant" :headers {"x-test" "handler"}}
                  :response/status 404)
-  #_(if (req/get request :method-post?)
+  #_(if (request :method-post?)
       (delay (assoc context :response (str "blocking - " (t-name) "\n\n"
-                                           (String. (.readAllBytes (req/get request :body))))))
+                                           (String. (.readAllBytes (request :body))))))
       (assoc context :response (str "non-blocking - " (t-name))))
   #_(throw (ex-info "oops" {}))
   #_context
@@ -47,32 +50,33 @@
                                        (-> (.getResponseSender e)
                                            (.send "OK")))))
 (comment
-  (req/get-methods -e)
-  (req/get -e :header "Accept-Encoding")
-  (req/get -e :header* "x-test")
+  #_(request/get-methods -e)
+  (-request :header "Accept-Encoding")
+  (-request :header* "x-test")
+  (.getFirst (.getRequestHeaders -e) "Accept-Encoding")
   (.getRequestCookies -e)
   (some-> (.getRequestCookie -e "JSESSIONID") (.getValue))
-  (req/get -e :cookie "JSESSIONID")
-  (req/get -e :cookie-info "JSESSIONID")
+  (-request :cookie "JSESSIONID")
+  (-request :cookie-info "JSESSIONID")
   (first (.get (.getQueryParameters -e) "a"))
   (.getQueryString -e)
   (.peekFirst ^java.util.ArrayDeque (.get (.getQueryParameters -e) "a"))
-  (req/get -e :query-param "a")
-  (req/get -e :query-param* "a")
-  (req/get -e :uri)
-  (req/get -e :query-string)
-  (req/get -e :method)
-  (req/get -e :request-method)
+  (-request :query-param "a")
+  (-request :query-param* "a")
+  (-request :uri)
+  (-request :query-string)
+  (-request :method)
+  (-request :method :get)
+  (-request :request-method)
   (.getRequestMethod -e)
   (.equals Methods/GET (.getRequestMethod -e))
-  (req/get -e :method-get?)
   )
 
 (defn start-test-server
   []
   (-> {:port 8086
-       #_#_:handler (-> -test-handler -test-middleware)
-       :handler http-handler}
+       :handler (-> -test-handler -test-middleware)
+       #_#_:handler http-handler}
       (server/start)))
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
