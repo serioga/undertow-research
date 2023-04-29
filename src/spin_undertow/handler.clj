@@ -13,11 +13,11 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmulti exchange-request-api
+(defmulti request-api
   ""
-  request/api-dispatch-fn)
+  request/api-dispatch)
 
-(def request-api-add (partial request/add-api-method exchange-request-api))
+(def request-api-add (partial request/api-add request-api))
 
 (defn- get-request-server-exchange
   [^HttpServerExchange e _] e)
@@ -98,7 +98,7 @@
 
 (defn request-fn
   [exchange]
-  (request/request-fn exchange exchange-request-api))
+  (request/request-fn exchange request-api))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

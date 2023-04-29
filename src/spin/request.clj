@@ -7,7 +7,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn api-dispatch-fn
+(defn api-dispatch
   ""
   {:arglists '([request, method]
                [request, method, x]
@@ -18,30 +18,32 @@
 
 (defn request-fn
   ""
-  [impl api]
+  [obj api]
   (fn
     ([] (methods api))
-    ([method] (api impl method))
-    ([method x] (api impl method x))
-    ([method x y] (api impl method x y))))
-
-(defn add-api-method
-  ""
-  [multi-fn, method, method-name & more-names]
-  (doseq [n (cons method-name more-names)]
-    (.addMethod ^MultiFn multi-fn n method)))
+    ([method] (api obj method))
+    ([method x] (api obj method x))
+    ([method x y] (api obj method x y))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmulti lookup-request-api
+(defn api-add
   ""
-  api-dispatch-fn)
+  [multi, method, method-name & more-names]
+  (doseq [n (cons method-name more-names)]
+    (.addMethod ^MultiFn multi n method)))
 
-(def lookup-api-add (partial add-api-method lookup-request-api))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmulti lookup-api
+  ""
+  api-dispatch)
+
+(def lookup-api-add (partial api-add lookup-api))
 
 (defn lookup-request-fn
   [m]
-  (request-fn m lookup-request-api))
+  (request-fn m lookup-api))
 
 (defn lookup-key
   [^ILookup m k] (.valAt m k))
@@ -68,7 +70,7 @@
 ;; TODO: query-param
 
 (comment
-  (methods lookup-request-api)
+  (methods lookup-api)
   (def -req (lookup-request-fn {:uri "/uri" :request-method :get
                                 :headers {"content-length" "100"
                                           "content-type" "plain/text"
