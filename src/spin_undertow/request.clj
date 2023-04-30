@@ -54,11 +54,14 @@
            (.getFirst header-map x)))))
 
 (defn -query-param
-  [^HttpServerExchange e _ x] (some-> ^ArrayDeque (.get (.getQueryParameters e) x)
-                                      (.peekFirst)))
+  ([^HttpServerExchange e _ x]
+   (some-> ^ArrayDeque (.get (.getQueryParameters e) x)
+           (.peekFirst)))
 
-(defn -query-param*
-  [^HttpServerExchange e _ x] (seq (.get (.getQueryParameters e) x)))
+  ([^HttpServerExchange e _ x many?]
+   (if many?
+     (seq (.get (.getQueryParameters e) x))
+     (-query-param e _ x))))
 
 (defn -cookie
   [^HttpServerExchange e _ x] (some-> (.getRequestCookie e x) (.getValue)))
@@ -95,12 +98,11 @@
 (add-method -remote-addr,,,, :remote-addr)
 (add-method -uri,,,,,,,,,,,, :uri)
 (add-method -query-string,,, :query-string)
+(add-method -query-param,,,, :query-param)
 (add-method -scheme,,,,,,,,, :scheme)
 (add-method -method,,,,,,,,, :method :request-method)
 (add-method -body,,,,,,,,,,, :body :input-stream)
 (add-method -header,,,,,,,,, :header)
-(add-method -query-param,,,, :query-param)
-(add-method -query-param*,,, :query-param*)
 (add-method -cookie,,,,,,,,, :cookie)
 (add-method -cookie-info,,,, :cookie-info)
 (add-method -state,,,,,,,,,, :state!)
