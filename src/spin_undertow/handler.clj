@@ -93,6 +93,7 @@
                    (-> (.getAttachment e request-state-attachment-key)
                        (assoc k v)))))
 
+(request-api-add (request/custom-api-fn request-api) :default)
 (request-api-add get-request-server-exchange :server-exchange)
 (request-api-add get-request-server-port,,,, :server-port)
 (request-api-add get-request-server-name,,,, :server-name :server-host)

@@ -32,6 +32,36 @@
   (doseq [n (cons method-name more-names)]
     (.addMethod ^MultiFn multi n method)))
 
+(defmulti custom-api
+  ""
+  api-dispatch)
+
+(comment
+  (methods custom-api)
+  )
+
+(def custom-api-add (partial api-add custom-api))
+
+;; TODO: remove extra default keys
+
+(custom-api-add (fn custom-proxy
+                  ([request _ method] (request method))
+                  ([request _ method k] (request method k))
+                  ([request _ method k v] (request method k v)))
+                :proxy)
+
+(custom-api-add (fn custom-state-k
+                  ([request _] (request :state! :state-k))
+                  ([request _ v] (request :state! :state-k v)))
+                :state-k)
+
+(defn custom-api-fn
+  [api]
+  (fn
+    ([obj method] (custom-api (request-fn obj api) method))
+    ([obj method x] (custom-api (request-fn obj api) method x))
+    ([obj method x y] (custom-api (request-fn obj api) method x y))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; TODO: change ILookup to Associative because of :state ?
@@ -71,6 +101,7 @@
 
 ;; TODO: return nil for "" query string
 
+(lookup-api-add (custom-api-fn lookup-api) :default)
 (lookup-api-add lookup-key :server-exchange :server-port :server-name :remote-addr :uri :query-string :scheme :body)
 (lookup-api-add lookup-method :method :request-method)
 (lookup-api-add lookup-header :header)
@@ -96,6 +127,9 @@
   (-req :method :get)
   (-req :state! :x)
   (-req :state! :x :val)
+  (-req :proxy :method)
+  (-req :state-k)
+  (-req :state-k :x)
 
   )
 
