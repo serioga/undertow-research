@@ -45,10 +45,13 @@
   [^HttpServerExchange e _] (exchange/get-input-stream e))
 
 (defn -header
-  [^HttpServerExchange e _ x] (.getFirst (.getRequestHeaders e) ^String x))
-
-(defn -header*
-  [^HttpServerExchange e _ x] (.get (.getRequestHeaders e) ^String x))
+  ([^HttpServerExchange e _ x]
+   (.getFirst (.getRequestHeaders e) ^String x))
+  ([^HttpServerExchange e _ ^String x all?]
+   (as-> (.getRequestHeaders e) header-map
+         (if all?
+           (.get header-map x)
+           (.getFirst header-map x)))))
 
 (defn -query-param
   [^HttpServerExchange e _ x] (some-> ^ArrayDeque (.get (.getQueryParameters e) x)
@@ -96,7 +99,6 @@
 (add-method -method,,,,,,,,, :method :request-method)
 (add-method -body,,,,,,,,,,, :body :input-stream)
 (add-method -header,,,,,,,,, :header)
-(add-method -header*,,,,,,,, :header*)
 (add-method -query-param,,,, :query-param)
 (add-method -query-param*,,, :query-param*)
 (add-method -cookie,,,,,,,,, :cookie)

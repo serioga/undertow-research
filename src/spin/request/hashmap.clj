@@ -19,13 +19,12 @@
    (= x (.valAt m :request-method))))
 
 (defn -header
-  [^IPersistentMap m _ x]
-  (some-> ^IPersistentMap (.valAt m :headers)
-          (.valAt (string/lower-case x))))
-
-(defn -header*
-  [^IPersistentMap m key x]
-  (list (-header m key x)))
+  ([^IPersistentMap m _ x]
+   (some-> ^IPersistentMap (.valAt m :headers)
+           (.valAt (string/lower-case x))))
+  ([^IPersistentMap m _ x all?]
+   (cond-> (-header m _ x)
+     all? (list))))
 
 (defn -state
   ([^IPersistentMap m _ k]
@@ -48,7 +47,6 @@
 (add-method -default :server-exchange :server-port :server-name :remote-addr :uri :query-string :scheme :body)
 (add-method -method :method :request-method)
 (add-method -header :header)
-(add-method -header* :header*)
 (add-method -state :state!)
 
 ;; TODO: cookie/cookie*
@@ -68,9 +66,9 @@
                                        "x-test-seq" "1, 2, 3"}}))
   (-req)
   (-req :header "content-type")
-  (-req :header* "content-type")
   (-req :header "x-test-seq")
-  (-req :header* "x-test-seq")
+  (-req :header "x-test-seq" :all)
+  (-req :header "x-test-seq" false)
   (-req :uri)
   (-req :method)
   (-req :method :get)
