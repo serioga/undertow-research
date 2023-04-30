@@ -12,13 +12,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmulti request-api
-  ""
-  request/api-dispatch)
-
-(comment
-  (methods request-api)
-  )
+(def request-api (request/api-init))
 
 (def request-api-add (partial request/api-add request-api))
 
@@ -93,7 +87,6 @@
                    (-> (.getAttachment e request-state-attachment-key)
                        (assoc k v)))))
 
-(request-api-add (request/custom-api-fn request-api) :default)
 (request-api-add get-request-server-exchange :server-exchange)
 (request-api-add get-request-server-port,,,, :server-port)
 (request-api-add get-request-server-name,,,, :server-name :server-host)
