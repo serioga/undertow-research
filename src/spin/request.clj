@@ -1,4 +1,5 @@
 (ns spin.request
+  (:refer-clojure :exclude [key])
   (:import (clojure.lang PersistentHashMap)
            (java.util IdentityHashMap Map)))
 
@@ -6,21 +7,21 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn api-init
+(defn create-methods
   ^Map []
   (IdentityHashMap.))
 
-(defn api-add
+(defn add-method*
   ""
-  [api, method, k & ks]
-  (doseq [k (cons k ks)]
-    (.put ^Map api k method)))
+  [methods f key & ks]
+  (doseq [k (cons key ks)]
+    (.put ^Map methods k f)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defonce ^Map custom-api (api-init))
+(defonce ^Map request-methods (create-methods))
 
-(def add-method (partial api-add custom-api))
+(def add-method (partial add-method* request-methods))
 
 ;; TODO: remove extra default keys
 
@@ -37,32 +38,32 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn request-fn
+(defn create-request
   ""
-  [obj, ^Map api]
+  [object, ^Map object-methods]
   (fn request*
-    ([] (merge (PersistentHashMap/create custom-api)
-               (PersistentHashMap/create api)))
-    ([k]
-     (if-let [method (.get api k)]
-       (method obj k)
-       (if-let [custom (.get custom-api k)]
-         (custom request* k)
-         (throw (ex-info (str "Undefined request method " k " for " (class obj))
+    ([] (merge (PersistentHashMap/create request-methods)
+               (PersistentHashMap/create object-methods)))
+    ([key]
+     (if-let [method (.get object-methods key)]
+       (method object key)
+       (if-let [method (.get request-methods key)]
+         (method request* key)
+         (throw (ex-info (str "Undefined request method " key " for " (class object))
                          {:methods (request*)})))))
-    ([k x]
-     (if-let [method (.get api k)]
-       (method obj k x)
-       (if-let [custom (.get custom-api k)]
-         (custom request* k x)
-         (throw (ex-info (str "Undefined request method " k " for " (class obj))
+    ([key x]
+     (if-let [method (.get object-methods key)]
+       (method object key x)
+       (if-let [method (.get request-methods key)]
+         (method request* key x)
+         (throw (ex-info (str "Undefined request method " key " for " (class object))
                          {:methods (request*)})))))
-    ([k x y]
-     (if-let [method (.get api k)]
-       (method obj k x y)
-       (if-let [custom (.get custom-api k)]
-         (custom request* k x y)
-         (throw (ex-info (str "Undefined request method " k " for " (class obj))
+    ([key x y]
+     (if-let [method (.get object-methods key)]
+       (method object key x y)
+       (if-let [method (.get request-methods key)]
+         (method request* key x y)
+         (throw (ex-info (str "Undefined request method " key " for " (class object))
                          {:methods (request*)})))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -1,4 +1,5 @@
 (ns spin.request.hashmap
+  (:refer-clojure :exclude [key])
   (:require [clojure.string :as string]
             [spin.request :as request])
   (:import (clojure.lang IPersistentMap)))
@@ -7,26 +8,26 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn hashmap-value
+(defn -default
   [^IPersistentMap m k]
   (.valAt m k))
 
-(defn request-method
+(defn -method
   ([^IPersistentMap m _]
    (.valAt m :request-method))
   ([^IPersistentMap m _ x]
    (= x (.valAt m :request-method))))
 
-(defn request-header
+(defn -header
   [^IPersistentMap m _ x]
   (some-> ^IPersistentMap (.valAt m :headers)
           (.valAt (string/lower-case x))))
 
-(defn request-header*
-  [^IPersistentMap m k x]
-  (list (request-header m k x)))
+(defn -header*
+  [^IPersistentMap m key x]
+  (list (-header m key x)))
 
-(defn request-state
+(defn -state
   ([^IPersistentMap m _ k]
    (-> (.valAt m ::state!) (deref) (get k)))
   ([^IPersistentMap m _ k v]
@@ -38,17 +39,17 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defonce lookup-api (request/api-init))
+(defonce hashmap-methods (request/create-methods))
 
-(def add-method (partial request/api-add lookup-api))
+(def add-method (partial request/add-method* hashmap-methods))
 
 ;; TODO: return nil for "" query string
 
-(add-method hashmap-value :server-exchange :server-port :server-name :remote-addr :uri :query-string :scheme :body)
-(add-method request-method :method :request-method)
-(add-method request-header :header)
-(add-method request-header* :header*)
-(add-method request-state :state!)
+(add-method -default :server-exchange :server-port :server-name :remote-addr :uri :query-string :scheme :body)
+(add-method -method :method :request-method)
+(add-method -header :header)
+(add-method -header* :header*)
+(add-method -state :state!)
 
 ;; TODO: cookie/cookie*
 ;; TODO: query-param
@@ -58,7 +59,7 @@
 (defn create-request
   [m]
   (-> (assoc m ::state! (or (get m ::state!) (atom nil)))
-      (request/request-fn lookup-api)))
+      (request/create-request hashmap-methods)))
 
 (comment
   (def -req (create-request {:uri "/uri" :request-method :get
