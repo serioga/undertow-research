@@ -47,9 +47,9 @@
 (defn -header
   ([^HttpServerExchange e _ x]
    (.getFirst (.getRequestHeaders e) ^String x))
-  ([^HttpServerExchange e _ ^String x all?]
+  ([^HttpServerExchange e _ ^String x many?]
    (as-> (.getRequestHeaders e) header-map
-         (if all?
+         (if many?
            (.get header-map x)
            (.getFirst header-map x)))))
 

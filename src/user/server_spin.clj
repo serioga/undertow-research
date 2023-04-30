@@ -54,7 +54,7 @@
   (def ^HttpServerExchange -e (-request :server-exchange))
   (-request :header "Accept-Encoding")
   (-request :header "x-test")
-  (-request :header "x-test" :all)
+  (-request :header "x-test" :many)
   (-request :header "x-test" false)
   (.getFirst (.getRequestHeaders -e) "Accept-Encoding")
   (.getRequestCookies -e)

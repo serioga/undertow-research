@@ -22,9 +22,9 @@
   ([^IPersistentMap m _ x]
    (some-> ^IPersistentMap (.valAt m :headers)
            (.valAt (string/lower-case x))))
-  ([^IPersistentMap m _ x all?]
+  ([^IPersistentMap m _ x many?]
    (cond-> (-header m _ x)
-     all? (list))))
+     many? (list))))
 
 (defn -state
   ([^IPersistentMap m _ k]
@@ -67,7 +67,7 @@
   (-req)
   (-req :header "content-type")
   (-req :header "x-test-seq")
-  (-req :header "x-test-seq" :all)
+  (-req :header "x-test-seq" :many)
   (-req :header "x-test-seq" false)
   (-req :uri)
   (-req :method)
