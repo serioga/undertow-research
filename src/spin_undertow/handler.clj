@@ -12,51 +12,51 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn- handle-result-context
-  [^IPersistentMap context, ^HttpServerExchange exchange]
+  [^IPersistentMap context, ^HttpServerExchange e]
   ;; TODO: apply prepending context transformations
   (when context
     ;; Add prepending response headers from context.
     (some->> (.valAt context :response/headers)
              ;; TODO: not-empty here?
-             (response/put-headers! exchange))
-    (when-some [status (.valAt context :response/status)] (.setStatusCode exchange status))
-    (some-> (.valAt context :response) (response/handle-response exchange))
+             (response/put-headers! e))
+    (when-some [status (.valAt context :response/status)] (.setStatusCode e status))
+    (some-> (.valAt context :response) (response/handle-response e))
 
     #_(let [end-time (System/nanoTime)]
         #p (- end-time (:start-time context))))
 
-  (.endExchange exchange))
+  (.endExchange e))
 
 (defn- handle-instant-result
-  [instant-result-fn, ^HttpServerExchange exchange]
+  [instant-result-fn, ^HttpServerExchange e]
   (try
-    (handle-result-context (instant-result-fn) exchange)
-    (catch Throwable t (exchange/throw* exchange t)))
+    (handle-result-context (instant-result-fn) e)
+    (catch Throwable t (exchange/throw* e t)))
   'handle-instant-result)
 
 (declare handle-result)
 
 (defn- handle-blocking-result
-  [blocking-result-fn, ^HttpServerExchange exchange]
-  (if (.isInIoThread exchange)
+  [blocking-result-fn, ^HttpServerExchange e]
+  (if (.isInIoThread e)
     (->> ^Runnable
-         (^:once fn* [] (try (handle-result (blocking-result-fn) exchange)
-                             (catch Throwable t (exchange/throw* exchange t))))
-         (.dispatch exchange))
-    (handle-result (blocking-result-fn) exchange))
+         (^:once fn* [] (try (handle-result (blocking-result-fn) e)
+                             (catch Throwable t (exchange/throw* e t))))
+         (.dispatch e))
+    (handle-result (blocking-result-fn) e))
   'handle-blocking-result)
 
 (defn- handle-async-result
-  [async-result-fn, ^HttpServerExchange exchange]
+  [async-result-fn, ^HttpServerExchange e]
   (letfn [(async-callback [result]
-            (handle-result result exchange))]
-    (if (.isDispatched exchange)
-      (async-result-fn (async-callback exchange))
+            (handle-result result e))]
+    (if (.isDispatched e)
+      (async-result-fn (async-callback e))
       (->> ^Runnable
            (^:once fn* []
-             (try (async-result-fn (async-callback exchange))
-                  (catch Throwable t (exchange/throw* exchange t))))
-           (.dispatch exchange SameThreadExecutor/INSTANCE)))
+             (try (async-result-fn (async-callback e))
+                  (catch Throwable t (exchange/throw* e t))))
+           (.dispatch e SameThreadExecutor/INSTANCE)))
     'handle-async-result))
 
 (defn- handle-result
