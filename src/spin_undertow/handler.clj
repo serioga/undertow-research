@@ -1,11 +1,10 @@
 (ns spin-undertow.handler
-  (:refer-clojure :exclude [get])
   (:require [spin.handler :as handler]
             [spin.request :as request]
             [undertow.api.exchange :as exchange])
   (:import (clojure.lang IPersistentMap)
            (io.undertow.server HttpHandler HttpServerExchange)
-           (io.undertow.util HeaderMap HttpString SameThreadExecutor)
+           (io.undertow.util AttachmentKey HeaderMap HttpString SameThreadExecutor)
            (java.nio.charset Charset)
            (java.util ArrayDeque Collection)))
 
@@ -16,6 +15,10 @@
 (defmulti request-api
   ""
   request/api-dispatch)
+
+(comment
+  (methods request-api)
+  )
 
 (def request-api-add (partial request/api-add request-api))
 
@@ -78,6 +81,18 @@
                                  :value (.getValue c)
                                  :path (.getPath c)}))
 
+(defonce ^{:doc ""}
+         request-state-attachment-key (AttachmentKey/create Object))
+
+(defn- get-request-state
+  ([^HttpServerExchange e _ k]
+   (-> (.getAttachment e request-state-attachment-key)
+       (get k)))
+  ([^HttpServerExchange e _ k v]
+   (.putAttachment e request-state-attachment-key
+                   (-> (.getAttachment e request-state-attachment-key)
+                       (assoc k v)))))
+
 (request-api-add get-request-server-exchange :server-exchange)
 (request-api-add get-request-server-port,,,, :server-port)
 (request-api-add get-request-server-name,,,, :server-name :server-host)
@@ -93,6 +108,7 @@
 (request-api-add get-request-query-param*,,, :query-param*)
 (request-api-add get-request-cookie,,,,,,,,, :cookie)
 (request-api-add get-request-cookie-info,,,, :cookie-info)
+(request-api-add get-request-state,,,,,,,,,, :state!)
 
 ;; TODO: protocol, path-info
 
@@ -156,7 +172,7 @@
     (some-> (.valAt context :response) (handle-response exchange))
 
     #_(let [end-time (System/nanoTime)]
-      #p (- end-time (:start-time context))))
+        #p (- end-time (:start-time context))))
 
   (.endExchange exchange))
 

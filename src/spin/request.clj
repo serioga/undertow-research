@@ -1,5 +1,4 @@
 (ns spin.request
-  (:refer-clojure :exclude [get])
   (:require [clojure.string :as string])
   (:import (clojure.lang ILookup MultiFn)))
 
@@ -35,6 +34,8 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; TODO: change ILookup to Associative because of :state ?
+
 (defmulti lookup-api
   ""
   api-dispatch)
@@ -43,7 +44,8 @@
 
 (defn lookup-request-fn
   [m]
-  (request-fn m lookup-api))
+  (-> (assoc m ::state! (or (get m ::state!) (atom nil)))
+      (request-fn lookup-api)))
 
 (defn lookup-key
   [^ILookup m k] (.valAt m k))
@@ -59,12 +61,21 @@
 (defn lookup-header*
   [^ILookup m _ x] (list (lookup-header m :header x)))
 
+(defn lookup-state!
+  ([^ILookup m _ k] (-> (.valAt m ::state!) (deref) (get k)))
+  ([^ILookup m _ k v] (as-> (.valAt m ::state!) state
+                            (if (some? v)
+                              (swap! state assoc k v)
+                              (swap! state dissoc k))
+                            nil)))
+
 ;; TODO: return nil for "" query string
 
 (lookup-api-add lookup-key :server-exchange :server-port :server-name :remote-addr :uri :query-string :scheme :body)
 (lookup-api-add lookup-method :method :request-method)
 (lookup-api-add lookup-header :header)
 (lookup-api-add lookup-header* :header*)
+(lookup-api-add lookup-state! :state!)
 
 ;; TODO: cookie/cookie*
 ;; TODO: query-param
@@ -83,6 +94,8 @@
   (-req :uri)
   (-req :method)
   (-req :method :get)
+  (-req :state! :x)
+  (-req :state! :x :val)
 
   )
 

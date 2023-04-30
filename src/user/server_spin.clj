@@ -71,6 +71,8 @@
   (-request :request-method)
   (.getRequestMethod -e)
   (.equals Methods/GET (.getRequestMethod -e))
+  (-request :state! :k)
+  (-request :state! :k :v)
   )
 
 (defn start-test-server
