@@ -15,7 +15,7 @@
 (defprotocol HandlerResult
   "The abstraction for 1) non-blocking 2) blocking 3) async result of http handler."
 
-  (instant-result-fn 
+  (instant-result-fn
     [result]
     "When result is available returns function `(fn [] result)` which returns
     the result value or throws exception.")
@@ -33,7 +33,7 @@
     `(fn [callback] ... (callback result))` which receives 1-arity callback to
     listen for future result completion.")
 
-  (update-result 
+  (update-result
     [result, f]
     "Returns new result with function `f` applied to result value."))
 
@@ -46,26 +46,26 @@
 ;; All types represent instant result value by default.
 
 (extend-protocol HandlerResult Object
-  (instant-result-fn [this] (fn object-result [] this))
-  (blocking-result-fn [_],, nil)
-  (async-result-fn [_],,,,, nil)
-  (update-result [this f],, (f this)))
+  (instant-result-fn,,, [this] (fn object-result [] this))
+  (blocking-result-fn,,,,, [_] nil)
+  (async-result-fn,,,,,,,, [_] nil)
+  (update-result,,,,, [this f] (f this)))
 
 (extend-protocol HandlerResult nil
-  (instant-result-fn [_], (fn nil-result [] nil))
-  (blocking-result-fn [_] nil)
-  (async-result-fn [_],,, nil)
-  (update-result [_ f],,, (f nil)))
+  (instant-result-fn,,,, [_] (fn nil-result [] nil))
+  (blocking-result-fn,,, [_] nil)
+  (async-result-fn,,,,,, [_] nil)
+  (update-result,,,,,, [_ f] (f nil)))
 
 ;; ### Exceptions ###
 ;;
 ;; Exceptions represents error result.
 
 (extend-protocol HandlerResult Throwable
-  (instant-result-fn [t], (fn throwable-result [] (throw t)))
-  (blocking-result-fn [_] nil)
-  (async-result-fn [_],,, nil)
-  (update-result [t _],,, (throw t)))
+  (instant-result-fn,,,, [t] (fn throwable-result [] (throw t)))
+  (blocking-result-fn,,, [_] nil)
+  (async-result-fn,,,,,, [_] nil)
+  (update-result,,,,,, [t _] (throw t)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

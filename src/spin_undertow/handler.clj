@@ -61,9 +61,9 @@
 
 (defn- handle-result
   [result, exchange]
-  (or (some-> (handler/instant-result-fn result), (handle-instant-result exchange))
-      (some-> (handler/blocking-result-fn result) (handle-blocking-result exchange))
-      (some-> (handler/async-result-fn result),,, (handle-async-result exchange))
+  (or (some-> (handler/instant-result-fn result),,,, (handle-instant-result exchange))
+      (some-> (handler/blocking-result-fn result),,, (handle-blocking-result exchange))
+      (some-> (handler/async-result-fn result),,,,,, (handle-async-result exchange))
       (throw (ex-info (str "Missing handler for " (pr-str result)) {}))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

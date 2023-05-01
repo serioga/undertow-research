@@ -104,10 +104,10 @@
 (extend-protocol HandleResponse IPersistentMap
   (handle-response
     [response ^HttpServerExchange exchange]
-    (when-some [headers,, (.valAt response :headers)] (doto exchange (put-headers headers)))
-    (when-some [status,,, (.valAt response :status)], (doto exchange (.setStatusCode status)))
-    (when-some [session (.entryAt response :session)] (doto exchange (session/update-values (val session))))
-    (when-some [body,,,,, (.valAt response :body)],,, (doto exchange ((send-response-fn body))))
+    (when-some [headers,,,,, (.valAt response :headers)],,, (doto exchange (put-headers headers)))
+    (when-some [status,,,,,, (.valAt response :status)],,,, (doto exchange (.setStatusCode status)))
+    (when-some [session,,, (.entryAt response :session)],,, (doto exchange (session/update-values (val session))))
+    (when-some [body,,,,,,,, (.valAt response :body)],,,,,, (doto exchange ((send-response-fn body))))
     nil))
 
 ;; Response HTTP 404 for `nil` response.

@@ -56,8 +56,8 @@
 
 (set-validator! #'*handler-fn-adapter* validate-handler-fn-adapter)
 
-(.addMethod ^MultiFn as-handler Fn,,,,, #'*handler-fn-adapter*)
-(.addMethod ^MultiFn as-handler MultiFn #'*handler-fn-adapter*)
+(.addMethod ^MultiFn as-handler Fn,,,,,,,, #'*handler-fn-adapter*)
+(.addMethod ^MultiFn as-handler MultiFn,,, #'*handler-fn-adapter*)
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 

@@ -95,11 +95,11 @@
       (apply-map set-socket-option socket-options)
       (apply-map set-worker-option worker-options)
       (cond->
-        handler,,,,,,,,,,,,,,, (.setHandler (types/as-handler handler))
-        buffer-size,,,,,,,,,,, (.setBufferSize buffer-size)
-        io-threads,,,,,,,,,,,, (.setIoThreads io-threads)
-        worker-threads,,,,,,,, (.setWorkerThreads worker-threads)
-        (some? direct-buffers) (.setDirectBuffers (boolean direct-buffers)))))
+        handler,,,,,,,,,,,,,,,,,, (.setHandler (types/as-handler handler))
+        buffer-size,,,,,,,,,,,,,, (.setBufferSize buffer-size)
+        io-threads,,,,,,,,,,,,,,, (.setIoThreads io-threads)
+        worker-threads,,,,,,,,,,, (.setWorkerThreads worker-threads)
+        (some? direct-buffers),,, (.setDirectBuffers (boolean direct-buffers)))))
 
 (defn build
   ^Undertow

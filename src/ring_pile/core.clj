@@ -72,10 +72,10 @@
   (let [config-types (-> (select-keys config [:outer :enter :leave :inner])
                          (update-vals (partial map middleware-type)))
         ignore (set ignore-requires)]
-    (doseq [[_ group-middlewares], config
-            middleware,,,,,,,,,,,, group-middlewares
-            [config-key req-types] (requires middleware)
-            req-type,,,,,,,,,,,,,, req-types
+    (doseq [[_ group-middlewares],,,, config
+            middleware,,,,,,,,,,,,,,, group-middlewares
+            [config-key req-types],,, (requires middleware)
+            req-type,,,,,,,,,,,,,,,,, req-types
             :when (not (ignore req-type))]
       (when-not (->> (config-key config-types)
                      (take-while (complement (partial = (middleware-type middleware))))
