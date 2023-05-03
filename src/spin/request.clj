@@ -1,7 +1,6 @@
 (ns spin.request
   (:refer-clojure :exclude [key])
-  (:import (clojure.lang PersistentHashMap)
-           (java.util IdentityHashMap Map)))
+  (:import (java.util IdentityHashMap Map)))
 
 (set! *warn-on-reflection* true)
 
@@ -43,12 +42,13 @@
   [object, ^Map object-methods]
   (fn request*
     ([]
-     (with-meta (->> (distinct (concat (.keySet object-methods)
-                                       (.keySet request-methods)))
-                     (into {} (map (fn [key] [key (try (request* key) (catch Throwable t t))]))))
-                {::object object
-                 ::methods {:object object-methods
-                            :request request-methods}}))
+     (letfn [(add-method-type [typ] (fn [method] {:type typ :method method}))]
+       (with-meta (->> (distinct (concat (.keySet object-methods)
+                                         (.keySet request-methods)))
+                       (into {} (map (fn [key] [key (try (request* key) (catch Throwable t t))]))))
+                  {::object object
+                   ::methods (merge (update-vals request-methods (add-method-type ::request-method))
+                                    (update-vals object-methods (add-method-type ::object-method)))})))
     ([key]
      (if-let [method (.get object-methods key)]
        (method object key)
