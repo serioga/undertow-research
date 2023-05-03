@@ -1,9 +1,10 @@
 (ns spin-undertow.request
   (:require [spin.request :as request]
             [undertow.api.exchange :as exchange])
-  (:import (io.undertow.server HttpServerExchange)
+  (:import (clojure.lang MapEntry)
+           (io.undertow.server HttpServerExchange)
            (io.undertow.server.handlers Cookie)
-           (io.undertow.util AttachmentKey)
+           (io.undertow.util AttachmentKey HeaderValues)
            (java.util ArrayDeque)))
 
 (set! *warn-on-reflection* true)
@@ -55,6 +56,13 @@
   (exchange/get-input-stream e))
 
 (defn -header
+  ([^HttpServerExchange e _]
+   (some->> (.getRequestHeaders e)
+            (.iterator)
+            (iterator-seq)
+            (map (fn [^HeaderValues h]
+                   (MapEntry. (.toString (.getHeaderName h))
+                              (iterator-seq (.iterator h)))))))
   ([^HttpServerExchange e _ x]
    (.getFirst (.getRequestHeaders e) ^String x))
   ([^HttpServerExchange e _ ^String x many?]
@@ -64,6 +72,8 @@
            (.getFirst header-map x)))))
 
 (defn -query-param
+  ([^HttpServerExchange e _]
+   (update-vals (.getQueryParameters e) seq))
   ([^HttpServerExchange e _ x]
    (some-> ^ArrayDeque (.get (.getQueryParameters e) x)
            (.peekFirst)))
@@ -82,6 +92,9 @@
    :path (.getPath c)})
 
 (defn -cookie
+  ([^HttpServerExchange e _]
+   (->> (.requestCookies e)
+        (map cookie-map)))
   ([^HttpServerExchange e _ x]
    (some-> (.getRequestCookie e x)
            (.getValue)))
@@ -91,16 +104,19 @@
                              (.getValue c))))))
 
 (defonce ^{:doc ""}
-         request-state-attachment-key (AttachmentKey/create Object))
+  STATE_KEY (AttachmentKey/create Object))
 
 (defn -state
+  ([^HttpServerExchange e _]
+   (.getAttachment e STATE_KEY))
   ([^HttpServerExchange e _ k]
-   (-> (.getAttachment e request-state-attachment-key)
+   (-> (.getAttachment e STATE_KEY)
        (get k)))
   ([^HttpServerExchange e _ k v]
-   (.putAttachment e request-state-attachment-key
-                   (-> (.getAttachment e request-state-attachment-key)
-                       (assoc k v)))))
+   (.putAttachment e STATE_KEY (as-> (.getAttachment e STATE_KEY) state
+                                     (if (some? v) (assoc state k v)
+                                                   (dissoc state k))))
+   nil))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
