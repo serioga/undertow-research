@@ -60,7 +60,7 @@
   (.getRequestCookies -e)
   (some-> (.getRequestCookie -e "JSESSIONID") (.getValue))
   (-request :cookie "JSESSIONID")
-  (-request :cookie-info "JSESSIONID")
+  (-request :cookie "JSESSIONID" :data)
   (first (.get (.getQueryParameters -e) "a"))
   (.getQueryString -e)
   (.peekFirst ^java.util.ArrayDeque (.get (.getQueryParameters -e) "a"))

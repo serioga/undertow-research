@@ -2,6 +2,7 @@
   (:require [spin.request :as request]
             [undertow.api.exchange :as exchange])
   (:import (io.undertow.server HttpServerExchange)
+           (io.undertow.server.handlers Cookie)
            (io.undertow.util AttachmentKey)
            (java.util ArrayDeque)))
 
@@ -72,18 +73,22 @@
      (seq (.get (.getQueryParameters e) x))
      (-query-param e _ x))))
 
-(defn -cookie
-  [^HttpServerExchange e _ x]
-  (some-> (.getRequestCookie e x) (.getValue)))
+(defn- cookie-map
+  [^Cookie c]
+  ;; TODO: cookie map fields
+  ;; TODO: skip empty fields?
+  {:name (.getName c)
+   :value (.getValue c)
+   :path (.getPath c)})
 
-(defn -cookie-info
-  [^HttpServerExchange e _ x]
-  (when-let [c (.getRequestCookie e x)]
-    ;; TODO: cookie map fields
-    ;; TODO: skip empty fields?
-    {:name (.getName c)
-     :value (.getValue c)
-     :path (.getPath c)}))
+(defn -cookie
+  ([^HttpServerExchange e _ x]
+   (some-> (.getRequestCookie e x)
+           (.getValue)))
+  ([^HttpServerExchange e _ x data?]
+   (some-> (.getRequestCookie e x)
+           (as-> c (if data? (cookie-map c)
+                             (.getValue c))))))
 
 (defonce ^{:doc ""}
          request-state-attachment-key (AttachmentKey/create Object))
@@ -115,7 +120,6 @@
 (add-method -body,,,,,,,,,,,,,, :body :input-stream)
 (add-method -header,,,,,,,,,,,, :header)
 (add-method -cookie,,,,,,,,,,,, :cookie)
-(add-method -cookie-info,,,,,,, :cookie-info)
 (add-method -state,,,,,,,,,,,,, :state!)
 
 ;; TODO: protocol, path-info
