@@ -20,6 +20,9 @@
    (= x (.valAt m :request-method))))
 
 (defn -header
+  ([^IPersistentMap m _]
+   (some->> (.valAt m :headers)
+            (map #(update % 1 list))))
   ([^IPersistentMap m _ x]
    (some-> ^IPersistentMap (.valAt m :headers)
            (.valAt (string/lower-case x))))
@@ -28,6 +31,8 @@
      many? (list))))
 
 (defn -state
+  ([^IPersistentMap m _]
+   (-> (.valAt m ::state!) (deref)))
   ([^IPersistentMap m _ k]
    (-> (.valAt m ::state!) (deref) (get k)))
   ([^IPersistentMap m _ k v]
@@ -66,6 +71,8 @@
                                        "content-type" "plain/text"
                                        "x-test-seq" "1, 2, 3"}}))
   (-req)
+  (meta (-req))
+  (-req :header)
   (-req :header "content-type")
   (-req :header "x-test-seq")
   (-req :header "x-test-seq" :many)
@@ -73,8 +80,10 @@
   (-req :uri)
   (-req :method)
   (-req :method :get)
+  (-req :state!)
   (-req :state! :x)
   (-req :state! :x :val)
+  (-req :state! :x nil)
   (-req :proxy :method)
   (-req :proxy :method :get)
   (-req :state-k)

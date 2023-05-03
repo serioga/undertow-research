@@ -42,8 +42,13 @@
   ""
   [object, ^Map object-methods]
   (fn request*
-    ([] (merge (PersistentHashMap/create request-methods)
-               (PersistentHashMap/create object-methods)))
+    ([]
+     (with-meta (->> (distinct (concat (.keySet object-methods)
+                                       (.keySet request-methods)))
+                     (into {} (map (fn [key] [key (try (request* key) (catch Throwable t t))]))))
+                {::object object
+                 ::methods {:object object-methods
+                            :request request-methods}}))
     ([key]
      (if-let [method (.get object-methods key)]
        (method object key)
