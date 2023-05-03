@@ -55,20 +55,20 @@
        (if-let [method (.get request-methods key)]
          (method request* key)
          (throw (ex-info (str "Undefined request method " key " for " (class object))
-                         {:methods (request*)})))))
+                         (meta (request*)))))))
     ([key x]
      (if-let [method (.get object-methods key)]
        (method object key x)
        (if-let [method (.get request-methods key)]
          (method request* key x)
          (throw (ex-info (str "Undefined request method " key " for " (class object))
-                         {:methods (request*)})))))
+                         (meta (request*)))))))
     ([key x y]
      (if-let [method (.get object-methods key)]
        (method object key x y)
        (if-let [method (.get request-methods key)]
          (method request* key x y)
          (throw (ex-info (str "Undefined request method " key " for " (class object))
-                         {:methods (request*)})))))))
+                         (meta (request*)))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
