@@ -1,4 +1,4 @@
-(ns spin.request.ring
+(ns spin.request.ring-map
   ""
   (:refer-clojure :exclude [key])
   (:require [clojure.string :as string]
