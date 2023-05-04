@@ -37,10 +37,12 @@
         (when-not (.isEmpty s) s)))
 
 (defn -scheme
-  [^HttpServerExchange e _]
-  (as-> (.getRequestScheme e) s
-        (case s "http" :http "https" :https
-                (keyword (.toLowerCase ^String s)))))
+  ([^HttpServerExchange e _]
+   (as-> (.getRequestScheme e) s
+         (case s "http" :http "https" :https
+                 (keyword (.toLowerCase ^String s)))))
+  ([^HttpServerExchange e _ _raw?]
+   (.getRequestScheme e)))
 
 (defn -method
   ([^HttpServerExchange e _]
@@ -48,7 +50,8 @@
          (case s "GET" :get "POST" :post "PUT" :put
                  "DELETE" :delete "HEAD" :head "OPTIONS" :options
                  (keyword (.toLowerCase ^String s)))))
-  ([e _ x] (.equals ^Object (-method e _) x)))
+  ([e _ _raw?]
+   (.toString (.getRequestMethod e))))
 
 ;; TODO: dispatch blocking when work with input stream
 (defn -body
@@ -77,7 +80,6 @@
   ([^HttpServerExchange e _ x]
    (some-> ^ArrayDeque (.get (.getQueryParameters e) x)
            (.peekFirst)))
-
   ([^HttpServerExchange e _ x many?]
    (if many?
      (seq (.get (.getQueryParameters e) x))
@@ -112,7 +114,7 @@
   ([^HttpServerExchange e _ k]
    (-> (.getAttachment e STATE_KEY)
        (get k)))
-  ([^HttpServerExchange e _ k v]
+  ([^HttpServerExchange e _ k _set! v]
    (.putAttachment e STATE_KEY (as-> (.getAttachment e STATE_KEY) state
                                      (if (some? v) (assoc state k v)
                                                    (dissoc state k))))

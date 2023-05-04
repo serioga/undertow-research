@@ -15,8 +15,8 @@
 (defn -method
   ([^IPersistentMap m _]
    (.valAt m :request-method))
-  ([^IPersistentMap m _ x]
-   (= x (.valAt m :request-method))))
+  ([^IPersistentMap m _ _raw?]
+   (.valAt m :request-method)))
 
 (defn -header
   ([^IPersistentMap m _]
@@ -34,7 +34,7 @@
    (-> (.valAt m ::state!) (deref)))
   ([^IPersistentMap m _ k]
    (-> (.valAt m ::state!) (deref) (get k)))
-  ([^IPersistentMap m _ k v]
+  ([^IPersistentMap m _ k _set! v]
    (as-> (.valAt m ::state!) state
          (if (some? v)
            (swap! state assoc k v)
@@ -78,13 +78,11 @@
   (-req :header "x-test-seq" false)
   (-req :uri)
   (-req :method)
-  (-req :method :get)
+  (-req :method :raw)
   (-req :state!)
   (-req :state! :x)
-  (-req :state! :x :val)
-  (-req :state! :x nil)
-  (-req :proxy :method)
-  (-req :proxy :method :get)
+  (-req :state! :x :set! :val)
+  (-req :state! :x :set! nil)
   (-req :state-k)
   (-req :state-k :x)
 

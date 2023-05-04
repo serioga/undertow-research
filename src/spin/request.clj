@@ -23,15 +23,9 @@
 
 ;; TODO: remove extra default keys
 
-(add-method (fn custom-proxy
-              ([request _ method] (request method))
-              ([request _ method k] (request method k))
-              ([request _ method k v] (request method k v)))
-            :proxy)
-
 (add-method (fn custom-state-k
               ([request _] (request :state! :state-k))
-              ([request _ v] (request :state! :state-k v)))
+              ([request _ v] (request :state! :state-k :set! v)))
             :state-k)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -69,11 +63,18 @@
          (method request* id x y)
          (throw (ex-info (str "Undefined request method " id " for " (class object))
                          (meta (request*)))))))
-    ([id x y & more]
+    ([id x y z]
      (if-let [method (.get object-methods id)]
-       (apply method object id x y more)
+       (method object id x y z)
        (if-let [method (.get request-methods id)]
-         (apply method request* id x y more)
+         (method request* id x y z)
+         (throw (ex-info (str "Undefined request method " id " for " (class object))
+                         (meta (request*)))))))
+    ([id x y z & more]
+     (if-let [method (.get object-methods id)]
+       (apply method object id x y z more)
+       (if-let [method (.get request-methods id)]
+         (apply method request* id x y z more)
          (throw (ex-info (str "Undefined request method " id " for " (class object))
                          (meta (request*)))))))))
 

@@ -73,14 +73,14 @@
   (-request :query-param "a" :many)
   (-request :uri)
   (-request :method)
-  (-request :method :get)
+  (-request :method :raw)
   (-request :request-method)
   (.getRequestMethod -e)
   (.equals Methods/GET (.getRequestMethod -e))
   (-request :state! )
   (-request :state! :k)
-  (-request :state! :k :v)
-  (-request :state! :k nil)
+  (-request :state! :k :set! :v)
+  (-request :state! :k :set! nil)
   )
 
 (defn start-test-server
