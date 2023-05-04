@@ -33,12 +33,12 @@
 (defn create-request
   ""
   [object, ^Map object-methods]
-  (fn request*
+  (fn request
     ([]
      (letfn [(add-type [typ] (fn [method] {:type typ :method method}))]
        (with-meta (->> (distinct (concat (.keySet object-methods)
                                          (.keySet request-methods)))
-                       (into {} (map (fn [id] [id (try (request* id) (catch Throwable t t))]))))
+                       (into {} (map (fn [id] [id (try (request id) (catch Throwable t t))]))))
                   {::object object
                    ::methods (merge (update-vals request-methods (add-type ::request-method))
                                     (update-vals object-methods (add-type ::object-method)))})))
@@ -46,36 +46,36 @@
      (if-let [method (.get object-methods id)]
        (method object id)
        (if-let [method (.get request-methods id)]
-         (method request* id)
+         (method request id)
          (throw (ex-info (str "Undefined request method " id " for " (class object))
-                         (meta (request*)))))))
+                         (meta (request)))))))
     ([id x]
      (if-let [method (.get object-methods id)]
        (method object id x)
        (if-let [method (.get request-methods id)]
-         (method request* id x)
+         (method request id x)
          (throw (ex-info (str "Undefined request method " id " for " (class object))
-                         (meta (request*)))))))
+                         (meta (request)))))))
     ([id x y]
      (if-let [method (.get object-methods id)]
        (method object id x y)
        (if-let [method (.get request-methods id)]
-         (method request* id x y)
+         (method request id x y)
          (throw (ex-info (str "Undefined request method " id " for " (class object))
-                         (meta (request*)))))))
+                         (meta (request)))))))
     ([id x y z]
      (if-let [method (.get object-methods id)]
        (method object id x y z)
        (if-let [method (.get request-methods id)]
-         (method request* id x y z)
+         (method request id x y z)
          (throw (ex-info (str "Undefined request method " id " for " (class object))
-                         (meta (request*)))))))
+                         (meta (request)))))))
     ([id x y z & more]
      (if-let [method (.get object-methods id)]
        (apply method object id x y z more)
        (if-let [method (.get request-methods id)]
-         (apply method request* id x y z more)
+         (apply method request id x y z more)
          (throw (ex-info (str "Undefined request method " id " for " (class object))
-                         (meta (request*)))))))))
+                         (meta (request)))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
