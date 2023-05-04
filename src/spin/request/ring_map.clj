@@ -1,6 +1,5 @@
 (ns spin.request.ring-map
   ""
-  (:refer-clojure :exclude [key])
   (:require [clojure.string :as string]
             [spin.request :as request])
   (:import (clojure.lang IPersistentMap)))

@@ -1,5 +1,4 @@
 (ns spin.request
-  (:refer-clojure :exclude [key])
   (:import (java.util IdentityHashMap Map)))
 
 (set! *warn-on-reflection* true)
@@ -12,8 +11,8 @@
 
 (defn add-method*
   ""
-  [methods f key & ks]
-  (doseq [k (cons key ks)]
+  [methods f id & ks]
+  (doseq [k (cons id ks)]
     (.put ^Map methods k f)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -42,33 +41,33 @@
   [object, ^Map object-methods]
   (fn request*
     ([]
-     (letfn [(add-method-type [typ] (fn [method] {:type typ :method method}))]
+     (letfn [(add-type [typ] (fn [method] {:type typ :method method}))]
        (with-meta (->> (distinct (concat (.keySet object-methods)
                                          (.keySet request-methods)))
-                       (into {} (map (fn [key] [key (try (request* key) (catch Throwable t t))]))))
+                       (into {} (map (fn [id] [id (try (request* id) (catch Throwable t t))]))))
                   {::object object
-                   ::methods (merge (update-vals request-methods (add-method-type ::request-method))
-                                    (update-vals object-methods (add-method-type ::object-method)))})))
-    ([key]
-     (if-let [method (.get object-methods key)]
-       (method object key)
-       (if-let [method (.get request-methods key)]
-         (method request* key)
-         (throw (ex-info (str "Undefined request method " key " for " (class object))
+                   ::methods (merge (update-vals request-methods (add-type ::request-method))
+                                    (update-vals object-methods (add-type ::object-method)))})))
+    ([id]
+     (if-let [method (.get object-methods id)]
+       (method object id)
+       (if-let [method (.get request-methods id)]
+         (method request* id)
+         (throw (ex-info (str "Undefined request method " id " for " (class object))
                          (meta (request*)))))))
-    ([key x]
-     (if-let [method (.get object-methods key)]
-       (method object key x)
-       (if-let [method (.get request-methods key)]
-         (method request* key x)
-         (throw (ex-info (str "Undefined request method " key " for " (class object))
+    ([id x]
+     (if-let [method (.get object-methods id)]
+       (method object id x)
+       (if-let [method (.get request-methods id)]
+         (method request* id x)
+         (throw (ex-info (str "Undefined request method " id " for " (class object))
                          (meta (request*)))))))
-    ([key x y]
-     (if-let [method (.get object-methods key)]
-       (method object key x y)
-       (if-let [method (.get request-methods key)]
-         (method request* key x y)
-         (throw (ex-info (str "Undefined request method " key " for " (class object))
+    ([id x y]
+     (if-let [method (.get object-methods id)]
+       (method object id x y)
+       (if-let [method (.get request-methods id)]
+         (method request* id x y)
+         (throw (ex-info (str "Undefined request method " id " for " (class object))
                          (meta (request*)))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
