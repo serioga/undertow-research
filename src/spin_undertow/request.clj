@@ -50,7 +50,7 @@
          (case s "GET" :get "POST" :post "PUT" :put
                  "DELETE" :delete "HEAD" :head "OPTIONS" :options
                  (keyword (.toLowerCase ^String s)))))
-  ([e _ _raw?]
+  ([^HttpServerExchange e _ _raw?]
    (.toString (.getRequestMethod e))))
 
 ;; TODO: dispatch blocking when work with input stream
