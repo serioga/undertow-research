@@ -1,7 +1,8 @@
 (ns spin.handler-test
   (:require [clojure.core.async :as async]
             [spin.handler :as handler])
-  (:import (java.util.concurrent CompletableFuture)))
+  (:import (clojure.lang IDeref)
+           (java.util.concurrent CompletableFuture)))
 
 (set! *warn-on-reflection* true)
 
@@ -10,11 +11,11 @@
 (defn handle
   [result]
   #_(Thread/sleep 100)
-  (if-let [instant-result (handler/instant-result-fn result)]
-    (instant-result)
-    (if-let [blocking-result (handler/blocking-result-fn result)]
-      (blocking-result)
-      (do ((handler/async-result-fn result) prn)
+  (if-let [ref (handler/instant-result result)]
+    (.deref ^IDeref ref)
+    (if-let [ref (handler/blocking-result result)]
+      (.deref ^IDeref ref)
+      (do ((handler/async-result result) prn)
           :async))))
 
 (comment
@@ -22,16 +23,16 @@
   (def -result {:response {:status 200}})
 
   ;; instant values
-  ((handler/instant-result-fn -nil))
-  ((handler/instant-result-fn -result))
+  (handler/instant-result -nil)
+  (handler/instant-result -result)
 
   (handle -result)
   (handle (handler/update-result -result identity))
 
   ;; completable future
   (CompletableFuture.)
-  (handler/async-result-fn (CompletableFuture.))
-  ((handler/async-result-fn (CompletableFuture.)) identity)
+  (handler/async-result (CompletableFuture.))
+  ((handler/async-result (CompletableFuture.)) identity)
   (handle (-> (CompletableFuture.)
               (doto (.completeExceptionally (ex-info "Oops" {})))))
   (handle (-> (CompletableFuture.)

@@ -3,7 +3,7 @@
             [spin-undertow.response :as response]
             [spin.handler :as handler]
             [undertow.api.exchange :as exchange])
-  (:import (clojure.lang IPersistentMap)
+  (:import (clojure.lang IDeref IPersistentMap)
            (io.undertow.server HttpHandler HttpServerExchange)
            (io.undertow.util SameThreadExecutor)))
 
@@ -28,42 +28,41 @@
   (.endExchange e))
 
 (defn- handle-instant-result
-  [instant-result-fn, ^HttpServerExchange e]
+  [^IDeref ref, ^HttpServerExchange e]
   (try
-    (handle-result-context (instant-result-fn) e)
+    (handle-result-context (.deref ref) e)
     (catch Throwable t (exchange/throw* e t)))
   'handle-instant-result)
 
 (declare handle-result)
 
 (defn- handle-blocking-result
-  [blocking-result-fn, ^HttpServerExchange e]
+  [^IDeref ref, ^HttpServerExchange e]
   (if (.isInIoThread e)
     (->> ^Runnable
-         (^:once fn* [] (try (handle-result (blocking-result-fn) e)
+         (^:once fn* [] (try (handle-result (.deref ref) e)
                              (catch Throwable t (exchange/throw* e t))))
          (.dispatch e))
-    (handle-result (blocking-result-fn) e))
+    (handle-result (.deref ref) e))
   'handle-blocking-result)
 
 (defn- handle-async-result
-  [async-result-fn, ^HttpServerExchange e]
-  (letfn [(async-callback [result]
-            (handle-result result e))]
+  [async-result, ^HttpServerExchange e]
+  (letfn [(callback [result] (handle-result result e))]
     (if (.isDispatched e)
-      (async-result-fn (async-callback e))
+      (async-result callback)
       (->> ^Runnable
            (^:once fn* []
-             (try (async-result-fn (async-callback e))
+             (try (async-result callback)
                   (catch Throwable t (exchange/throw* e t))))
            (.dispatch e SameThreadExecutor/INSTANCE)))
     'handle-async-result))
 
 (defn- handle-result
   [result, exchange]
-  (or (some-> (handler/instant-result-fn result),,,, (handle-instant-result exchange))
-      (some-> (handler/blocking-result-fn result),,, (handle-blocking-result exchange))
-      (some-> (handler/async-result-fn result),,,,,, (handle-async-result exchange))
+  (or (some-> (handler/instant-result result),,, (handle-instant-result exchange))
+      (some-> (handler/blocking-result result),, (handle-blocking-result exchange))
+      (some-> (handler/async-result result),,,,, (handle-async-result exchange))
       (throw (ex-info (str "Missing handler for " (pr-str result)) {}))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

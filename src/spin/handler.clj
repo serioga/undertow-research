@@ -1,7 +1,7 @@
 (ns spin.handler
   (:require [clojure.core.async :as async])
   (:import (clojure.core.async.impl.channels ManyToManyChannel)
-           (clojure.lang Delay)
+           (clojure.lang Delay IDeref)
            (java.util LinkedList)
            (java.util.concurrent CompletableFuture)
            (java.util.function BiConsumer Function)))
@@ -13,20 +13,21 @@
 ;; ## Protocols ##
 
 (defprotocol HandlerResult
-  "The abstraction for 1) non-blocking 2) blocking 3) async result of http handler."
+  "The abstraction for 1) instant (non-blocking) 2) blocking 3) async result of
+  http handler."
 
-  (instant-result-fn
+  (instant-result
     [result]
-    "When result is available returns function `(fn [] result)` which returns
-    the result value or throws exception.")
+    "When result is available returns `IDeref` which returns the result value or
+    throws exception on `deref`.")
 
-  (blocking-result-fn
+  (blocking-result
     [result]
-    "When result is available only with blocking call returns function
-    `(fn [] result)` which returns new computed result or throws exception.
-    Returned function should not be called on IO thread.")
+    "When result is available only with blocking call returns `IDeref` which
+    computes new result on `deref`. The `deref` should not be called on IO
+    thread.")
 
-  (async-result-fn
+  (async-result
     [result]
     ;; TODO: review docstring.
     "Returns `nil` for instant result. For async result returns function
@@ -43,29 +44,33 @@
 
 ;; ### Any object defaults ###
 ;;
-;; All types represent instant result value by default.
+;; All types represent instant result by default.
+
+(deftype InstantResult [x] IDeref (deref [_] x))
 
 (extend-protocol HandlerResult Object
-  (instant-result-fn,,, [this] (fn object-result [] this))
-  (blocking-result-fn,,,,, [_] nil)
-  (async-result-fn,,,,,,,, [_] nil)
-  (update-result,,,,, [this f] (f this)))
+  (instant-result,,, [this] (->InstantResult this))
+  (blocking-result,,,,, [_] nil)
+  (async-result,,,,,,,, [_] nil)
+  (update-result,, [this f] (f this)))
 
 (extend-protocol HandlerResult nil
-  (instant-result-fn,,,, [_] (fn nil-result [] nil))
-  (blocking-result-fn,,, [_] nil)
-  (async-result-fn,,,,,, [_] nil)
-  (update-result,,,,,, [_ f] (f nil)))
+  (instant-result,,, [_] (->InstantResult nil))
+  (blocking-result,, [_] nil)
+  (async-result,,,,, [_] nil)
+  (update-result,, [_ f] (f nil)))
 
 ;; ### Exceptions ###
 ;;
 ;; Exceptions represents error result.
 
+(deftype InstantThrowable [t] IDeref (deref [_] (throw t)))
+
 (extend-protocol HandlerResult Throwable
-  (instant-result-fn,,,, [t] (fn throwable-result [] (throw t)))
-  (blocking-result-fn,,, [_] nil)
-  (async-result-fn,,,,,, [_] nil)
-  (update-result,,,,,, [t _] (throw t)))
+  (instant-result,,, [t] (->InstantThrowable t))
+  (blocking-result,, [_] nil)
+  (async-result,,,,, [_] nil)
+  (update-result,, [t _] (throw t)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -74,14 +79,13 @@
 ;; ### Delay as blocking result ###
 
 (extend-protocol HandlerResult Delay
-  (instant-result-fn
+  (instant-result
     [d]
     (when (.isRealized d)
-      (instant-result-fn (.deref d))))
-  (blocking-result-fn
-    [d]
-    (fn delay-blocking-result [] (.deref d)))
-  (async-result-fn
+      (instant-result (.deref d))))
+  (blocking-result
+    [d] d)
+  (async-result
     [_] nil)
   (update-result
     [d f]
@@ -92,13 +96,13 @@
 ;; ### CompletableFuture ###
 
 (extend-type CompletableFuture HandlerResult
-  (instant-result-fn
+  (instant-result
     [fut]
     (when (.isDone fut)
-      (instant-result-fn (.get fut))))
-  (blocking-result-fn
+      (instant-result (.get fut))))
+  (blocking-result
     [_] nil)
-  (async-result-fn
+  (async-result
     [fut]
     (fn future-async-result [callback]
       (.whenComplete fut (reify BiConsumer (accept [_ v e] (callback (or e v)))))))
@@ -121,13 +125,13 @@
     x, (throw (ex-info "Async channel is closed" {}))))
 
 (extend-type ManyToManyChannel HandlerResult
-  (instant-result-fn
+  (instant-result
     [ch]
     (when (chan-value? ch)
-      (instant-result-fn (chan-get ch))))
-  (blocking-result-fn
+      (instant-result (chan-get ch))))
+  (blocking-result
     [_] nil)
-  (async-result-fn
+  (async-result
     [ch]
     (fn chan-async-result [callback]
       (async/go
