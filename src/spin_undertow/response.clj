@@ -33,10 +33,10 @@
 (extend-protocol SpinResponse IPersistentMap
   (handle-response
     [response ^HttpServerExchange exchange]
-    (when-some [headers,,,,, (.valAt response :headers)],,, (doto exchange (put-headers! headers)))
-    (when-some [status,,,,,, (.valAt response :status)],,,, (.setStatusCode exchange status))
-    ;(when-some [session,,, (.entryAt response :session)],,, (doto exchange (session/update-values (val session))))
-    (when-some [body,,,,,,,, (.valAt response :body)],,,,,, (handle-response-body body exchange))
+    (when-some [headers,,,, (.valAt response :headers)],, (doto exchange (put-headers! headers)))
+    (when-some [status,,,,, (.valAt response :status)],,, (.setStatusCode exchange status))
+    ;(when-some [session,, (.entryAt response :session)],, (doto exchange (session/update-values (val session))))
+    (when-some [body,,,,,,, (.valAt response :body)],,,,, (handle-response-body body exchange))
     nil))
 
 ;; Allow just a body in response

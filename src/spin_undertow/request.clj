@@ -126,19 +126,19 @@
 
 (def add-method (partial request/add-method* exchange-methods))
 
-(add-method -server-exchange,,, :server-exchange)
-(add-method -server-port,,,,,,, :server-port)
-(add-method -server-name,,,,,,, :server-name :server-host)
-(add-method -remote-addr,,,,,,, :remote-addr)
-(add-method -uri,,,,,,,,,,,,,,, :uri)
-(add-method -query-string,,,,,, :query-string)
-(add-method -query-param,,,,,,, :query-param)
-(add-method -scheme,,,,,,,,,,,, :scheme)
-(add-method -method,,,,,,,,,,,, :method :request-method)
-(add-method -body,,,,,,,,,,,,,, :body :input-stream)
-(add-method -header,,,,,,,,,,,, :header)
-(add-method -cookie,,,,,,,,,,,, :cookie)
-(add-method -state,,,,,,,,,,,,, :state!)
+(add-method -server-exchange,, :server-exchange)
+(add-method -server-port,,,,,, :server-port)
+(add-method -server-name,,,,,, :server-name :server-host)
+(add-method -remote-addr,,,,,, :remote-addr)
+(add-method -uri,,,,,,,,,,,,,, :uri)
+(add-method -query-string,,,,, :query-string)
+(add-method -query-param,,,,,, :query-param)
+(add-method -scheme,,,,,,,,,,, :scheme)
+(add-method -method,,,,,,,,,,, :method :request-method)
+(add-method -body,,,,,,,,,,,,, :body :input-stream)
+(add-method -header,,,,,,,,,,, :header)
+(add-method -cookie,,,,,,,,,,, :cookie)
+(add-method -state,,,,,,,,,,,, :state!)
 
 ;; TODO: protocol, path-info
 

@@ -103,10 +103,10 @@
              (.addExactPath ^PathHandler this path (types/as-handler handler)))]
      (as->
        (cond (and default-handler
-                  cache-size),,, (PathHandler. (types/as-handler default-handler) (int cache-size))
-             default-handler,,,, (PathHandler. (types/as-handler default-handler))
-             cache-size,,,,,,,,, (PathHandler. (int cache-size))
-             :else,,,,,,,,,,,,,, (PathHandler.))
+                  cache-size),, (PathHandler. (types/as-handler default-handler) (int cache-size))
+             default-handler,,, (PathHandler. (types/as-handler default-handler))
+             cache-size,,,,,,,, (PathHandler. (int cache-size))
+             :else,,,,,,,,,,,,, (PathHandler.))
        handler
        (reduce add-prefix-path handler prefix)
        (reduce add-exact-path handler exact)))))

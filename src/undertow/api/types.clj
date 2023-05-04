@@ -56,8 +56,8 @@
 
 (set-validator! #'*handler-fn-adapter* validate-handler-fn-adapter)
 
-(.addMethod ^MultiFn as-handler Fn,,,,,,,, #'*handler-fn-adapter*)
-(.addMethod ^MultiFn as-handler MultiFn,,, #'*handler-fn-adapter*)
+(.addMethod ^MultiFn as-handler Fn,,,,,,, #'*handler-fn-adapter*)
+(.addMethod ^MultiFn as-handler MultiFn,, #'*handler-fn-adapter*)
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
@@ -67,8 +67,8 @@
   {:arglists '([obj])}
   object-type)
 
-(.addMethod ^MultiFn as-wrapper Fn identity)
-(.addMethod ^MultiFn as-wrapper MultiFn identity)
+(.addMethod ^MultiFn as-wrapper Fn,,,,,,, identity)
+(.addMethod ^MultiFn as-wrapper MultiFn,, identity)
 
 ;;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 
