@@ -68,6 +68,13 @@
        (if-let [method (.get request-methods id)]
          (method request* id x y)
          (throw (ex-info (str "Undefined request method " id " for " (class object))
+                         (meta (request*)))))))
+    ([id x y & more]
+     (if-let [method (.get object-methods id)]
+       (apply method object id x y more)
+       (if-let [method (.get request-methods id)]
+         (apply method request* id x y more)
+         (throw (ex-info (str "Undefined request method " id " for " (class object))
                          (meta (request*)))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
