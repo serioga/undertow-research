@@ -58,7 +58,7 @@
   [^HttpServerExchange e _]
   (exchange/get-input-stream e))
 
-(defn -header
+(defn -headers
   ([^HttpServerExchange e _]
    (some->> (.getRequestHeaders e)
             (.iterator)
@@ -74,7 +74,7 @@
            (.get header-map x)
            (.getFirst header-map x)))))
 
-(defn -query-param
+(defn -query-params
   ([^HttpServerExchange e _]
    (update-vals (.getQueryParameters e) seq))
   ([^HttpServerExchange e _ x]
@@ -83,7 +83,7 @@
   ([^HttpServerExchange e _ x many?]
    (if many?
      (seq (.get (.getQueryParameters e) x))
-     (-query-param e _ x))))
+     (-query-params e _ x))))
 
 (defn- cookie-map
   [^Cookie c]
@@ -93,7 +93,7 @@
    :value (.getValue c)
    :path (.getPath c)})
 
-(defn -cookie
+(defn -cookies
   ([^HttpServerExchange e _]
    (->> (.requestCookies e)
         (map cookie-map)))
@@ -132,13 +132,13 @@
 (add-method -remote-addr,,,,,, :remote-addr)
 (add-method -uri,,,,,,,,,,,,,, :uri)
 (add-method -query-string,,,,, :query-string)
-(add-method -query-param,,,,,, :query-param)
+(add-method -query-params,,,,, :query-params)
 (add-method -scheme,,,,,,,,,,, :scheme)
 (add-method -method,,,,,,,,,,, :method :request-method)
 (add-method -body,,,,,,,,,,,,, :body :input-stream)
-(add-method -header,,,,,,,,,,, :header)
-(add-method -cookie,,,,,,,,,,, :cookie)
-(add-method -state,,,,,,,,,,,, :state!)
+(add-method -headers,,,,,,,,,, :headers)
+(add-method -cookies,,,,,,,,,, :cookies)
+(add-method -state,,,,,,,,,,,, :state)
 
 ;; TODO: protocol, path-info
 

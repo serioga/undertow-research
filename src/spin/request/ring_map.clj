@@ -18,7 +18,7 @@
   ([^IPersistentMap m _ _raw?]
    (.valAt m :request-method)))
 
-(defn -header
+(defn -headers
   ([^IPersistentMap m _]
    (some->> (.valAt m :headers)
             (map #(update % 1 list))))
@@ -26,7 +26,7 @@
    (some-> ^IPersistentMap (.valAt m :headers)
            (.valAt (string/lower-case x))))
   ([^IPersistentMap m _ x many?]
-   (cond-> (-header m _ x)
+   (cond-> (-headers m _ x)
      many? (list))))
 
 (defn -state
@@ -51,8 +51,8 @@
 
 (add-method -default :server-exchange :server-port :server-name :remote-addr :uri :query-string :scheme :body)
 (add-method -method :method :request-method)
-(add-method -header :header)
-(add-method -state :state!)
+(add-method -headers :headers)
+(add-method -state :state)
 
 ;; TODO: cookie/cookie*
 ;; TODO: query-param
@@ -71,18 +71,18 @@
                                        "x-test-seq" "1, 2, 3"}}))
   (-req)
   (meta (-req))
-  (-req :header)
-  (-req :header "content-type")
-  (-req :header "x-test-seq")
-  (-req :header "x-test-seq" :many)
-  (-req :header "x-test-seq" false)
+  (-req :headers)
+  (-req :headers "content-type")
+  (-req :headers "x-test-seq")
+  (-req :headers "x-test-seq" :many)
+  (-req :headers "x-test-seq" false)
   (-req :uri)
   (-req :method)
   (-req :method :raw)
-  (-req :state!)
-  (-req :state! :x)
-  (-req :state! :x :set! :val)
-  (-req :state! :x :set! nil)
+  (-req :state)
+  (-req :state :x)
+  (-req :state :x :set! :val)
+  (-req :state :x :set! nil)
   (-req :state-k)
   (-req :state-k :x)
 

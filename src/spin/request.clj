@@ -24,8 +24,8 @@
 ;; TODO: remove extra default keys
 
 (add-method (fn custom-state-k
-              ([request _] (request :state! :state-k))
-              ([request _ v] (request :state! :state-k :set! v)))
+              ([request _] (request :state :state-k))
+              ([request _ v] (request :state :state-k :set! v)))
             :state-k)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
