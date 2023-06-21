@@ -17,12 +17,12 @@
   http handler."
 
   (instant-result
-    [result]
+    ^IDeref [result]
     "When result is available returns `IDeref` which returns the result value or
     throws exception on `deref`.")
 
   (blocking-result
-    [result]
+    ^IDeref [result]
     "When result is available only with blocking call returns `IDeref` which
     computes new result on `deref`. The `deref` should not be called on IO
     thread.")
@@ -145,3 +145,30 @@
       (async/map #(update-result % f) [ch]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn handle-chain
+  [ctx xs]
+  (loop [ctx ctx, xs (seq xs)]
+    (let [ctx (if-let [result (instant-result ctx)]
+                (.deref result)
+                ;; TODO: deref blocking on worker thread
+                (if-let [blocking (blocking-result ctx)]
+                  (.deref blocking)
+                  ;; TODO: async handler
+                  (if-let [async (async-result ctx)]
+                    {:async async}
+                    :wtf)))]
+      (if xs
+        (if-let [handler (first xs)]
+          (recur (handler ctx) (next xs))
+          (recur ctx (next xs)))
+        ctx))))
+
+(comment
+  (handle-chain {} [(fn [ctx] (assoc ctx :a 1))
+                    (fn [ctx] (assoc ctx :b 2))])
+  (handle-chain {} [(fn [ctx] (delay (assoc ctx :a 1)))
+                    (fn [ctx] (assoc ctx :b 2))])
+  (handle-chain {} [(fn [ctx] (assoc ctx :a 1))
+                    (fn [ctx] (delay (assoc ctx :b 2)))])
+  )
