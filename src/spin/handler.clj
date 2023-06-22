@@ -165,6 +165,7 @@
         ctx))))
 
 (comment
+  (instant-result {})
   (handle-chain {} [(fn [ctx] (assoc ctx :a 1))
                     (fn [ctx] (assoc ctx :b 2))])
   (handle-chain {} [(fn [ctx] (delay (assoc ctx :a 1)))
