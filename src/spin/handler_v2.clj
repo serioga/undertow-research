@@ -52,6 +52,14 @@
     `(fn [f callback] ... (callback result))` which receives 1-arity callback to
     listen for future result completion."))
 
+(defprotocol HandlerImpl
+  ""
+  (impl-complete [impl context])
+  (impl-error [impl throwable])
+  (impl-nio? [impl])
+  (impl-blocking [impl f])
+  (impl-async [impl f]))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; ## HandlerResult for base types ##
@@ -138,15 +146,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn handle-chain-fn
-  [complete error]
+  [impl]
   (letfn
-    [(handle-blocking [prev blocking chain]
-       ;; TODO: execute blocking on worker thread
-       (handle-chain prev (blocking) chain))
-     (handle-async [async callback]
-       (async callback)
-       nil)
-     (handle-chain [prev result chain]
+    [(handle-chain [prev result chain]
        (try
          (loop [prev prev, result result, chain (seq chain)]
            (cond
@@ -161,12 +163,14 @@
                      (if-let [instant (instant-result return)]
                        (recur context (instant) next-chain)
                        (if-let [blocking (blocking-result return)]
-                         (handle-blocking context blocking next-chain)
+                         (if (impl-nio? impl)
+                           (impl-blocking impl (^:once fn* [] (handle-chain context (blocking) chain)))
+                           (recur context (blocking) next-chain))
                          (if-let [async (async-result return)]
-                           (handle-async async (fn [result] (handle-chain context result next-chain)))
+                           (impl-async impl (^:once fn* [] (async (fn [result] (handle-chain context result next-chain)))))
                            (throw (ex-info (str "Cannot handle return: " return) {}))))))
                    (recur prev result (next chain)))
-                 (complete context))
+                 (impl-complete impl context))
                (if-let [chain+ (result-chain result)]
                  (recur nil prev (concat chain+ chain))
                  (throw (ex-info (str "Handler result is not new context or handler chain: " result)
@@ -176,7 +180,7 @@
              :else
              (throw (ex-info "Handle empty context" {::chain chain}))))
          (catch Throwable t
-           (error t)))
+           (impl-error impl t)))
        nil)]
     (fn handle-chain-init
       [context chain]
@@ -186,14 +190,23 @@
 
 (defn -handle [ctx chain]
   (let [p (promise)
-        complete (partial deliver p)
-        handle (handle-chain-fn complete complete)]
+        handle (handle-chain-fn (reify HandlerImpl
+                                  (impl-complete [_ context] (deliver p context))
+                                  (impl-error [_ throwable] (deliver p throwable))
+                                  (impl-nio? [_] false)
+                                  (impl-blocking [_ f] (f))
+                                  (impl-async [_ f] (f))))]
     (handle ctx chain)
     (-> (deref p 1000 ::timed-out)
         (result-context))))
 
 (comment
-  (def -handle (handle-chain-fn identity identity))
+  (def -handle (handle-chain-fn (reify HandlerImpl
+                                  (impl-complete [_ context])
+                                  (impl-error [_ throwable])
+                                  (impl-nio? [_] false)
+                                  (impl-blocking [_ f] (f))
+                                  (impl-async [_ f] (f)))))
   (do (defn -hia [ctx] (assoc ctx :a 1))
       (defn -hia-r [ctx] (reduced (assoc ctx :a 1)))
       (defn -hib [ctx] (assoc ctx :b 2))
