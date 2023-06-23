@@ -164,7 +164,7 @@
                        (recur context (instant) next-chain)
                        (if-let [blocking (blocking-result return)]
                          (if (impl-nio? impl)
-                           (impl-blocking impl (^:once fn* [] (handle-chain context (blocking) chain)))
+                           (impl-blocking impl (^:once fn* [] (handle-chain context (blocking) next-chain)))
                            (recur context (blocking) next-chain))
                          (if-let [async (async-result return)]
                            (impl-async impl (^:once fn* [] (async (fn [result] (handle-chain context result next-chain)))))

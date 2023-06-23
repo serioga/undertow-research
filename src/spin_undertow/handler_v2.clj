@@ -1,0 +1,47 @@
+(ns spin-undertow.handler-v2
+  (:require [spin-undertow.request :as request]
+            [spin-undertow.response :as response]
+            [spin.handler-v2 :as handler]
+            [undertow.api.exchange :as exchange])
+  (:import (clojure.lang IPersistentMap)
+           (io.undertow.server HttpHandler HttpServerExchange)
+           (io.undertow.util SameThreadExecutor)))
+
+(set! *warn-on-reflection* true)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn- handle-result-context
+  [^IPersistentMap context, ^HttpServerExchange e]
+  ;; TODO: apply prepending context transformations
+  (when context
+    ;; Add prepending response headers from context.
+    (some->> (.valAt context :response/headers)
+             ;; TODO: not-empty here?
+             (response/put-headers! e))
+    (when-some [status (.valAt context :response/status)] (.setStatusCode e status))
+    (some-> (.valAt context :response) (response/handle-response e))
+
+    #_(let [end-time (System/nanoTime)]
+        #p (- end-time (:start-time context))))
+
+  (.endExchange e))
+
+(extend-protocol handler/HandlerImpl HttpServerExchange
+  (impl-complete,,, [e context] (handle-result-context context e))
+  (impl-error,,,,,, [e throwable] (exchange/throw* e throwable))
+  (impl-nio?,,,,,,, [e] (.isInIoThread e))
+  (impl-blocking,,, [e f] (.dispatch e ^Runnable f))
+  (impl-async,,,,,, [e f] (.dispatch e SameThreadExecutor/INSTANCE ^Runnable f)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn http-handler
+  ""
+  [chain]
+  (reify HttpHandler
+    (handleRequest [_ exchange]
+      (-> {:request (request/create-request exchange) #_#_:start-time (System/nanoTime)}
+          ((handler/handle-chain-fn exchange) chain)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
