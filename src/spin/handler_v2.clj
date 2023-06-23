@@ -182,7 +182,7 @@
       [context chain]
       (assert (map? context) (str "Requires context map to apply handler chain "
                                   {:context context :chain chain}))
-      (handle-chain nil context chain))))
+      (handle-chain nil context (result-chain chain)))))
 
 (defn -handle [ctx chain]
   (let [p (promise)
@@ -239,6 +239,8 @@
   (-handle {} [-hia -hae -hib])
   (-handle {} [-hia -hat -hib])
   (-handle {} [-hia-r -hae -hib])
+  ;; function as handler chain
+  (-handle {} -hia)
   ;; edge cases
   (-handle {} [])
   (-handle nil [])
