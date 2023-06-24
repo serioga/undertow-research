@@ -8,8 +8,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; ## Protocols ##
-
 (defprotocol ResultValue
   "The abstraction for the value of http handler result:
 
@@ -27,6 +25,28 @@
     [value]
     "Returns handler seq from the result value, or nil.
     Throws exception for error."))
+
+;; Persistent map is a context map.
+(extend-protocol ResultValue IPersistentMap
+  (value-context,,,, [m] m)
+  (value-handlers,,, [_] nil))
+
+;; Sequential is a handler seq.
+(extend-protocol ResultValue Sequential
+  (value-context,,,, [_] nil)
+  (value-handlers,,, [s] s))
+
+;; Function is an 1-item handler seq.
+(extend-protocol ResultValue Fn
+  (value-context,,,, [_] nil)
+  (value-handlers,,, [f] (RT/list f)))
+
+;; Exceptions are error values.
+(extend-protocol ResultValue Throwable
+  (value-context,,,, [t] (throw t))
+  (value-handlers,,, [_] nil))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defprotocol HandlerResult
   "The abstraction for http handler result:
@@ -54,71 +74,24 @@
     `(fn [f callback] ... (callback value))` which receives 1-arity callback to
     listen for future value completion."))
 
-(defprotocol HandlerImpl
-  ""
-  (impl-complete [impl context])
-  (impl-error [impl throwable])
-  (impl-nio? [impl])
-  (impl-blocking [impl f])
-  (impl-async [impl f]))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;; ## ResultValue for base types ##
-
-;; Persistent map as context map.
-(extend-protocol ResultValue IPersistentMap
-  (value-context,,,, [m] m)
-  (value-handlers,,, [_] nil))
-
-;; Sequential as handler chain.
-(extend-protocol ResultValue Sequential
-  (value-context,,,, [_] nil)
-  (value-handlers,,, [s] s))
-
-;; Function as 1-item handler chain.
-(extend-protocol ResultValue Fn
-  (value-context,,,, [_] nil)
-  (value-handlers,,, [f] (RT/list f)))
-
-;; Exceptions as context error.
-(extend-protocol ResultValue Throwable
-  (value-context,,,, [t] (throw t))
-  (value-handlers,,, [_] nil))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;; ## Instant result implementations ##
-
-;; ### Any object defaults ###
-;;
-;; All types represent instant result by default.
-
-(extend-protocol HandlerResult Object
+;; Everything is an instant result by default.
+(extend-protocol HandlerResult
+  Object
   (instant-result,,,, [o] (fn [] o))
   (blocking-result,,, [_] nil)
-  (async-result,,,,,, [_] nil))
-
-(extend-protocol HandlerResult nil
+  (async-result,,,,,, [_] nil)
+  nil
   (instant-result,,,, [_] (fn [] nil))
   (blocking-result,,, [_] nil)
   (async-result,,,,,, [_] nil))
 
-;; ### Exceptions ###
-;;
-;; Exceptions represents error result.
-
+;; Exceptions are instant error results.
 (extend-protocol HandlerResult Throwable
   (instant-result,,,, [t] (fn throwable-instant [] (throw t)))
   (blocking-result,,, [_] nil)
   (async-result,,,,,, [_] nil))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;; ## Blocking/async result implementations ##
-
-;; ### Delay as blocking result ###
-
+;; Delay is a blocking result.
 (extend-protocol HandlerResult Delay
   (instant-result
     [d]
@@ -130,8 +103,7 @@
   (async-result
     [_] nil))
 
-;; ### CompletableFuture as async result ###
-
+;; CompletableFuture is an async result.
 (extend-protocol HandlerResult CompletableFuture
   (instant-result
     [ft]
@@ -146,6 +118,14 @@
       nil)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defprotocol HandlerImpl
+  ""
+  (impl-complete [impl context])
+  (impl-error [impl throwable])
+  (impl-nio? [impl])
+  (impl-blocking [impl f])
+  (impl-async [impl f]))
 
 (defn apply-handlers
   [impl context handlers]
@@ -189,6 +169,8 @@
     (assert (map? context) (str "Requires context map to apply handlers "
                                 {:context context :handlers handlers}))
     (reduce* nil context (some-> handlers (value-handlers)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn -handle [ctx handlers]
   (let [p (promise)]
