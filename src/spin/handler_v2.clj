@@ -22,9 +22,9 @@
     [result]
     "Returns context map from the result, or nil. Throws exception for errors.")
 
-  (result-chain
+  (result-handlers
     [result]
-    "Returns handler chain from the result, or nil. Throws exception for errors."))
+    "Returns handler seq from the result, or nil. Throws exception for errors."))
 
 (defprotocol HandlerReturn
   "The abstraction for return value from http handler:
@@ -66,23 +66,23 @@
 
 ;; Persistent map as context map.
 (extend-protocol HandlerResult IPersistentMap
-  (result-context,,, [m] m)
-  (result-chain,,,,, [_] nil))
+  (result-context,,,, [m] m)
+  (result-handlers,,, [_] nil))
 
 ;; Sequential as handler chain.
 (extend-protocol HandlerResult Sequential
-  (result-context,,, [_] nil)
-  (result-chain,,,,, [s] s))
+  (result-context,,,, [_] nil)
+  (result-handlers,,, [s] s))
 
 ;; Function as 1-item handler chain.
 (extend-protocol HandlerResult Fn
-  (result-context,,, [_] nil)
-  (result-chain,,,,, [f] (RT/list f)))
+  (result-context,,,, [_] nil)
+  (result-handlers,,, [f] (RT/list f)))
 
 ;; Exceptions as context error.
 (extend-protocol HandlerResult Throwable
-  (result-context,,, [t] (throw t))
-  (result-chain,,,,, [_] nil))
+  (result-context,,,, [t] (throw t))
+  (result-handlers,,, [_] nil))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -145,68 +145,67 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn handle-chain-fn
-  [impl]
-  (letfn
-    [(handle-chain [prev result chain]
-       (try
-         (loop [prev prev, result result, chain (seq chain)]
-           (cond
-             result
-             (if-let [context (result-context result)]
-               (if chain
-                 (if-let [handler (first chain)]
-                   (let [return (handler context)
-                         reduced-return? (reduced? return)
-                         return (if reduced-return? (unreduced return) return)
-                         next-chain (when-not reduced-return? (next chain))]
-                     (if-let [instant (instant-result return)]
-                       (recur context (instant) next-chain)
-                       (if-let [blocking (blocking-result return)]
-                         (if (impl-nio? impl)
-                           (impl-blocking impl (^:once fn* [] (handle-chain context (blocking) next-chain)))
-                           (recur context (blocking) next-chain))
-                         (if-let [async (async-result return)]
-                           (impl-async impl (^:once fn* [] (async (fn [result] (handle-chain context result next-chain)))))
-                           (throw (ex-info (str "Cannot handle return: " return) {}))))))
-                   (recur prev result (next chain)))
-                 (impl-complete impl context))
-               (if-let [chain+ (result-chain result)]
-                 (recur nil prev (concat chain+ chain))
-                 (throw (ex-info (str "Handler result is not new context or handler chain: " result)
-                                 {::result result ::chain chain}))))
-             prev
-             (recur nil prev chain)
-             :else
-             (throw (ex-info "Handle empty context" {::chain chain}))))
-         (catch Throwable t
-           (impl-error impl t)))
-       nil)]
-    (fn handle-chain-init
-      [context chain]
-      (assert (map? context) (str "Requires context map to apply handler chain "
-                                  {:context context :chain chain}))
-      (handle-chain nil context (result-chain chain)))))
+(defn apply-handlers
+  [impl context handlers]
+  (letfn [(reduce* [prev result chain]
+            (try
+              (loop [prev prev, result result, chain (seq chain)]
+                (cond
+                  result
+                  (if-let [context (result-context result)]
+                    (if chain
+                      (if-let [handler (first chain)]
+                        (let [return (handler context)
+                              reduced-return? (reduced? return)
+                              return (if reduced-return? (unreduced return) return)
+                              chain (when-not reduced-return? (next chain))]
+                          (if-let [instant (instant-result return)]
+                            (recur context (instant) chain)
+                            (if-let [blocking (blocking-result return)]
+                              (if (impl-nio? impl)
+                                (impl-blocking impl (^:once fn* [] (reduce* context (blocking) chain)))
+                                (recur context (blocking) chain))
+                              (if-let [async (async-result return)]
+                                (impl-async impl (^:once fn* [] (async (fn [result] (reduce* context result chain)))))
+                                (throw (ex-info (str "Cannot handle return: " return) {}))))))
+                        ;; handler is falsy, skip
+                        (recur prev result (next chain)))
+                      ;; chain is empty, complete
+                      (impl-complete impl context))
+                    (if-let [chain+ (result-handlers result)]
+                      (recur nil prev (concat chain+ chain))
+                      (throw (ex-info (str "Handler result is not new context or handler chain: " result)
+                                      {::result result ::chain chain}))))
+                  prev
+                  (recur nil prev chain)
+                  :else
+                  (throw (ex-info "Handle empty context" {::chain chain}))))
+              (catch Throwable t
+                (impl-error impl t)))
+            nil)]
+    (assert (map? context) (str "Requires context map to apply handlers "
+                                {:context context :handlers handlers}))
+    (reduce* nil context (some-> handlers (result-handlers)))))
 
-(defn -handle [ctx chain]
-  (let [p (promise)
-        handle (handle-chain-fn (reify HandlerImpl
-                                  (impl-complete [_ context] (deliver p context))
-                                  (impl-error [_ throwable] (deliver p throwable))
-                                  (impl-nio? [_] false)
-                                  (impl-blocking [_ f] (f))
-                                  (impl-async [_ f] (f))))]
-    (handle ctx chain)
+(defn -handle [ctx handlers]
+  (let [p (promise)]
+    (-> (reify HandlerImpl
+          (impl-complete [_ context] (deliver p context))
+          (impl-error [_ throwable] (deliver p throwable))
+          (impl-nio? [_] false)
+          (impl-blocking [_ f] (f))
+          (impl-async [_ f] (f)))
+        (apply-handlers ctx handlers))
     (-> (deref p 1000 ::timed-out)
         (result-context))))
 
 (comment
-  (def -handle (handle-chain-fn (reify HandlerImpl
-                                  (impl-complete [_ context])
-                                  (impl-error [_ throwable])
-                                  (impl-nio? [_] false)
-                                  (impl-blocking [_ f] (f))
-                                  (impl-async [_ f] (f)))))
+  (def -handle (partial apply-handlers (reify HandlerImpl
+                                         (impl-complete [_ context])
+                                         (impl-error [_ throwable])
+                                         (impl-nio? [_] false)
+                                         (impl-blocking [_ f] (f))
+                                         (impl-async [_ f] (f)))))
   (do (defn -hia [ctx] (assoc ctx :a 1))
       (defn -hia-r [ctx] (reduced (assoc ctx :a 1)))
       (defn -hib [ctx] (assoc ctx :b 2))
@@ -256,6 +255,7 @@
   (-handle {} -hia)
   ;; edge cases
   (-handle {} [])
+  (-handle {} nil)
   (-handle nil [])
   (-handle nil [-hia])
   (-handle (fn [_] {}) [-hia])

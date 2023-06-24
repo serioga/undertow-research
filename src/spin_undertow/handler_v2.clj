@@ -38,10 +38,10 @@
 
 (defn http-handler
   ""
-  [chain]
+  [handlers]
   (reify HttpHandler
     (handleRequest [_ exchange]
-      (-> {:request (request/create-request exchange) #_#_:start-time (System/nanoTime)}
-          ((handler/handle-chain-fn exchange) chain)))))
+      (let [context {:request (request/create-request exchange) #_#_:start-time (System/nanoTime)}]
+        (handler/apply-handlers exchange context handlers)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
