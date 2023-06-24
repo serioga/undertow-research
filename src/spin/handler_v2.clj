@@ -10,47 +10,49 @@
 
 ;; ## Protocols ##
 
-(defprotocol HandlerResult
-  "The abstraction for http handler result:
+(defprotocol ResultValue
+  "The abstraction for the value of http handler result:
 
   - new context map
   - handler chain to execute over context map
   - error.
   "
 
-  (result-context
-    [result]
-    "Returns context map from the result, or nil. Throws exception for errors.")
+  (value-context
+    [value]
+    "Returns context map from the result value, or nil.
+    Throws exception for error.")
 
-  (result-handlers
-    [result]
-    "Returns handler seq from the result, or nil. Throws exception for errors."))
+  (value-handlers
+    [value]
+    "Returns handler seq from the result value, or nil.
+    Throws exception for error."))
 
-(defprotocol HandlerReturn
-  "The abstraction for return value from http handler:
+(defprotocol HandlerResult
+  "The abstraction for http handler result:
 
-  - instant (non-blocking) result
-  - blocking result
-  - async result
+  - instant (non-blocking) result value
+  - blocking result value
+  - async result value
   "
 
   (instant-result
-    [return]
-    "When result is instantly available returns function `(fn [] result)`
-    which returns result or throws exception.")
+    [result]
+    "When result is instantly available returns function `(fn [] value)`
+    which returns value or throws exception.")
 
   (blocking-result
-    [return]
+    [result]
     "When result is available only in blocking call returns function
-    `(fn [] result)` which returns result or throws exception. This function
+    `(fn [] value)` which returns value or throws exception. This function
     should not be called on IO thread.")
 
   (async-result
-    [return]
+    [result]
     ;; TODO: review docstring.
     "Returns `nil` for instant result. For async result returns function
-    `(fn [f callback] ... (callback result))` which receives 1-arity callback to
-    listen for future result completion."))
+    `(fn [f callback] ... (callback value))` which receives 1-arity callback to
+    listen for future value completion."))
 
 (defprotocol HandlerImpl
   ""
@@ -62,27 +64,27 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; ## HandlerResult for base types ##
+;; ## ResultValue for base types ##
 
 ;; Persistent map as context map.
-(extend-protocol HandlerResult IPersistentMap
-  (result-context,,,, [m] m)
-  (result-handlers,,, [_] nil))
+(extend-protocol ResultValue IPersistentMap
+  (value-context,,,, [m] m)
+  (value-handlers,,, [_] nil))
 
 ;; Sequential as handler chain.
-(extend-protocol HandlerResult Sequential
-  (result-context,,,, [_] nil)
-  (result-handlers,,, [s] s))
+(extend-protocol ResultValue Sequential
+  (value-context,,,, [_] nil)
+  (value-handlers,,, [s] s))
 
 ;; Function as 1-item handler chain.
-(extend-protocol HandlerResult Fn
-  (result-context,,,, [_] nil)
-  (result-handlers,,, [f] (RT/list f)))
+(extend-protocol ResultValue Fn
+  (value-context,,,, [_] nil)
+  (value-handlers,,, [f] (RT/list f)))
 
 ;; Exceptions as context error.
-(extend-protocol HandlerResult Throwable
-  (result-context,,,, [t] (throw t))
-  (result-handlers,,, [_] nil))
+(extend-protocol ResultValue Throwable
+  (value-context,,,, [t] (throw t))
+  (value-handlers,,, [_] nil))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -92,12 +94,12 @@
 ;;
 ;; All types represent instant result by default.
 
-(extend-protocol HandlerReturn Object
+(extend-protocol HandlerResult Object
   (instant-result,,,, [o] (fn [] o))
   (blocking-result,,, [_] nil)
   (async-result,,,,,, [_] nil))
 
-(extend-protocol HandlerReturn nil
+(extend-protocol HandlerResult nil
   (instant-result,,,, [_] (fn [] nil))
   (blocking-result,,, [_] nil)
   (async-result,,,,,, [_] nil))
@@ -106,7 +108,7 @@
 ;;
 ;; Exceptions represents error result.
 
-(extend-protocol HandlerReturn Throwable
+(extend-protocol HandlerResult Throwable
   (instant-result,,,, [t] (fn throwable-instant [] (throw t)))
   (blocking-result,,, [_] nil)
   (async-result,,,,,, [_] nil))
@@ -117,7 +119,7 @@
 
 ;; ### Delay as blocking result ###
 
-(extend-protocol HandlerReturn Delay
+(extend-protocol HandlerResult Delay
   (instant-result
     [d]
     (when (.isRealized d)
@@ -130,7 +132,7 @@
 
 ;; ### CompletableFuture as async result ###
 
-(extend-protocol HandlerReturn CompletableFuture
+(extend-protocol HandlerResult CompletableFuture
   (instant-result
     [ft]
     (when (.isDone ft)
@@ -147,45 +149,46 @@
 
 (defn apply-handlers
   [impl context handlers]
-  (letfn [(reduce* [prev result chain]
+  (letfn [(reduce* [prev value chain]
             (try
-              (loop [prev prev, result result, chain (seq chain)]
+              (loop [prev prev, value value, chain (seq chain)]
                 (cond
-                  result
-                  (if-let [context (result-context result)]
+                  value
+                  (if-let [context (value-context value)]
                     (if chain
                       (if-let [handler (first chain)]
-                        (let [return (handler context)
-                              reduced-return? (reduced? return)
-                              return (if reduced-return? (unreduced return) return)
-                              chain (when-not reduced-return? (next chain))]
-                          (if-let [instant (instant-result return)]
+                        (let [result (handler context)
+                              is-reduced (reduced? result)
+                              result (if is-reduced (unreduced result) result)
+                              chain (when-not is-reduced (next chain))]
+                          (if-let [instant (instant-result result)]
                             (recur context (instant) chain)
-                            (if-let [blocking (blocking-result return)]
+                            (if-let [blocking (blocking-result result)]
                               (if (impl-nio? impl)
                                 (impl-blocking impl (^:once fn* [] (reduce* context (blocking) chain)))
                                 (recur context (blocking) chain))
-                              (if-let [async (async-result return)]
+                              (if-let [async (async-result result)]
                                 (impl-async impl (^:once fn* [] (async (fn [result] (reduce* context result chain)))))
-                                (throw (ex-info (str "Cannot handle return: " return) {}))))))
+                                (throw (ex-info (str "Cannot handle result: " result) {}))))))
                         ;; handler is falsy, skip
-                        (recur prev result (next chain)))
+                        (recur prev value (next chain)))
                       ;; chain is empty, complete
                       (impl-complete impl context))
-                    (if-let [chain+ (result-handlers result)]
+                    (if-let [chain+ (value-handlers value)]
                       (recur nil prev (concat chain+ chain))
-                      (throw (ex-info (str "Handler result is not new context or handler chain: " result)
-                                      {::result result ::chain chain}))))
+                      (throw (ex-info (str "Handler result value is not context or handlers: " value)
+                                      {::value value ::chain chain}))))
                   prev
                   (recur nil prev chain)
                   :else
                   (throw (ex-info "Handle empty context" {::chain chain}))))
               (catch Throwable t
                 (impl-error impl t)))
+            ;; always return nil, provide result to `impl`
             nil)]
     (assert (map? context) (str "Requires context map to apply handlers "
                                 {:context context :handlers handlers}))
-    (reduce* nil context (some-> handlers (result-handlers)))))
+    (reduce* nil context (some-> handlers (value-handlers)))))
 
 (defn -handle [ctx handlers]
   (let [p (promise)]
@@ -197,7 +200,7 @@
           (impl-async [_ f] (f)))
         (apply-handlers ctx handlers))
     (-> (deref p 1000 ::timed-out)
-        (result-context))))
+        (value-context))))
 
 (comment
   (def -handle (partial apply-handlers (reify HandlerImpl
