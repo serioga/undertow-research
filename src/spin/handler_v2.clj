@@ -1,5 +1,5 @@
 (ns spin.handler-v2
-  (:import (clojure.lang Delay Fn IPersistentMap RT Sequential)
+  (:import (clojure.lang Delay Fn ILookup IPersistentMap RT Sequential)
            (java.util.concurrent CompletableFuture)
            (java.util.function BiConsumer)
            (java.util.function Supplier)))
@@ -127,43 +127,62 @@
   (impl-blocking [impl f])
   (impl-async [impl f]))
 
+(defn with-error-handler
+  [context f]
+  (assoc context :spin/error-handlers (cons f (some-> ^ILookup context (.valAt :spin/error-handlers)))))
+
+(defmacro throw*
+  [expr context]
+  `(try ~expr (catch Throwable t#
+                (throw (ex-info "Context handler error" {::context ~context ::throwable t#})))))
+
 (defn apply-handlers
   [impl context handlers]
-  (letfn [(reduce* [prev value chain]
+  (letfn [(reduce* [prev context chain]
             (try
-              (loop [prev prev, value value, chain (seq chain)]
+              (loop [prev prev, value context, chain (seq chain)]
                 (cond
                   value
-                  (if-let [context (value-context value)]
+                  (if-let [context (-> (value-context value) (throw* prev))]
                     (if chain
                       (if-let [handler (first chain)]
-                        (let [result (handler context)
+                        (let [result (-> (handler context) (throw* context))
                               is-reduced (reduced? result)
-                              result (if is-reduced (unreduced result) result)
+                              result (cond-> result is-reduced (deref))
                               chain (when-not is-reduced (next chain))]
-                          (if-let [instant (instant-result result)]
-                            (recur context (instant) chain)
-                            (if-let [blocking (blocking-result result)]
+                          (if-let [instant (-> (instant-result result) (throw* context))]
+                            (recur context (-> (instant) (throw* context)) chain)
+                            (if-let [blocking (-> (blocking-result result) (throw* context))]
                               (if (impl-nio? impl)
                                 (impl-blocking impl (^:once fn* [] (reduce* context (blocking) chain)))
-                                (recur context (blocking) chain))
-                              (if-let [async (async-result result)]
+                                (recur context (-> (blocking) (throw* context)) chain))
+                              (if-let [async (-> (async-result result) (throw* context))]
                                 (impl-async impl (^:once fn* [] (async (fn [result] (reduce* context result chain)))))
-                                (throw (ex-info (str "Cannot handle result: " result) {}))))))
+                                (-> (throw (ex-info (str "Cannot handle result: " result) {}))
+                                    (throw* context))))))
                         ;; handler is falsy, skip
                         (recur prev value (next chain)))
                       ;; chain is empty, complete
                       (impl-complete impl context))
-                    (if-let [chain+ (value-handlers value)]
+                    (if-let [chain+ (-> (value-handlers value) (throw* prev))]
                       (recur nil prev (concat chain+ chain))
-                      (throw (ex-info (str "Handler result value is not context or handlers: " value)
-                                      {::value value ::chain chain}))))
+                      (-> (throw (ex-info (str "Handler result value is not context or handlers: " value)
+                                          {::value value ::chain chain}))
+                          (throw* prev))))
                   prev
                   (recur nil prev chain)
                   :else
                   (throw (ex-info "Handle empty context" {::chain chain}))))
               (catch Throwable t
-                (impl-error impl t)))
+                (let [{::keys [context throwable]} (ex-data t)
+                      handlers (:spin/error-handlers context)]
+                  (try
+                    (if-let [context (and handlers (as-> (dissoc context :spin/error-handlers) context
+                                                         (some (fn [handler] (handler context throwable)) handlers)))]
+                      (impl-complete impl context)
+                      (impl-error impl (or throwable t)))
+                    (catch Throwable t
+                      (impl-error impl t))))))
             ;; always return nil, provide result to `impl`
             nil)]
     (assert (map? context) (str "Requires context map to apply handlers "
@@ -216,6 +235,9 @@
       (defn -ha0 [ctx] (CompletableFuture/supplyAsync (reify Supplier (get [_] nil))))
       (defn -hae [ctx] (CompletableFuture/supplyAsync (reify Supplier (get [_] (Exception. "hae")))))
       (defn -hat [ctx] (CompletableFuture/supplyAsync (reify Supplier (get [_] (throw (Exception. "hat"))))))
+      ;; error handling
+      (defn -he1 [ctx] (with-error-handler ctx (fn [ctx t] (assoc ctx :response {:status 500 :body (ex-message t)}))))
+      (defn -he2 [ctx] (with-error-handler ctx (fn [ctx t] (println ctx "->" (str (class t) ": " (ex-message t))))))
       )
   (-handle {} [-hia -hib])
   (-handle {} [-hia-r -hib])
@@ -253,6 +275,11 @@
   (-handle {} [-hbb -hih-f])
   (-handle {} [-hbh-r -hib])
   (-handle {} [-hbh-c -haa])
+  ;; error handling
+  (-handle {} [-he1 -hia -hie -hib])
+  (-handle {} [-he2 -hia -hbe -hib])
+  (-handle {} [-he1 -he2 -hia -hbe -hib])
+  (-handle {} [-he2 -he1 -hia -hbe -hib])
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
