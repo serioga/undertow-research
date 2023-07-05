@@ -1,7 +1,7 @@
 (ns spin-undertow.handler-v2
   (:require [spin-undertow.request :as request]
             [spin-undertow.response :as response]
-            [spin.handler-v2 :as handler]
+            [spin.impl-v2.adapter :as adapter]
             [undertow.api.exchange :as exchange])
   (:import (clojure.lang IPersistentMap)
            (io.undertow.server HttpHandler HttpServerExchange)
@@ -27,12 +27,12 @@
 
   (.endExchange e))
 
-(extend-protocol handler/HandlerImpl HttpServerExchange
-  (impl-complete,,, [e context] (handle-result-context context e))
-  (impl-error,,,,,, [e throwable] (exchange/throw* e throwable))
-  (impl-nio?,,,,,,, [e] (.isInIoThread e))
-  (impl-blocking,,, [e f] (.dispatch e ^Runnable f))
-  (impl-async,,,,,, [e f] (.dispatch e SameThreadExecutor/INSTANCE ^Runnable f)))
+(extend-protocol adapter/HandlerAdapter HttpServerExchange
+  (complete-context,,,, [e context] (handle-result-context context e))
+  (complete-error,,,,,, [e throwable] (exchange/throw* e throwable))
+  (nio-thread?,,,,,,,,, [e] (.isInIoThread e))
+  (dispatch-blocking,,, [e f] (.dispatch e ^Runnable f))
+  (dispatch-async,,,,,, [e f] (.dispatch e SameThreadExecutor/INSTANCE ^Runnable f)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -42,6 +42,6 @@
   (reify HttpHandler
     (handleRequest [_ exchange]
       (let [context {:request (request/create-request exchange) #_#_:start-time (System/nanoTime)}]
-        (handler/apply-handlers exchange context handlers)))))
+        (adapter/run-handlers exchange context handlers)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
