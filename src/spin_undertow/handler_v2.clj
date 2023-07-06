@@ -28,11 +28,11 @@
   (.endExchange e))
 
 (extend-protocol adapter/HandlerAdapter HttpServerExchange
-  (complete-context,,,, [e context] (handle-result-context context e))
-  (complete-error,,,,,, [e throwable] (exchange/throw* e throwable))
-  (nio-thread?,,,,,,,,, [e] (.isInIoThread e))
-  (dispatch-blocking,,, [e f] (.dispatch e ^Runnable f))
-  (dispatch-async,,,,,, [e f] (.dispatch e SameThreadExecutor/INSTANCE ^Runnable f)))
+  (result-context,,, [e context] (handle-result-context context e))
+  (result-error,,,,, [e throwable] (exchange/throw* e throwable))
+  (nio-thread?,,,,,, [e] (.isInIoThread e))
+  (blocking-run,,,,, [e f] (.dispatch e ^Runnable f))
+  (async-run,,,,,,,, [e f] (.dispatch e SameThreadExecutor/INSTANCE ^Runnable f)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

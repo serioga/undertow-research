@@ -7,11 +7,11 @@
 
 (defprotocol HandlerAdapter
   ""
-  (complete-context [adapter context])
-  (complete-error [adapter throwable])
+  (result-context [adapter context])
+  (result-error [adapter throwable])
   (nio-thread? [adapter])
-  (dispatch-blocking [adapter f])
-  (dispatch-async [adapter f]))
+  (blocking-run [adapter f])
+  (async-run [adapter f]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -38,16 +38,16 @@
                             (recur context (-> (instant) (throw* context)) chain)
                             (if-let [blocking (-> (handler/blocking-result result) (throw* context))]
                               (if (nio-thread? adapter)
-                                (dispatch-blocking adapter (^:once fn* [] (reduce* context (blocking) chain)))
+                                (blocking-run adapter (^:once fn* [] (reduce* context (blocking) chain)))
                                 (recur context (-> (blocking) (throw* context)) chain))
                               (if-let [async (-> (handler/async-result result) (throw* context))]
-                                (dispatch-async adapter (^:once fn* [] (async (fn [result] (reduce* context result chain)))))
+                                (async-run adapter (^:once fn* [] (async (fn [result] (reduce* context result chain)))))
                                 (-> (throw (ex-info (str "Cannot handle result: " result) {}))
                                     (throw* context))))))
                         ;; handler is falsy, skip
                         (recur prev value (next chain)))
                       ;; chain is empty, complete
-                      (complete-context adapter context))
+                      (result-context adapter context))
                     (if-let [chain+ (-> (handler/value-handlers value) (throw* prev))]
                       (recur nil prev (concat chain+ chain))
                       (-> (throw (ex-info (str "Handler result value is not context or handlers: " value)
@@ -63,11 +63,11 @@
                   (try
                     (if-let [context (and handlers (as-> (dissoc context :spin/error-handlers) context
                                                          (some (fn [handler] (handler context throwable)) handlers)))]
-                      (complete-context adapter context)
-                      (complete-error adapter (or throwable t)))
+                      (result-context adapter context)
+                      (result-error adapter (or throwable t)))
                     (catch Throwable t
-                      (complete-error adapter t))))))
-            ;; always return nil, provide result to `impl`
+                      (result-error adapter t))))))
+            ;; always return nil, provide result to `adapter`
             nil)]
     (assert (map? context) (str "Requires context map to apply handlers "
                                 {:context context :handlers handlers}))

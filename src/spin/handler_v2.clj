@@ -18,22 +18,22 @@
 (defn -handle [context handlers]
   (let [p (promise)]
     (-> (reify adapter/HandlerAdapter
-          (complete-context [_ context] (deliver p context))
-          (complete-error [_ throwable] (deliver p throwable))
+          (result-context [_ context] (deliver p context))
+          (result-error [_ throwable] (deliver p throwable))
           (nio-thread? [_] false)
-          (dispatch-blocking [_ f] (f))
-          (dispatch-async [_ f] (f)))
+          (blocking-run [_ f] (f))
+          (async-run [_ f] (f)))
         (adapter/run-handlers context handlers))
     (-> (deref p 1000 ::timed-out)
         (handler/value-context))))
 
 (comment
   (def -handle (partial adapter/run-handlers (reify adapter/HandlerAdapter
-                                               (complete-context [_ context])
-                                               (complete-error [_ throwable])
+                                               (result-context [_ context])
+                                               (result-error [_ throwable])
                                                (nio-thread? [_] false)
-                                               (dispatch-blocking [_ f] (f))
-                                               (dispatch-async [_ f] (f)))))
+                                               (blocking-run [_ f] (f))
+                                               (async-run [_ f] (f)))))
   (do (defn -hia [ctx] (assoc ctx :a 1))
       (defn -hia-r [ctx] (reduced (assoc ctx :a 1)))
       (defn -hib [ctx] (assoc ctx :b 2))
