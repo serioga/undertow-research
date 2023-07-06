@@ -29,11 +29,11 @@
 
 (comment
   (def -handle (partial adapter/run-handlers (reify adapter/HandlerAdapter
-                                               (impl-complete [_ context])
-                                               (impl-error [_ throwable])
-                                               (impl-nio? [_] false)
-                                               (impl-blocking [_ f] (f))
-                                               (impl-async [_ f] (f)))))
+                                               (complete-context [_ context])
+                                               (complete-error [_ throwable])
+                                               (nio-thread? [_] false)
+                                               (dispatch-blocking [_ f] (f))
+                                               (dispatch-async [_ f] (f)))))
   (do (defn -hia [ctx] (assoc ctx :a 1))
       (defn -hia-r [ctx] (reduced (assoc ctx :a 1)))
       (defn -hib [ctx] (assoc ctx :b 2))
