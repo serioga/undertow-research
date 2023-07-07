@@ -16,12 +16,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn -handle [context handlers]
-  (let [p (promise)]
+  (let [p (promise) nio! (atom true)]
     (-> (reify adapter/HandlerAdapter
           (result-context [_ context] (deliver p context))
           (result-error [_ throwable] (deliver p throwable))
-          (nio? [_] false)
-          (blocking-call [_ f] (f))
+          (nio? [_] @nio!)
+          (blocking-call [_ f] (future (reset! nio! false) (f)))
           (async-call [_ f] (f)))
         (adapter/run-handlers context handlers))
     (-> (deref p 1000 ::timed-out)
@@ -102,8 +102,11 @@
   ;; error handling
   (-handle {} [-he1 -hia -hie -hib])
   (-handle {} [-he2 -hia -hbe -hib])
+  (-handle {} [-he2 -hia -hbt -hib])
   (-handle {} [-he1 -he2 -hia -hbe -hib])
   (-handle {} [-he2 -he1 -hia -hbe -hib])
+  (-handle {} [-he1 -he2 -hia -hbt -hib])
+  (-handle {} [-he2 -he1 -hia -hbt -hib])
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

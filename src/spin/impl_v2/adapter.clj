@@ -38,11 +38,17 @@
                             (recur (-> (instant) (throw* context)) chain context)
                             (if-let [blocking (-> (handler/blocking-result result) (throw* context))]
                               (if (-> (nio? adapter) (throw* context))
-                                (-> (blocking-call adapter (^:once fn* [] (reduce* (blocking) chain context)))
+                                (-> (blocking-call adapter (^:once fn* []
+                                                             (reduce* (try (blocking)
+                                                                           (catch Throwable t t))
+                                                                      chain context)))
                                     (throw* context))
                                 (recur (-> (blocking) (throw* context)) chain context))
                               (if-let [async (-> (handler/async-result result) (throw* context))]
-                                (-> (async-call adapter (^:once fn* [] (async (fn [value] (reduce* value chain context)))))
+                                (-> (async-call adapter (^:once fn* []
+                                                          (try (async (fn [value] (reduce* value chain context)))
+                                                               (catch Throwable t
+                                                                 (reduce* t chain context)))))
                                     (throw* context))
                                 (-> (throw (ex-info (str "Cannot handle result: " result) {}))
                                     (throw* context))))))
