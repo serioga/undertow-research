@@ -9,9 +9,9 @@
   ""
   (result-context [adapter context])
   (result-error [adapter throwable])
-  (nio-thread? [adapter])
-  (blocking-run [adapter f])
-  (async-run [adapter f]))
+  (nio? [adapter])
+  (blocking-call [adapter f])
+  (async-call [adapter f]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -37,11 +37,11 @@
                           (if-let [instant (-> (handler/instant-result result) (throw* context))]
                             (recur context (-> (instant) (throw* context)) chain)
                             (if-let [blocking (-> (handler/blocking-result result) (throw* context))]
-                              (if (nio-thread? adapter)
-                                (blocking-run adapter (^:once fn* [] (reduce* context (blocking) chain)))
+                              (if (nio? adapter)
+                                (blocking-call adapter (^:once fn* [] (reduce* context (blocking) chain)))
                                 (recur context (-> (blocking) (throw* context)) chain))
                               (if-let [async (-> (handler/async-result result) (throw* context))]
-                                (async-run adapter (^:once fn* [] (async (fn [result] (reduce* context result chain)))))
+                                (async-call adapter (^:once fn* [] (async (fn [result] (reduce* context result chain)))))
                                 (-> (throw (ex-info (str "Cannot handle result: " result) {}))
                                     (throw* context))))))
                         ;; handler is falsy, skip

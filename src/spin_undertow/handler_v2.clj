@@ -30,9 +30,9 @@
 (extend-protocol adapter/HandlerAdapter HttpServerExchange
   (result-context,,, [e context] (handle-result-context context e))
   (result-error,,,,, [e throwable] (exchange/throw* e throwable))
-  (nio-thread?,,,,,, [e] (.isInIoThread e))
-  (blocking-run,,,,, [e f] (.dispatch e ^Runnable f))
-  (async-run,,,,,,,, [e f] (.dispatch e SameThreadExecutor/INSTANCE ^Runnable f)))
+  (nio?,,,,,,,,,,,,, [e] (.isInIoThread e))
+  (blocking-call,,,, [e f] (.dispatch e ^Runnable f))
+  (async-call,,,,,,, [e f] (.dispatch e SameThreadExecutor/INSTANCE ^Runnable f)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
