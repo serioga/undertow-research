@@ -37,11 +37,13 @@
                           (if-let [instant (-> (handler/instant-result result) (throw* context))]
                             (recur context (-> (instant) (throw* context)) chain)
                             (if-let [blocking (-> (handler/blocking-result result) (throw* context))]
-                              (if (nio? adapter)
-                                (blocking-call adapter (^:once fn* [] (reduce* context (blocking) chain)))
+                              (if (-> (nio? adapter) (throw* context))
+                                (-> (blocking-call adapter (^:once fn* [] (reduce* context (blocking) chain)))
+                                    (throw* context))
                                 (recur context (-> (blocking) (throw* context)) chain))
                               (if-let [async (-> (handler/async-result result) (throw* context))]
-                                (async-call adapter (^:once fn* [] (async (fn [result] (reduce* context result chain)))))
+                                (-> (async-call adapter (^:once fn* [] (async (fn [result] (reduce* context result chain)))))
+                                    (throw* context))
                                 (-> (throw (ex-info (str "Cannot handle result: " result) {}))
                                     (throw* context))))))
                         ;; handler is falsy, skip
