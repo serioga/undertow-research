@@ -22,9 +22,9 @@
 
 (defn run-handlers
   [adapter context handlers]
-  (letfn [(reduce* [context chain prev-context]
+  (letfn [(reduce* [context prev-context chain]
             (try
-              (loop [value context, chain (seq chain), prev prev-context]
+              (loop [value context, prev prev-context, chain (seq chain)]
                 (cond
                   value
                   (if-let [context (-> (handler/value-context value) (throw* prev))]
@@ -35,34 +35,34 @@
                               result (cond-> result is-reduced (deref))
                               chain (when-not is-reduced (next chain))]
                           (if-let [instant (-> (handler/instant-result result) (throw* context))]
-                            (recur (-> (instant) (throw* context)) chain context)
+                            (recur (-> (instant) (throw* context)) context chain)
                             (if-let [blocking (-> (handler/blocking-result result) (throw* context))]
                               (if (-> (nio? adapter) (throw* context))
                                 (-> (blocking-call adapter (^:once fn* []
                                                              (reduce* (try (blocking)
                                                                            (catch Throwable t t))
-                                                                      chain context)))
+                                                                      context chain)))
                                     (throw* context))
-                                (recur (-> (blocking) (throw* context)) chain context))
+                                (recur (-> (blocking) (throw* context)) context chain))
                               (if-let [async (-> (handler/async-result result) (throw* context))]
                                 (-> (async-call adapter (^:once fn* []
-                                                          (try (async (fn [value] (reduce* value chain context)))
+                                                          (try (async (fn [value] (reduce* value context chain)))
                                                                (catch Throwable t
-                                                                 (reduce* t chain context)))))
+                                                                 (reduce* t context chain)))))
                                     (throw* context))
                                 (-> (throw (ex-info (str "Cannot handle result: " result) {}))
                                     (throw* context))))))
                         ;; handler is falsy, skip
-                        (recur value (next chain) prev))
+                        (recur value prev (next chain)))
                       ;; chain is empty, complete
                       (result-context adapter context))
                     (if-let [chain+ (-> (handler/value-handlers value) (throw* prev))]
-                      (recur prev (concat chain+ chain) nil)
+                      (recur prev nil (concat chain+ chain))
                       (-> (throw (ex-info (str "Handler result value is not context or handlers: " value)
                                           {::value value ::chain chain}))
                           (throw* prev))))
                   prev
-                  (recur prev chain nil)
+                  (recur prev nil chain)
                   :else
                   (throw (ex-info "Handle empty context" {::chain chain}))))
               (catch Throwable t
@@ -79,6 +79,6 @@
             nil)]
     (assert (map? context) (str "Requires context map to apply handlers "
                                 {:context context :handlers handlers}))
-    (reduce* context (some-> handlers (handler/value-handlers)) nil)))
+    (reduce* context nil (some-> handlers (handler/value-handlers)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
