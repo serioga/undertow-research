@@ -66,15 +66,19 @@
                   :else
                   (throw (ex-info "Handle empty context" {::chain chain}))))
               (catch Throwable t
-                (let [{::keys [context throwable]} (ex-data t)
-                      handlers (:spin/error-handlers context)]
-                  (try
-                    (if-let [context (and handlers (as-> (dissoc context :spin/error-handlers) context
-                                                         (some (fn [handler] (handler context throwable)) handlers)))]
-                      (result-context adapter context)
-                      (result-error adapter (or throwable t)))
-                    (catch Throwable t
-                      (result-error adapter t))))))
+                (let [{::keys [context throwable]} (ex-data t)]
+                  (if-let [error-handlers (seq (:spin/error-handlers context))]
+                    ;; remove `:spin/error-handlers` from context just in case if error handlers fail
+                    (let [context* (dissoc context :spin/error-handlers)
+                          as-handler (fn [error-handler] (fn as-handler [ctx]
+                                                           ;; check if prev handler returns new context
+                                                           (if (identical? ctx context*)
+                                                             (error-handler ctx throwable)
+                                                             (reduced ctx))))]
+                      (reduce* context* nil (concat (map as-handler error-handlers)
+                                                    ;; error if none of error handlers returns new context
+                                                    (handler/value-handlers (constantly throwable)))))
+                    (result-error adapter (or throwable t))))))
             ;; always return nil, provide result to `adapter`
             nil)]
     (assert (map? context) (str "Requires context map to apply handlers "
