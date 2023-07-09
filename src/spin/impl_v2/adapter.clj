@@ -8,7 +8,7 @@
 (defprotocol HandlerAdapter
   ""
   (result-context [adapter context])
-  (result-error [adapter throwable])
+  (result-error [adapter context throwable])
   (nio? [adapter])
   (blocking-call [adapter f])
   (async-call [adapter f]))
@@ -66,19 +66,19 @@
                   :else
                   (throw (ex-info "Handle empty context" {::chain chain}))))
               (catch Throwable t
-                (let [{::keys [context throwable]} (ex-data t)]
+                (let [{::keys [context throwable]
+                       :or {context context, throwable t}} (ex-data t)]
                   (if-let [error-handlers (seq (:spin/error-handlers context))]
                     ;; remove `:spin/error-handlers` from context just in case if error handlers fail
-                    (let [context* (dissoc context :spin/error-handlers)
-                          as-handler (fn [error-handler] (fn as-handler [ctx]
-                                                           ;; check if prev handler returns new context
-                                                           (if (identical? ctx context*)
-                                                             (error-handler ctx throwable)
-                                                             (reduced ctx))))]
-                      (reduce* context* nil (concat (map as-handler error-handlers)
-                                                    ;; error if none of error handlers returns new context
-                                                    (handler/value-handlers (constantly throwable)))))
-                    (result-error adapter (or throwable t))))))
+                    (let [context* (dissoc context :spin/error-handlers)]
+                      (->> (concat error-handlers (handler/value-handlers (constantly throwable)))
+                           (map (fn [error-handler] (fn as-handler [ctx]
+                                                      ;; check if prev handler returns new context
+                                                      (if (identical? ctx context*)
+                                                        (error-handler ctx throwable)
+                                                        (reduced ctx)))))
+                           (reduce* context* nil)))
+                    (result-error adapter context throwable)))))
             ;; always return nil, provide result to `adapter`
             nil)]
     (assert (map? context) (str "Requires context map to apply handlers "

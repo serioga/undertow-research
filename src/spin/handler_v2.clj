@@ -19,7 +19,9 @@
   (let [p (promise) nio! (atom true)]
     (-> (reify adapter/HandlerAdapter
           (result-context [_ context] (deliver p context))
-          (result-error [_ throwable] (deliver p throwable))
+          (result-error [_ context throwable]
+            (println context "-> result-error:" (ex-message throwable))
+            (deliver p throwable))
           (nio? [_] @nio!)
           (blocking-call [_ f] (future (reset! nio! false) (f)))
           (async-call [_ f] (f)))
@@ -30,7 +32,7 @@
 (comment
   (def -handle (partial adapter/run-handlers (reify adapter/HandlerAdapter
                                                (result-context [_ context])
-                                               (result-error [_ throwable])
+                                               (result-error [_ _ throwable])
                                                (nio? [_] false)
                                                (blocking-call [_ f] (f))
                                                (async-call [_ f] (f)))))
