@@ -13,6 +13,15 @@
   [context f]
   (assoc context :spin/error-handlers (cons f (some-> ^ILookup context (.valAt :spin/error-handlers)))))
 
+(defn set-response-handler
+  [context f]
+  (assoc context :spin/response-handlers (handler/vector-append f (some-> ^ILookup context (.valAt :spin/response-handlers)))))
+
+(comment
+  (set-response-handler {} identity)
+  (set-response-handler {} [identity])
+  )
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn -handle [context handlers]
@@ -64,6 +73,8 @@
       ;; error handling
       (defn -he1 [ctx] (set-error-handler ctx (fn [ctx t] (assoc ctx :response {:status 500 :body (ex-message t)}))))
       (defn -he2 [ctx] (set-error-handler ctx (fn [ctx t] (println ctx "->" (str (class t) ": " (ex-message t))))))
+      ;; response handlers
+      (defn -hir [ctx] (set-response-handler ctx -hib))
       )
   (-handle {} [-hia -hib])
   (-handle {} [-hia-r -hib])
@@ -109,6 +120,8 @@
   (-handle {} [-he2 -he1 -hia -hbe -hib])
   (-handle {} [-he1 -he2 -hia -hbt -hib])
   (-handle {} [-he2 -he1 -hia -hbt -hib])
+  ;; response handlers
+  (-handle {} [-hir -he1])
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

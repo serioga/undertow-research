@@ -55,7 +55,9 @@
                         ;; handler is falsy, skip
                         (recur value prev (next chain)))
                       ;; chain is empty, complete
-                      (result-context adapter context))
+                      (if-let [chain+ (:spin/response-handlers context)]
+                        (recur (dissoc context :spin/response-handlers) prev (seq chain+))
+                        (result-context adapter context)))
                     (if-let [chain+ (-> (handler/value-handlers value) (err prev))]
                       (recur prev nil (concat chain+ chain))
                       (-> (throw (ex-info (str "Handler result value is not context or handlers: " value)

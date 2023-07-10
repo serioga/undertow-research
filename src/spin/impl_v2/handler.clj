@@ -1,5 +1,5 @@
 (ns spin.impl-v2.handler
-  (:import (clojure.lang Delay Fn IPersistentMap RT Sequential)
+  (:import (clojure.lang Delay Fn IPersistentMap IPersistentVector RT Sequential)
            (java.util.concurrent CompletableFuture)
            (java.util.function BiConsumer)))
 
@@ -115,5 +115,21 @@
     (fn future-async [callback]
       (.whenComplete ft (reify BiConsumer (accept [_ v e] (callback (or e v)))))
       nil)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defprotocol HandlerAppend
+  (vector-append [x to]))
+
+(extend-protocol HandlerAppend
+  Fn
+  (vector-append
+    [f to]
+    (as-> (or to []) handlers
+          (.cons ^IPersistentVector handlers f)))
+  Sequential
+  (vector-append
+    [xs to]
+    (reduce #(.cons ^IPersistentVector %1 %2) (or to []) xs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
