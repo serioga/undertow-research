@@ -15,7 +15,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmacro ^:private throw*
+(defmacro ^:private err
   [expr context]
   `(try ~expr (catch Throwable t#
                 (throw (ex-info "Context handler error" {::context ~context ::throwable t#})))))
@@ -27,40 +27,40 @@
               (loop [value context, prev prev-context, chain (seq chain)]
                 (cond
                   value
-                  (if-let [context (-> (handler/value-context value) (throw* prev))]
+                  (if-let [context (-> (handler/value-context value) (err prev))]
                     (if chain
                       (if-let [handler (first chain)]
-                        (let [result (-> (handler context) (throw* context))
+                        (let [result (-> (handler context) (err context))
                               is-reduced (reduced? result)
                               result (cond-> result is-reduced (deref))
                               chain (when-not is-reduced (next chain))]
-                          (if-let [instant (-> (handler/instant-result result) (throw* context))]
-                            (recur (-> (instant) (throw* context)) context chain)
-                            (if-let [blocking (-> (handler/blocking-result result) (throw* context))]
-                              (if (-> (nio? adapter) (throw* context))
+                          (if-let [instant (-> (handler/instant-result result) (err context))]
+                            (recur (-> (instant) (err context)) context chain)
+                            (if-let [blocking (-> (handler/blocking-result result) (err context))]
+                              (if (-> (nio? adapter) (err context))
                                 (-> (blocking-call adapter (^:once fn* []
                                                              (reduce* (try (blocking)
                                                                            (catch Throwable t t))
                                                                       context chain)))
-                                    (throw* context))
-                                (recur (-> (blocking) (throw* context)) context chain))
-                              (if-let [async (-> (handler/async-result result) (throw* context))]
+                                    (err context))
+                                (recur (-> (blocking) (err context)) context chain))
+                              (if-let [async (-> (handler/async-result result) (err context))]
                                 (-> (async-call adapter (^:once fn* []
                                                           (try (async (fn [value] (reduce* value context chain)))
                                                                (catch Throwable t
                                                                  (reduce* t context chain)))))
-                                    (throw* context))
+                                    (err context))
                                 (-> (throw (ex-info (str "Cannot handle result: " result) {}))
-                                    (throw* context))))))
+                                    (err context))))))
                         ;; handler is falsy, skip
                         (recur value prev (next chain)))
                       ;; chain is empty, complete
                       (result-context adapter context))
-                    (if-let [chain+ (-> (handler/value-handlers value) (throw* prev))]
+                    (if-let [chain+ (-> (handler/value-handlers value) (err prev))]
                       (recur prev nil (concat chain+ chain))
                       (-> (throw (ex-info (str "Handler result value is not context or handlers: " value)
                                           {::value value ::chain chain}))
-                          (throw* prev))))
+                          (err prev))))
                   prev
                   (recur prev nil chain)
                   :else
