@@ -11,13 +11,15 @@
 
 (defn set-error-handler
   [context f]
-  (assoc context :spin/error-handlers (cons f (some-> ^ILookup context (.valAt :spin/error-handlers)))))
+  (assoc context :spin/error-handlers (handler/prepend-seq f (some-> ^ILookup context (.valAt :spin/error-handlers)))))
 
 (defn set-response-handler
   [context f]
-  (assoc context :spin/response-handlers (handler/vector-append f (some-> ^ILookup context (.valAt :spin/response-handlers)))))
+  (assoc context :spin/response-handlers (handler/append-vec f (some-> ^ILookup context (.valAt :spin/response-handlers)))))
 
 (comment
+  (set-error-handler {} identity)
+  (set-error-handler {} [identity])
   (set-response-handler {} identity)
   (set-response-handler {} [identity])
   )
@@ -36,7 +38,7 @@
           (async-call [_ f] (f)))
         (adapter/run-handlers context handlers))
     (-> (deref p 1000 ::timed-out)
-        (handler/value-context))))
+        (handler/get-context))))
 
 (comment
   (def -handle (partial adapter/run-handlers (reify adapter/HandlerAdapter

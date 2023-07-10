@@ -15,35 +15,32 @@
   - error.
   "
 
-  (value-context
+  (get-context
     [value]
     "Returns context map from the result value, or nil.
     Throws exception for error.")
 
-  (value-handlers
-    [value]
-    "Returns handler seq from the result value, or nil.
-    Throws exception for error."))
+  (prepend-handlers
+    [value handlers]
+    ""))
 
 ;; Persistent map is a context map.
 (extend-protocol ResultValue IPersistentMap
-  (value-context,,,, [m] m)
-  (value-handlers,,, [_] nil))
+  (get-context [m] m))
 
 ;; Sequential is a handler seq.
 (extend-protocol ResultValue Sequential
-  (value-context,,,, [_] nil)
-  (value-handlers,,, [s] s))
+  (get-context [_] nil)
+  (prepend-handlers [xs handlers] (concat xs handlers)))
 
 ;; Function is an 1-item handler seq.
 (extend-protocol ResultValue Fn
-  (value-context,,,, [_] nil)
-  (value-handlers,,, [f] (RT/list f)))
+  (get-context [_] nil)
+  (prepend-handlers [f handlers] (cons f handlers)))
 
 ;; Exceptions are error values.
 (extend-protocol ResultValue Throwable
-  (value-context,,,, [t] (throw t))
-  (value-handlers,,, [_] nil))
+  (get-context [t] (throw t)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -118,18 +115,33 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defprotocol HandlerAppend
-  (vector-append [x to]))
+(defprotocol HandlerSeq
+  (handler-seq [x])
+  (prepend-seq [x to])
+  (append-vec [x to]))
 
-(extend-protocol HandlerAppend
+(extend-protocol HandlerSeq
   Fn
-  (vector-append
-    [f to]
-    (as-> (or to []) handlers
-          (.cons ^IPersistentVector handlers f)))
+  (handler-seq
+    [x] (RT/list x))
+  (prepend-seq
+    [x to] (cons x to))
+  (append-vec
+    [f to] (as-> (or to []) handlers
+                 (.cons ^IPersistentVector handlers f)))
   Sequential
-  (vector-append
-    [xs to]
-    (reduce #(.cons ^IPersistentVector %1 %2) (or to []) xs)))
+  (handler-seq
+    [xs] xs)
+  (prepend-seq
+    [xs to] (reduce conj to (seq xs)))
+  (append-vec
+    [xs to] (reduce #(.cons ^IPersistentVector %1 %2) (or to []) xs)))
+
+(comment
+  (prepend-seq identity nil)
+  (prepend-seq [identity] nil)
+  (append-vec identity nil)
+  (append-vec [identity] nil)
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
