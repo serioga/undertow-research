@@ -47,12 +47,16 @@
   #_(CompletableFuture/supplyAsync
       (reify Supplier (get [_] (assoc context :response {:body (str "async - " (t-name))})))))
 
-(declare ^HttpServerExchange -e)
+(defn -error-handler
+  [context throwable]
+  (assoc context :response {:status 500 :body (ex-message throwable)}))
 
+(declare ^HttpServerExchange -e)
 (def http-handler (reify HttpHandler (handleRequest [_ e]
                                        (def ^HttpServerExchange -e e)
                                        (-> (.getResponseSender e)
                                            (.send "OK")))))
+
 (comment
   (-request)
   (meta (-request))
@@ -91,7 +95,8 @@
 (defn start-test-server
   []
   (-> {:port 8086
-       :handler (spin-handler/http-handler [-test-middleware -test-handler])
+       :handler (spin-handler/http-handler [-test-middleware -test-handler]
+                                           {:error-handler -error-handler})
        #_#_:handler http-handler}
       (server/start)))
 
