@@ -9,6 +9,13 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defn blocking
+  [handler]
+  (fn [context]
+    (if (adapter/thread-nio?)
+      (delay handler)
+      (handler context))))
+
 (defn set-error-handler
   [context f]
   (assoc context :spin/error-handlers (handler/prepend-seq f (some-> ^ILookup context (.valAt :spin/error-handlers)))))
@@ -56,16 +63,23 @@
       (defn -hih-f [ctx] -hia)
       (defn -hih-r [ctx] (reduced -hia))
       (defn -hih-c [ctx] [-hia -hib])
-      ;; blocking (delay)
-      (defn -hba [ctx] (delay (assoc ctx :a 1)))
-      (defn -hba-r [ctx] (reduced (delay (assoc ctx :a 1))))
-      (defn -hbb [ctx] (delay (assoc ctx :b 2)))
-      (defn -hb0 [ctx] (delay nil))
-      (defn -hbe [ctx] (delay (Exception. "hbe")))
-      (defn -hbt [ctx] (delay (throw (Exception. "hbt"))))
-      (defn -hbh-f [ctx] (delay -hia))
-      (defn -hbh-r [ctx] (reduced (delay -hia)))
-      (defn -hbh-c [ctx] (delay [-hia -hib]))
+      ;; delay
+      (defn -hda [ctx] (delay (assoc ctx :a 1)))
+      (defn -hda-r [ctx] (reduced (delay (assoc ctx :a 1))))
+      (defn -hdb [ctx] (delay (assoc ctx :b 2)))
+      (defn -hd0 [ctx] (delay nil))
+      (defn -hde [ctx] (delay (Exception. "hde")))
+      (defn -hdt [ctx] (delay (throw (Exception. "hdt"))))
+      (defn -hdh-f [ctx] (delay -hia))
+      (defn -hdh-r [ctx] (reduced (delay -hia)))
+      (defn -hdh-c [ctx] (delay [-hia -hib]))
+      ;; blocking handler
+      (def -hba (blocking (fn [ctx] (assoc ctx :a 1))))
+      (def -hba-r (blocking (fn [ctx] (reduced (assoc ctx :a 1)))))
+      (def -hbb (blocking (fn [ctx] (assoc ctx :b 2))))
+      (def -hb0 (blocking (fn [ctx] nil)))
+      (def -hbe (blocking (fn [ctx] (Exception. "hbe"))))
+      (def -hbt (blocking (fn [ctx] (throw (Exception. "hbt")))))
       ;; async (future)
       (defn -haa [ctx] (CompletableFuture/supplyAsync (reify Supplier (get [_] (assoc ctx :async true)))))
       (defn -haa-r [ctx] (reduced (CompletableFuture/supplyAsync (reify Supplier (get [_] (assoc ctx :async true))))))
@@ -78,19 +92,30 @@
       ;; response handlers
       (defn -hir [ctx] (set-response-handler ctx -hib))
       )
+  ;; instant
   (-handle {} [-hia -hib])
   (-handle {} [-hia-r -hib])
   (-handle {} [-hia -hi0 -hib])
   (-handle {} [-hia -hie -hib])
   (-handle {} [-hia -hit -hib])
   (-handle {} [-hia-r -hie -hib])
+  ;; delay
+  (-handle {} [-hda -hib])
+  (-handle {} [-hia -hdb])
+  (-handle {} [-hda -hdb])
+  (-handle {} [-hda-r -hib])
+  (-handle {} [-hia -hd0 -hib])
+  (-handle {} [-hia -hde -hib])
+  (-handle {} [-hia -hdt -hib])
+  ;; blocking
   (-handle {} [-hba -hib])
   (-handle {} [-hia -hbb])
-  (-handle {} [-hba -hbb])
+  (-handle {} [-hba -hdb])
   (-handle {} [-hba-r -hib])
   (-handle {} [-hia -hb0 -hib])
   (-handle {} [-hia -hbe -hib])
   (-handle {} [-hia -hbt -hib])
+  ;; async
   (-handle {} [-hia -haa -hib])
   (-handle {} [-hia -haa-r -hib])
   (-handle {} [-hia -ha0 -hib])
@@ -110,18 +135,18 @@
   (-handle {} [-hib -hih-f])
   (-handle {} [-hih-r -hib])
   (-handle {} [-hih-c -haa])
-  (-handle {} [-hbh-f -hib])
-  (-handle {} [-hbb -hih-f])
-  (-handle {} [-hbh-r -hib])
-  (-handle {} [-hbh-c -haa])
+  (-handle {} [-hdh-f -hib])
+  (-handle {} [-hdb -hih-f])
+  (-handle {} [-hdh-r -hib])
+  (-handle {} [-hdh-c -haa])
   ;; error handling
   (-handle {} [-he1 -hia -hie -hib])
-  (-handle {} [-he2 -hia -hbe -hib])
-  (-handle {} [-he2 -hia -hbt -hib])
-  (-handle {} [-he1 -he2 -hia -hbe -hib])
-  (-handle {} [-he2 -he1 -hia -hbe -hib])
-  (-handle {} [-he1 -he2 -hia -hbt -hib])
-  (-handle {} [-he2 -he1 -hia -hbt -hib])
+  (-handle {} [-he2 -hia -hde -hib])
+  (-handle {} [-he2 -hia -hdt -hib])
+  (-handle {} [-he1 -he2 -hia -hde -hib])
+  (-handle {} [-he2 -he1 -hia -hde -hib])
+  (-handle {} [-he1 -he2 -hia -hdt -hib])
+  (-handle {} [-he2 -he1 -hia -hdt -hib])
   ;; response handlers
   (-handle {} [-hir -he1])
   )

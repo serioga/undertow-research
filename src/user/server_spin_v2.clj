@@ -1,5 +1,6 @@
 (ns user.server-spin-v2
   (:require [spin-undertow.handler-v2 :as spin-handler]
+            [spin.handler-v2 :as handler]
             [undertow.server :as server])
   (:import (io.undertow.server HttpHandler HttpServerExchange)
            (io.undertow.util Methods)
@@ -27,12 +28,17 @@
 (defn -test-handler
   [{:keys [request] :as context}]
   (def -request request)
-  (assoc context :response {:status 226 :body (str "instant - " (t-name)) :headers {"x-test" "handler"}}
-                 :response/status 404)
+  #_(assoc context :response {:status 226 :body (str "instant - " (t-name)) :headers {"x-test" "handler"}}
+                   :response/status 404)
   #_(if (= :post (request :method))
-      (delay (assoc context :response (str "blocking - " (t-name) "\n\n"
+      (delay (assoc context :response (str "delay - " (t-name) "\n\n"
                                            (some-> ^InputStream (request :body) (.readAllBytes) (String.)))))
       (assoc context :response (str "non-blocking - " (t-name))))
+  (if (= :post (request :method))
+    (handler/blocking
+      (fn [context] (assoc context :response (str "blocking - " (t-name) "\n\n"
+                                                  (some-> ^InputStream (request :body) (.readAllBytes) (String.))))))
+    (assoc context :response (str "non-blocking - " (t-name))))
   #_(throw (ex-info "oops" {}))
   #_(assoc context :response {:body (str "non-blocking - " (t-name))})
   #_(delay (assoc context :response {:body (str "blocking - " (t-name))}))
