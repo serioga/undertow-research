@@ -23,7 +23,7 @@
   []
   (.get thread-nio!))
 
-(defmacro ^:private err
+(defmacro ^:private in
   [expr context]
   `(try ~expr (catch Throwable t#
                 (throw (ex-info "Context handler error" {::context ~context ::throwable t#})))))
@@ -39,39 +39,39 @@
                 (loop [value context, prev prev-context, chain (seq chain)]
                   (cond
                     value
-                    (if-let [context (-> (handler/get-context value) (err prev))]
+                    (if-let [context (-> (handler/get-context value) (in prev))]
                       (if chain
-                        (if-let [handler (first chain)]
-                          (let [result (-> (handler context) (err context))
+                        (if-let [handler (.first chain)]
+                          (let [result (-> (handler context) (in context))
                                 is-reduced (reduced? result)
                                 result (cond-> result is-reduced (deref))
-                                chain (when-not is-reduced (next chain))]
-                            (if-let [instant (-> (handler/instant-result result) (err context))]
-                              (recur (-> (instant) (err context)) context chain)
-                              (if-let [blocking (-> (handler/blocking-result result) (err context))]
+                                chain (when-not is-reduced (.next chain))]
+                            (if-let [instant (-> (handler/instant-result result) (in context))]
+                              (recur (-> (instant) (in context)) context chain)
+                              (if-let [blocking (-> (handler/blocking-result result) (in context))]
                                 (if nio
                                   (-> (blocking-call adapter (^:once fn* []
                                                                (reduce* (try (blocking)
                                                                              (catch Throwable t t))
                                                                         context chain)))
-                                      (err context))
-                                  (recur (-> (blocking) (err context)) context chain))
-                                (if-let [async (-> (handler/async-result result) (err context))]
+                                      (in context))
+                                  (recur (-> (blocking) (in context)) context chain))
+                                (if-let [async (-> (handler/async-result result) (in context))]
                                   (-> (async-call adapter (^:once fn* []
                                                             (try (async (fn [value] (reduce* value context chain)))
                                                                  (catch Throwable t
                                                                    (reduce* t context chain)))))
-                                      (err context))
+                                      (in context))
                                   (-> (throw (ex-info (str "Cannot handle result: " result) {}))
-                                      (err context))))))
+                                      (in context))))))
                           ;; handler is falsy, skip
-                          (recur value prev (next chain)))
+                          (recur value prev (.next chain)))
                         ;; chain is empty, complete
                         (if-let [chain+ (:spin/response-handlers context)]
                           (recur (dissoc context :spin/response-handlers) prev (seq chain+))
                           (result-context adapter context)))
                       ;; threat value as handler(s), or fail
-                      (recur prev nil (-> (handler/prepend-handlers value chain) (err prev))))
+                      (recur prev nil (-> (handler/prepend-handlers value chain) (in prev))))
                     prev
                     (recur prev nil chain)
                     :else
@@ -84,11 +84,11 @@
                       ;; remove `:spin/error-handlers` from context just in case if error handlers fail
                       (let [context* (dissoc context :spin/error-handlers)]
                         (->> (concat error-handlers (handler/handler-seq (constantly throwable)))
-                             (map (fn [error-handler] (fn as-handler [ctx]
-                                                        ;; check if prev handler returns new context
-                                                        (if (identical? ctx context*)
-                                                          (error-handler ctx throwable)
-                                                          (reduced ctx)))))
+                             (map #(fn as-handler [ctx]
+                                     ;; check if prev handler returns new context
+                                     (if (identical? ctx context*)
+                                       (% ctx throwable)
+                                       (reduced ctx))))
                              (reduce* context* nil)))
                       (catch Throwable t
                         (result-error adapter context t)))
