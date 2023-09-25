@@ -1,6 +1,6 @@
-(ns spin.handler-v2
-  (:require [spin.impl-v2.adapter :as adapter]
-            [spin.impl-v2.handler :as handler])
+(ns spin.handler-v3
+  (:require [spin.impl-v3.adapter :as adapter]
+            [spin.impl-v3.handler :as handler])
   (:import (clojure.lang ILookup)
            (java.util.concurrent CompletableFuture)
            (java.util.function Supplier)))
@@ -13,7 +13,7 @@
   [handler]
   (fn [context]
     (if (adapter/thread-nio?)
-      (delay handler)
+      (handler/->BlockingHandler handler)
       (handler context))))
 
 (defn set-error-handler
