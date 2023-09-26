@@ -45,7 +45,7 @@
           (async-call [_ f] (f)))
         (adapter/run-handlers context handlers))
     (-> (deref p 1000 ::timed-out)
-        (handler/get-context))))
+        (handler/result-context))))
 
 (comment
   (def -handle (partial adapter/run-handlers (reify adapter/HandlerAdapter
@@ -92,7 +92,7 @@
       ;; response handlers
       (defn -hir [ctx] (set-response-handler ctx -hib))
       )
-  (def -xsi (into [] (repeat 10 identity)))
+  (def -xsi (repeat 1000 identity))
   (-handle {} -xsi)
   ;; instant
   (-handle {} [-hia -hib])

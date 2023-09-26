@@ -36,39 +36,38 @@
             (try
               (let [nio (nio? adapter)]
                 (.set thread-nio! nio)
-                (loop [value context, prev prev-context, chain (seq chain)]
+                (loop [result context, prev prev-context, chain (seq chain)]
                   (cond
-                    value
-                    (if-let [context (-> (handler/get-context value) (in prev))]
-                      (if (and chain (not (reduced? value)))
+                    result
+                    (if-let [context (-> (handler/result-context result) (in prev))]
+                      (if (and chain (not (reduced? result)))
                         (if-let [handler (.first chain)]
-                          (let [chain (.next chain)]
-                            (if-let [io-handler (handler/io-handler handler)]
-                              (recur (-> (io-handler context) (in context)) context chain)
-                              (if-let [blocking-handler (handler/blocking-handler handler)]
-                                (if nio
-                                  (-> (blocking-call adapter (^:once fn* []
-                                                               (reduce* (try (blocking-handler context)
-                                                                             (catch Throwable t t))
-                                                                        context chain)))
-                                      (in context))
-                                  (recur (-> (blocking-handler context) (in context)) context chain))
-                                (if-let [async-handler (-> (handler/async-handler handler) (in context))]
-                                  (-> (async-call adapter (^:once fn* []
-                                                            (try (async-handler context (fn [value] (reduce* value context chain)))
-                                                                 (catch Throwable t
-                                                                   (reduce* t context chain)))))
-                                      (in context))
-                                  (-> (throw (ex-info (str "Cannot apply handler: " handler) {}))
-                                      (in context))))))
+                          (if-let [nio-handler (handler/nio-handler handler)]
+                            (recur (-> (nio-handler context) (in context)) context (.next chain))
+                            (if-let [blocking-handler (handler/blocking-handler handler)]
+                              (if nio
+                                (-> (blocking-call adapter (^:once fn* []
+                                                             (reduce* (try (blocking-handler context)
+                                                                           (catch Throwable t t))
+                                                                      context (.next chain))))
+                                    (in context))
+                                (recur (-> (blocking-handler context) (in context)) context (.next chain)))
+                              (if-let [async-handler (-> (handler/async-handler handler) (in context))]
+                                (-> (async-call adapter (^:once fn* []
+                                                          (try (async-handler context (fn [value] (reduce* value context (.next chain))))
+                                                               (catch Throwable t
+                                                                 (reduce* t context (.next chain))))))
+                                    (in context))
+                                (-> (throw (ex-info (str "Cannot treat handler as nio/blocking/async: " handler) {}))
+                                    (in context)))))
                           ;; handler is falsy, skip
-                          (recur value prev (.next chain)))
+                          (recur result prev (.next chain)))
                         ;; chain is empty, complete
                         (if-let [chain+ (:spin/response-handlers context)]
                           (recur (dissoc context :spin/response-handlers) prev (seq chain+))
                           (result-context adapter context)))
                       ;; threat value as handler(s), or fail
-                      (recur prev nil (-> (handler/prepend-handlers value chain) (in prev))))
+                      (recur prev nil (-> (handler/result-prepend result chain) (in prev))))
                     prev
                     (recur prev nil chain)
                     :else

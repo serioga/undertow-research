@@ -7,7 +7,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defprotocol ResultValue
+(defprotocol ResultContext
   "The abstraction for the value of http handler result:
 
   - new context map
@@ -15,128 +15,117 @@
   - error.
   "
 
-  (get-context
+  (result-context
     [value]
     "Returns context map from the result value, or nil.
-    Throws exception for error.")
+    Throws exception for error."))
 
-  (prepend-handlers
+(defprotocol ResultHandler
+  ""
+
+  (result-prepend
     [value handlers]
     ""))
 
-;; Persistent map is a context map.
-(extend-protocol ResultValue IPersistentMap
-  (get-context [m] m)
-  (prepend-handlers [_ handlers] handlers))
+(defprotocol HandlerFunction
 
-;; Sequential is a handler seq.
-(extend-protocol ResultValue Sequential
-  (get-context [_] nil)
-  (prepend-handlers [xs handlers] (concat xs handlers)))
-
-;; Function is an 1-item handler seq.
-(extend-protocol ResultValue Fn
-  (get-context [_] nil)
-  (prepend-handlers [f handlers] (cons f handlers)))
-
-;; Exceptions are error values.
-(extend-protocol ResultValue Throwable
-  (get-context [t] (throw t))
-  (prepend-handlers [t _] (cons (fn [_] (throw t)) nil)))
-
-(extend-protocol ResultValue Reduced
-  (get-context [x] (get-context (.deref x)))
-  (prepend-handlers [x _] (prepend-handlers (.deref x) nil)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defprotocol HandlerFn
-
-  (io-handler [handler])
+  (nio-handler [handler])
 
   (blocking-handler [handler])
 
-  (async-handler [handler])
+  (async-handler [handler]))
 
-  )
+(defprotocol HandlerSeq
 
-(extend-protocol HandlerFn Fn
-  (io-handler [f] f)
+  (handler-seq [x])
+
+  (prepend-seq [x to])
+
+  (append-vec [x to]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Persistent map is a context map.
+(extend-type IPersistentMap
+  ResultContext (result-context [m] m))
+
+;; Exceptions are error values.
+(extend-type Throwable
+  ResultContext (result-context [t] (throw t)))
+
+;; `Reduced` represents the last result in handler chain.
+(extend-type Reduced
+  ResultContext (result-context [x] (result-context (.deref x)))
+  ResultHandler (result-prepend [x _] (result-prepend (.deref x) nil)))
+
+;; Function is a nio-handler as an 1-item handler seq.
+(extend-type Fn
+  ResultContext (result-context [_] nil)
+  ResultHandler (result-prepend [f handlers] (cons f handlers))
+  HandlerFunction
+  (nio-handler [f] f)
   (blocking-handler [_] nil)
-  (async-handler [_] nil))
+  (async-handler [_] nil)
+  HandlerSeq
+  (handler-seq [x] (RT/list x))
+  (prepend-seq [x to] (cons x to))
+  (append-vec [f to] (as-> (or to []) handlers
+                           (.cons ^IPersistentVector handlers f))))
+
+;; Sequential is a handler seq.
+(extend-type Sequential
+  ResultContext (result-context [_] nil)
+  ResultHandler (result-prepend [xs handlers] (concat xs handlers))
+  HandlerSeq
+  (handler-seq [xs] xs)
+  (prepend-seq [xs to] (reduce conj to (seq xs)))
+  (append-vec [xs to] (reduce #(.cons ^IPersistentVector %1 %2) (or to []) xs)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (deftype BlockingHandler [f]
-  ResultValue
-  (get-context [_] nil)
-  (prepend-handlers [this handlers] (cons this handlers))
-  HandlerFn
-  (io-handler [_] nil)
+  ResultContext (result-context [_] nil)
+  ResultHandler (result-prepend [this handlers] (cons this handlers))
+  HandlerFunction
+  (nio-handler [_] nil)
   (blocking-handler [_] f)
-  (async-handler [_] nil))
-
-(extend-protocol HandlerFn Throwable
-  (io-handler [t] (fn [_] (throw t)))
-  (blocking-handler [_] nil)
   (async-handler [_] nil))
 
 ;; TODO: Do we need blocking handler abstraction over delay?
 (extend-type Delay
-  ResultValue
-  (get-context [_] nil)
-  (prepend-handlers [d handlers] (cons d handlers))
-  HandlerFn
-  (io-handler
-    [d]
-    (when (.isRealized d)
-      (fn delay-io [_] (.deref d))))
+  ResultContext (result-context [_] nil)
+  ResultHandler (result-prepend [d handlers] (cons d handlers))
+  HandlerFunction
+  (nio-handler
+    [d] (when (.isRealized d)
+          (fn delay-nio [_] (.deref d))))
   (blocking-handler
-    [d]
-    (fn delay-blocking [_] (.deref d)))
+    [d] (fn delay-blocking [_] (.deref d)))
   (async-handler
     [_] nil))
 
 (extend-type CompletableFuture
-  ResultValue
-  (get-context [_] nil)
-  (prepend-handlers [ft handlers] (cons ft handlers))
-  HandlerFn
-  (io-handler
-    [ft]
-    (when (.isDone ft)
-      (fn future-io [_] (.getNow ft nil))))
+  ResultContext (result-context [_] nil)
+  ResultHandler (result-prepend [ft handlers] (cons ft handlers))
+  HandlerFunction
+  (nio-handler
+    [ft] (when (.isDone ft)
+           (fn future-nio [_] (.getNow ft nil))))
   (blocking-handler
     [_] nil)
   (async-handler
-    [ft]
-    (fn future-async [_ callback]
-      (.whenComplete ft (reify BiConsumer (accept [_ v e] (callback (or e v)))))
-      nil)))
+    [ft] (fn future-async [_ callback]
+           (.whenComplete ft (reify BiConsumer (accept [_ v e] (callback (or e v)))))
+           nil)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defprotocol HandlerSeq
-  (handler-seq [x])
-  (prepend-seq [x to])
-  (append-vec [x to]))
-
-(extend-protocol HandlerSeq
-  Fn
-  (handler-seq
-    [x] (RT/list x))
-  (prepend-seq
-    [x to] (cons x to))
-  (append-vec
-    [f to] (as-> (or to []) handlers
-                 (.cons ^IPersistentVector handlers f)))
-  Sequential
-  (handler-seq
-    [xs] xs)
-  (prepend-seq
-    [xs to] (reduce conj to (seq xs)))
-  (append-vec
-    [xs to] (reduce #(.cons ^IPersistentVector %1 %2) (or to []) xs)))
-
 (comment
+  (nio-handler identity)
+  (blocking-handler identity)
+  (def -bh (->BlockingHandler identity))
+  (nio-handler -bh)
+  (blocking-handler -bh)
   (prepend-seq identity nil)
   (prepend-seq [identity] nil)
   (append-vec identity nil)
