@@ -42,24 +42,30 @@
                     (if-let [context (-> (handler/result-context result) (in prev))]
                       (if (and chain (not (reduced? result)))
                         (if-let [handler (.first chain)]
-                          (if-let [nio-handler (handler/nio-handler handler)]
-                            (recur (-> (nio-handler context) (in context)) context (.next chain))
-                            (if-let [blocking-handler (handler/blocking-handler handler)]
+                          (let [handler-type (handler/handler-type handler)]
+                            (cond
+                              ;; non-blocking handler function
+                              (not handler-type)
+                              (recur (-> (handler context) (in context)) context (.next chain))
+                              ;; blocking handler
+                              (.equals :blocking-handler handler-type)
                               (if nio
                                 (-> (blocking-call adapter (^:once fn* []
-                                                             (reduce* (try (blocking-handler context)
+                                                             (reduce* (try (handler/invoke-blocking handler context)
                                                                            (catch Throwable t t))
                                                                       context (.next chain))))
                                     (in context))
-                                (recur (-> (blocking-handler context) (in context)) context (.next chain)))
-                              (if-let [async-handler (-> (handler/async-handler handler) (in context))]
-                                (-> (async-call adapter (^:once fn* []
-                                                          (try (async-handler context (fn [value] (reduce* value context (.next chain))))
-                                                               (catch Throwable t
-                                                                 (reduce* t context (.next chain))))))
-                                    (in context))
-                                (-> (throw (ex-info (str "Cannot treat handler as nio/blocking/async: " handler) {}))
-                                    (in context)))))
+                                (recur (-> (handler/invoke-blocking handler context) (in context)) context (.next chain)))
+                              ;; async handler
+                              (.equals :async-handler handler-type)
+                              (-> (async-call adapter (^:once fn* []
+                                                        (try (handler/invoke-async handler context (fn [value] (reduce* value context (.next chain))))
+                                                             (catch Throwable t
+                                                               (reduce* t context (.next chain))))))
+                                  (in context))
+                              :else
+                              (-> (throw (ex-info (str "Invalid handler type: " handler-type) {}))
+                                  (in context))))
                           ;; handler is falsy, skip
                           (recur result prev (.next chain)))
                         ;; chain is empty, complete

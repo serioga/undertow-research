@@ -27,15 +27,19 @@
     [value handlers]
     ""))
 
-(defprotocol HandlerFunction
+(defprotocol HandlerType
 
-  (nio-handler [handler])
+  (handler-type [handler]))
 
-  (blocking-handler [handler])
+(defprotocol HandlerBlocking
 
-  (async-handler [handler]))
+  (invoke-blocking [handler context]))
 
-(defprotocol HandlerSeq
+(defprotocol HandlerAsync
+
+  (invoke-async [handler context callback]))
+
+(defprotocol AsHandlerSeq
 
   (handler-seq [x])
 
@@ -58,15 +62,12 @@
   ResultContext (result-context [x] (result-context (.deref x)))
   ResultHandler (result-prepend [x _] (result-prepend (.deref x) nil)))
 
-;; Function is a nio-handler as an 1-item handler seq.
+;; Function is an 1-item handler seq.
 (extend-type Fn
   ResultContext (result-context [_] nil)
   ResultHandler (result-prepend [f handlers] (cons f handlers))
-  HandlerFunction
-  (nio-handler [f] f)
-  (blocking-handler [_] nil)
-  (async-handler [_] nil)
-  HandlerSeq
+  HandlerType (handler-type [_] nil)
+  AsHandlerSeq
   (handler-seq [x] (RT/list x))
   (prepend-seq [x to] (cons x to))
   (append-vec [f to] (as-> (or to []) handlers
@@ -76,56 +77,41 @@
 (extend-type Sequential
   ResultContext (result-context [_] nil)
   ResultHandler (result-prepend [xs handlers] (concat xs handlers))
-  HandlerSeq
+  AsHandlerSeq
   (handler-seq [xs] xs)
   (prepend-seq [xs to] (reduce conj to (seq xs)))
   (append-vec [xs to] (reduce #(.cons ^IPersistentVector %1 %2) (or to []) xs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(deftype BlockingHandler [f]
+(deftype Blocking [f]
+  HandlerType (handler-type [_] :blocking-handler)
+  HandlerBlocking (invoke-blocking [_ x] (f x))
   ResultContext (result-context [_] nil)
-  ResultHandler (result-prepend [this handlers] (cons this handlers))
-  HandlerFunction
-  (nio-handler [_] nil)
-  (blocking-handler [_] f)
-  (async-handler [_] nil))
+  ResultHandler (result-prepend [this handlers] (cons this handlers)))
 
 ;; TODO: Do we need blocking handler abstraction over delay?
 (extend-type Delay
-  ResultContext (result-context [_] nil)
+  HandlerType (handler-type [_] :blocking-handler)
+  HandlerBlocking (invoke-blocking [d _] (.deref d))
   ResultHandler (result-prepend [d handlers] (cons d handlers))
-  HandlerFunction
-  (nio-handler
-    [d] (when (.isRealized d)
-          (fn delay-nio [_] (.deref d))))
-  (blocking-handler
-    [d] (fn delay-blocking [_] (.deref d)))
-  (async-handler
-    [_] nil))
+  ResultContext (result-context [d] (when (.isRealized d)
+                                      (some-> (.deref d) (result-context)))))
 
 (extend-type CompletableFuture
-  ResultContext (result-context [_] nil)
+  HandlerType (handler-type [_] :async-handler)
+  HandlerAsync (invoke-async [ft _ callback]
+                (.whenComplete ft (reify BiConsumer (accept [_ v e] (callback (or e v)))))
+                nil)
   ResultHandler (result-prepend [ft handlers] (cons ft handlers))
-  HandlerFunction
-  (nio-handler
-    [ft] (when (.isDone ft)
-           (fn future-nio [_] (.getNow ft nil))))
-  (blocking-handler
-    [_] nil)
-  (async-handler
-    [ft] (fn future-async [_ callback]
-           (.whenComplete ft (reify BiConsumer (accept [_ v e] (callback (or e v)))))
-           nil)))
+  ResultContext (result-context [ft] (when (.isDone ft)
+                                       (some-> (.getNow ft nil) (result-context)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (comment
-  (nio-handler identity)
-  (blocking-handler identity)
-  (def -bh (->BlockingHandler identity))
-  (nio-handler -bh)
-  (blocking-handler -bh)
+  (def -bh (->Blocking identity))
+  (invoke-blocking -bh :ok)
   (prepend-seq identity nil)
   (prepend-seq [identity] nil)
   (append-vec identity nil)

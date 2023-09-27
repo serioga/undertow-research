@@ -93,7 +93,9 @@
       (defn -hir [ctx] (set-response-handler ctx -hib))
       )
   (def -xsi (repeat 1000 identity))
+  (def -xsi (repeat 1000 -hia))
   (-handle {} -xsi)
+  (-handle {} identity)
   ;; instant
   (-handle {} [-hia -hib])
   (-handle {} [-hia-r -hib])
