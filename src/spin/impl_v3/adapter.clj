@@ -40,7 +40,7 @@
                   (cond
                     result
                     (if-let [context (-> (handler/result-context result) (in prev))]
-                      (if (and chain (not (reduced? result)))
+                      (if chain
                         (if-let [handler (.first chain)]
                           (let [handler-type (handler/handler-type handler)]
                             (cond
@@ -72,8 +72,8 @@
                         (if-let [chain+ (:spin/response-handlers context)]
                           (recur (dissoc context :spin/response-handlers) prev (seq chain+))
                           (result-context adapter context)))
-                      ;; threat value as handler(s), or fail
-                      (recur prev nil (-> (handler/result-prepend result chain) (in prev))))
+                      ;; threat value as handler chain, or fail
+                      (recur prev nil (-> (handler/result-chain result chain) (in prev))))
                     prev
                     (recur prev nil chain)
                     :else

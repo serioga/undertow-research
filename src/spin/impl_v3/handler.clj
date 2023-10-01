@@ -20,10 +20,10 @@
     "Returns context map from the result value, or nil.
     Throws exception for error."))
 
-(defprotocol ResultHandler
+(defprotocol ResultChain
   ""
 
-  (result-prepend
+  (result-chain
     [value handlers]
     ""))
 
@@ -59,13 +59,13 @@
 
 ;; `Reduced` represents the last result in handler chain.
 (extend-type Reduced
-  ResultContext (result-context [x] (result-context (.deref x)))
-  ResultHandler (result-prepend [x _] (result-prepend (.deref x) nil)))
+  ResultContext (result-context [_] nil)
+  ResultChain (result-chain [x _] (RT/list (fn [_] (.deref x)))))
 
 ;; Function is an 1-item handler seq.
 (extend-type Fn
   ResultContext (result-context [_] nil)
-  ResultHandler (result-prepend [f handlers] (cons f handlers))
+  ResultChain (result-chain [f handlers] (cons f handlers))
   HandlerType (handler-type [_] nil)
   AsHandlerSeq
   (handler-seq [x] (RT/list x))
@@ -76,7 +76,7 @@
 ;; Sequential is a handler seq.
 (extend-type Sequential
   ResultContext (result-context [_] nil)
-  ResultHandler (result-prepend [xs handlers] (concat xs handlers))
+  ResultChain (result-chain [xs handlers] (concat xs handlers))
   AsHandlerSeq
   (handler-seq [xs] xs)
   (prepend-seq [xs to] (reduce conj to (seq xs)))
@@ -88,13 +88,13 @@
   HandlerType (handler-type [_] :blocking-handler)
   HandlerBlocking (invoke-blocking [_ x] (f x))
   ResultContext (result-context [_] nil)
-  ResultHandler (result-prepend [this handlers] (cons this handlers)))
+  ResultChain (result-chain [this handlers] (cons this handlers)))
 
 ;; TODO: Do we need blocking handler abstraction over delay?
 (extend-type Delay
   HandlerType (handler-type [_] :blocking-handler)
   HandlerBlocking (invoke-blocking [d _] (.deref d))
-  ResultHandler (result-prepend [d handlers] (cons d handlers))
+  ResultChain (result-chain [d handlers] (cons d handlers))
   ResultContext (result-context [d] (when (.isRealized d)
                                       (some-> (.deref d) (result-context)))))
 
@@ -103,7 +103,7 @@
   HandlerAsync (invoke-async [ft _ callback]
                 (.whenComplete ft (reify BiConsumer (accept [_ v e] (callback (or e v)))))
                 nil)
-  ResultHandler (result-prepend [ft handlers] (cons ft handlers))
+  ResultChain (result-chain [ft handlers] (cons ft handlers))
   ResultContext (result-context [ft] (when (.isDone ft)
                                        (some-> (.getNow ft nil) (result-context)))))
 
