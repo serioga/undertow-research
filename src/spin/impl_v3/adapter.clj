@@ -35,7 +35,7 @@
   (letfn [(reduce* [context prev-context chain]
             (try
               (let [nio (nio? adapter)]
-                (.set thread-nio! nio)
+                (when nio (.set thread-nio! nio))
                 (loop [result context, prev prev-context, chain (seq chain)]
                   (cond
                     result
